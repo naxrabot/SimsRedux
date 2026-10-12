@@ -16,6 +16,7 @@ using Microsoft.Xna.Framework.Graphics;
 using FSO.Common.Utils;
 using FSO.SimAntics;
 
+using FSO.Common.IO;
 namespace Simitone.Client.UI.Screens
 {
     public class LoadingScreen : FSO.Client.UI.Framework.GameScreen
@@ -217,8 +218,8 @@ namespace Simitone.Client.UI.Screens
                 try
                 {
                     var path = System.IO.Path.Combine(FSO.Common.FSOEnvironment.ContentDir, "redux/loading_wallpaper.jpg");
-                    if (System.IO.File.Exists(path))
-                        using (var stream = System.IO.File.OpenRead(path))
+                    if (FSOFile.Exists(path))
+                        using (var stream = FSOFile.OpenRead(path))
                             Wallpaper = Texture2D.FromStream(GameFacade.GraphicsDevice, stream);
                 }
                 catch (Exception e)

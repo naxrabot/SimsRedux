@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 
+using FSO.Common.IO;
 namespace Simitone.Client.Utils
 {
     /// <summary>
@@ -29,8 +30,8 @@ namespace Simitone.Client.Utils
             Values = new Dictionary<string, string>();
             try
             {
-                if (!File.Exists(FilePath)) return;
-                foreach (var line in File.ReadAllLines(FilePath))
+                if (!FSOFile.Exists(FilePath)) return;
+                foreach (var line in FSOFile.ReadAllLines(FilePath))
                 {
                     var i = line.IndexOf('=');
                     if (i <= 0) continue;
@@ -49,7 +50,7 @@ namespace Simitone.Client.Utils
             {
                 var lines = new List<string>();
                 foreach (var pair in Values) lines.Add(pair.Key + "=" + pair.Value);
-                File.WriteAllLines(FilePath, lines);
+                FSOFile.WriteAllLines(FilePath, lines);
             }
             catch (Exception e)
             {

@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 
+using FSO.Common.IO;
 namespace Simitone.Client.Utils
 {
     /// <summary>
@@ -44,7 +45,7 @@ namespace Simitone.Client.Utils
                 try { basePath = Content.Get()?.TS1BasePath; } catch { }
                 if (string.IsNullOrEmpty(basePath)) basePath = GlobalSettings.Default.TS1HybridPath;
                 var farPath = Path.Combine(basePath, "UIGraphics", "UIGraphics.far");
-                if (!File.Exists(farPath))
+                if (!FSOFile.Exists(farPath))
                 {
                     Console.WriteLine("[SimsRedux] UIGraphics.far not found at " + farPath);
                     return;
@@ -75,16 +76,16 @@ namespace Simitone.Client.Utils
             try
             {
                 var dir = Path.Combine(FSO.Common.FSOEnvironment.UserDir, "redux_fonts");
-                if (Directory.Exists(dir)) return;
+                if (FSODirectory.Exists(dir)) return;
                 Init();
                 if (Archive == null) return;
-                Directory.CreateDirectory(dir);
+                FSODirectory.CreateDirectory(dir);
                 foreach (var pair in Entries)
                 {
                     var name = pair.Key;
                     if (!name.StartsWith("fonts\\") || name.Substring(6).Contains("\\")) continue; // only the main fonts folder
                     var data = Archive.GetEntry(pair.Value);
-                    File.WriteAllBytes(Path.Combine(dir, name.Substring(6)), data);
+                    FSOFile.WriteAllBytes(Path.Combine(dir, name.Substring(6)), data);
                 }
             }
             catch (Exception e)

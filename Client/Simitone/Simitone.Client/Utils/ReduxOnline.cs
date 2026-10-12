@@ -18,6 +18,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
+using FSO.Common.IO;
 namespace Simitone.Client.Utils
 {
     /// <summary>
@@ -81,7 +82,7 @@ namespace Simitone.Client.Utils
         public static void Log(string text)
         {
             Console.WriteLine("[SimsRedux Online] " + text);
-            try { File.AppendAllText(Path.Combine(FSOEnvironment.UserDir, "online_debug.log"), DateTime.Now.ToString("HH:mm:ss") + " " + text + "\r\n"); }
+            try { FSOFile.AppendAllText(Path.Combine(FSOEnvironment.UserDir, "online_debug.log"), DateTime.Now.ToString("HH:mm:ss") + " " + text + "\r\n"); }
             catch { }
         }
 
@@ -519,7 +520,7 @@ namespace Simitone.Client.Utils
 
             var neigh = Content.Get().Neighborhood;
             var folder = Path.Combine(FSOEnvironment.UserDir, "OnlineVisitors/");
-            Directory.CreateDirectory(folder);
+            FSODirectory.CreateDirectory(folder);
 
             // The host may already have a Sim with this id (the same starting neighbourhood, or
             // testing with two copies of the game on one PC). Then the visitor gets a new id, so
@@ -528,9 +529,9 @@ namespace Simitone.Client.Utils
             {
                 var newGuid = FreeGuid();
                 var tempPath = Path.Combine(folder, "Rename" + guid.ToString("X8") + ".iff");
-                File.WriteAllBytes(tempPath, iff);
+                FSOFile.WriteAllBytes(tempPath, iff);
                 iff = Reguid(tempPath, guid, newGuid);
-                try { File.Delete(tempPath); } catch { }
+                try { FSOFile.Delete(tempPath); } catch { }
                 if (iff == null)
                 {
                     sock.Close("The Sim you picked couldn't be added to the host's game.");
@@ -543,7 +544,7 @@ namespace Simitone.Client.Utils
             // 1. the Sim's character file, for the host's game and everyone else's
             var fileName = "Visitor" + guid.ToString("X8") + ".iff";
             var path = Path.Combine(folder, fileName);
-            File.WriteAllBytes(path, iff);
+            FSOFile.WriteAllBytes(path, iff);
             var found = neigh.RegisterCharacterFile(path);
             if (!found.Contains(guid))
             {
@@ -685,16 +686,16 @@ namespace Simitone.Client.Utils
                 "Houses/NeighborhoodDesc.iff", "Houses/STDesc.iff", "Houses/MTDesc.iff" })
             {
                 var p = Path.Combine(neigh.UserPath, name);
-                if (File.Exists(p)) files.Add(Tuple.Create(name, File.ReadAllBytes(p)));
+                if (FSOFile.Exists(p)) files.Add(Tuple.Create(name, FSOFile.ReadAllBytes(p)));
             }
             var chars = Path.Combine(neigh.UserPath, "Characters/");
-            if (Directory.Exists(chars))
+            if (FSODirectory.Exists(chars))
             {
-                foreach (var f in Directory.GetFiles(chars, "*.iff"))
-                    files.Add(Tuple.Create("Characters/" + Path.GetFileName(f), File.ReadAllBytes(f)));
+                foreach (var f in FSODirectory.GetFiles(chars, "*.iff"))
+                    files.Add(Tuple.Create("Characters/" + Path.GetFileName(f), FSOFile.ReadAllBytes(f)));
             }
             foreach (var f in VisitorFiles)
-                if (File.Exists(f)) files.Add(Tuple.Create("Characters/" + Path.GetFileName(f), File.ReadAllBytes(f)));
+                if (FSOFile.Exists(f)) files.Add(Tuple.Create("Characters/" + Path.GetFileName(f), FSOFile.ReadAllBytes(f)));
 
             return ReduxOnlineInfo.Pack(ReduxPacket.Hood, w =>
             {
@@ -788,12 +789,12 @@ namespace Simitone.Client.Utils
             var neigh = Content.Get().Neighborhood;
             var objs = Content.Get().WorldObjects as FSO.Content.TS1.TS1ObjectProvider;
             FSO.Content.GameObjectReference entry = null;
-            if (objs == null || !objs.Entries.TryGetValue(simGUID, out entry) || entry.FileName == null || !File.Exists(entry.FileName))
+            if (objs == null || !objs.Entries.TryGetValue(simGUID, out entry) || entry.FileName == null || !FSOFile.Exists(entry.FileName))
             {
                 error = "Couldn't find that Sim's character file.";
                 return null;
             }
-            var iff = File.ReadAllBytes(entry.FileName);
+            var iff = FSOFile.ReadAllBytes(entry.FileName);
             var nid = neigh.GetNeighborIDForGUID(simGUID);
             var nb = (nid == null) ? null : neigh.GetNeighborByID(nid.Value);
             var personData = nb?.PersonData ?? new short[0];
@@ -917,10 +918,10 @@ namespace Simitone.Client.Utils
         private void LoadHood(byte[] data)
         {
             var folder = HoodFolder;
-            try { if (Directory.Exists(folder)) Directory.Delete(folder, true); } catch { }
-            Directory.CreateDirectory(folder);
-            Directory.CreateDirectory(Path.Combine(folder, "Characters/"));
-            Directory.CreateDirectory(Path.Combine(folder, "Houses/"));
+            try { if (FSODirectory.Exists(folder)) FSODirectory.Delete(folder, true); } catch { }
+            FSODirectory.CreateDirectory(folder);
+            FSODirectory.CreateDirectory(Path.Combine(folder, "Characters/"));
+            FSODirectory.CreateDirectory(Path.Combine(folder, "Houses/"));
             using (var r = new BinaryReader(new MemoryStream(data, 1, data.Length - 1)))
             {
                 var count = r.ReadInt32();
@@ -931,8 +932,8 @@ namespace Simitone.Client.Utils
                     var bytes = r.ReadBytes(len);
                     if (!ReduxOnlineInfo.SafeRelativePath(name)) continue;
                     var path = Path.Combine(folder, name);
-                    Directory.CreateDirectory(Path.GetDirectoryName(path));
-                    File.WriteAllBytes(path, bytes);
+                    FSODirectory.CreateDirectory(Path.GetDirectoryName(path));
+                    FSOFile.WriteAllBytes(path, bytes);
                 }
             }
             Content.Get().Neighborhood.LoadFolder(folder);
@@ -957,8 +958,8 @@ namespace Simitone.Client.Utils
                 if (!ReduxOnlineInfo.SafeRelativePath(fileName)) return;
 
                 var path = Path.Combine(HoodFolder, "Characters/", fileName);
-                Directory.CreateDirectory(Path.GetDirectoryName(path));
-                File.WriteAllBytes(path, iff);
+                FSODirectory.CreateDirectory(Path.GetDirectoryName(path));
+                FSOFile.WriteAllBytes(path, iff);
                 neigh.RegisterCharacterFile(path);
                 if (!neigh.Neighbors.NeighbourByID.ContainsKey(nid))
                 {

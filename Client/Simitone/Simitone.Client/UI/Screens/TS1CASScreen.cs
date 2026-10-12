@@ -34,6 +34,7 @@ using FSO.SimAntics.Utils;
 using FSO.SimAntics.Model.TS1Platform;
 using FSO.LotView;
 
+using FSO.Common.IO;
 namespace Simitone.Client.UI.Screens
 {
     public class TS1CASScreen : UIScreen
@@ -1118,7 +1119,7 @@ namespace Simitone.Client.UI.Screens
             vm.ListenBHAVChanges();
             vm.Init();
 
-            using (var file = new BinaryReader(File.OpenRead(Path.Combine(FSOEnvironment.ContentDir, "cas.fsov"))))
+            using (var file = new BinaryReader(FSOFile.OpenRead(Path.Combine(FSOEnvironment.ContentDir, "cas.fsov"))))
             {
                 var marshal = new FSO.SimAntics.Marshals.VMMarshal();
                 marshal.Deserialize(file);

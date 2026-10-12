@@ -38,6 +38,7 @@ using FSO.Client.UI.Panels.LotControls;
 using FSO.UI.Panels.LotControls;
 using Simitone.Client.UI.Controls;
 
+using FSO.Common.IO;
 namespace Simitone.Client.UI.Panels
 {
     /// <summary>
@@ -116,7 +117,7 @@ namespace Simitone.Client.UI.Panels
             try
             {
                 var path = System.IO.Path.Combine(FSO.Common.FSOEnvironment.UserDir, "dialog_debug.log");
-                System.IO.File.AppendAllText(path, DateTime.Now.ToString("HH:mm:ss") + " " + text + "\r\n");
+                FSOFile.AppendAllText(path, DateTime.Now.ToString("HH:mm:ss") + " " + text + "\r\n");
             }
             catch { }
         }
@@ -304,7 +305,7 @@ namespace Simitone.Client.UI.Panels
                 try
                 {
                     var logPath = System.IO.Path.Combine(FSO.Common.FSOEnvironment.UserDir, "simantics_errors.log");
-                    System.IO.File.AppendAllText(logPath, "[" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "]\r\n" + info.Message + "\r\n\r\n");
+                    FSOFile.AppendAllText(logPath, "[" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "]\r\n" + info.Message + "\r\n\r\n");
                 }
                 catch { }
                 var key = SimanticsErrorKey(info.Message);

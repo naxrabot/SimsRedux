@@ -20,6 +20,7 @@ using FSO.Client;
 using Simitone.Client.UI.Model;
 using FSO.SimAntics.Model;
 
+using FSO.Common.IO;
 namespace Simitone.Client.UI.Panels
 {
     /// <summary>
@@ -111,7 +112,7 @@ namespace Simitone.Client.UI.Panels
                             + "  operand " + BitConverter.ToString(ins.Operand ?? new byte[0]));
                     }
                 }
-                System.IO.File.AppendAllText(System.IO.Path.Combine(FSOEnvironment.UserDir, "stuck_debug.log"), string.Join("\r\n", lines) + "\r\n\r\n");
+                FSOFile.AppendAllText(System.IO.Path.Combine(FSOEnvironment.UserDir, "stuck_debug.log"), string.Join("\r\n", lines) + "\r\n\r\n");
             }
             catch { }
         }

@@ -37,6 +37,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using FSO.Common.IO;
 namespace Simitone.Client.UI.Screens
 {
     public class TS1GameScreen : FSO.Client.UI.Framework.GameScreen
@@ -885,7 +886,7 @@ namespace Simitone.Client.UI.Screens
         public void LoadSurrounding(short houseID)
         {
             return;
-            var surrounding = new NBHm(new OBJ(File.OpenRead(@"C:\Users\Rhys\Desktop\fso 2018\nb4.obj")));
+            var surrounding = new NBHm(new OBJ(FSOFile.OpenRead(@"C:\Users\Rhys\Desktop\fso 2018\nb4.obj")));
             NBHmHouse myH = null;
             var myHeight = vm.Context.Blueprint.InterpAltitude(new Vector3(0, 0, 0));
             if (!surrounding.Houses.TryGetValue(houseID, out myH)) return;
@@ -927,7 +928,7 @@ namespace Simitone.Client.UI.Screens
             }
             try
             {
-                using (var file = new BinaryReader(File.OpenRead(Path.Combine(FSOEnvironment.UserDir, "LocalHouse/") + filename.Substring(0, filename.Length - 4) + ".fsov")))
+                using (var file = new BinaryReader(FSOFile.OpenRead(Path.Combine(FSOEnvironment.UserDir, "LocalHouse/") + filename.Substring(0, filename.Length - 4) + ".fsov")))
                 {
                     var marshal = new FSO.SimAntics.Marshals.VMMarshal();
                     marshal.Deserialize(file);
@@ -952,7 +953,7 @@ namespace Simitone.Client.UI.Screens
                 vm.SendCommand(new VMBlueprintRestoreCmd
                 {
                     JobLevel = jobLevel,
-                    XMLData = File.ReadAllBytes(path),
+                    XMLData = FSOFile.ReadAllBytes(path),
                     IffData = isIff,
 
                     FloorClipX = floorClip.X,
@@ -1015,11 +1016,11 @@ namespace Simitone.Client.UI.Screens
             if (vm == null) return;
 
             var exporter = new VMWorldExporter();
-            Directory.CreateDirectory(Path.Combine(FSOEnvironment.UserDir, "Blueprints/cas.xml"));
+            FSODirectory.CreateDirectory(Path.Combine(FSOEnvironment.UserDir, "Blueprints/cas.xml"));
             exporter.SaveHouse(vm, Path.Combine(FSOEnvironment.UserDir, "Blueprints/cas.xml"));
             var marshal = vm.Save();
-            Directory.CreateDirectory(Path.Combine(FSOEnvironment.UserDir, "LocalHouse/"));
-            using (var output = new FileStream(Path.Combine(FSOEnvironment.UserDir, "LocalHouse/cas.fsov"), FileMode.Create))
+            FSODirectory.CreateDirectory(Path.Combine(FSOEnvironment.UserDir, "LocalHouse/"));
+            using (var output = FSOFile.Open(Path.Combine(FSOEnvironment.UserDir, "LocalHouse/cas.fsov"), FileMode.Create))
             {
                 marshal.SerializeInto(new BinaryWriter(output));
             }
