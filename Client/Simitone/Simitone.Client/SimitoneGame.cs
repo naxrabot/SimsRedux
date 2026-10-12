@@ -272,12 +272,21 @@ namespace Simitone.Client
         }
 
 
+#if WEB
+        // the browser version can't stop the tab closing, so there's no "are you sure?" here
+        protected override void OnExiting(EventArgs args)
+        {
+            base.OnExiting(args);
+            GameThread.SetKilled();
+        }
+#else
         protected override void OnExiting(object sender, ExitingEventArgs args)
         {
             base.OnExiting(sender, args);
             GameThread.SetKilled();
             args.Cancel = !(GameFacade.Screens.CurrentUIScreen?.CloseAttempt() ?? true);
         }
+#endif
 
         /// <summary>
         /// Allows the game to run logic such as updating the world,
