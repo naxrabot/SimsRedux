@@ -16,6 +16,9 @@ using FSO.Client.GameContent;
 using FSO.Common.Utils;
 using FSO.Common;
 using Microsoft.Xna.Framework.Audio;
+#if WEB
+using Microsoft.Xna.Framework.Input; // KNI keeps TextInputEventArgs here
+#endif
 using FSO.HIT.Model;
 using FSO.Client;
 using FSO.Files;
@@ -197,7 +200,11 @@ namespace Simitone.Client
         /// </summary>
         public new void Run()
         {
+#if WEB
+            base.Run(); // the browser drives each frame (see Simitone.Web Index page)
+#else
             Run(GameRunBehavior.Synchronous);
+#endif
         }
 
         /// <summary>
