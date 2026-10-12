@@ -107,14 +107,14 @@ namespace Simitone.Client.UI.Screens
 
             InterpolatedAnimation = InterpolatedAnimation;
 
-            (new Thread(() => {
+            FSO.Common.Utils.FSOThreads.Start(() => {
                 VMContext.InitVMConfig(true);
                 FSO.Content.Content.Init(GlobalSettings.Default.StartupPath, GameFacade.GraphicsDevice);
                 lock (this)
                 {
                     LoadingComplete = true;
                 }
-            })).Start();
+            });
         }
 
         public void Close()

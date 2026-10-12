@@ -25,11 +25,17 @@ jobs:
         id: build
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Continue'
+          $PSNativeCommandUseErrorActionPreference = $false
+          # warnings would fill GitHub's annotation limit, so only our error list is reported
+          "::remove-matcher owner=csc::"
+          "::remove-matcher owner=msbuild::"
           dotnet build Client/Simitone/Simitone.Windows/Simitone.Windows.csproj -c Release -v minimal -clp:NoSummary 2>&1 | Tee-Object -FilePath build.log
           $code = $LASTEXITCODE
           # unique compile errors, one per line, for the steps below to report
           Select-String -Path build.log -Pattern ': error ' | ForEach-Object { $_.Line.Trim() } | Sort-Object -Unique | Set-Content errors.txt
           "Errors: $((Get-Content errors.txt | Measure-Object -Line).Lines)"
+          if (-not (Test-Path errors.txt)) { New-Item errors.txt -ItemType File | Out-Null }
           exit $code
 
       # GitHub shows at most 10 errors per step, so the list is reported in chunks of 10.
