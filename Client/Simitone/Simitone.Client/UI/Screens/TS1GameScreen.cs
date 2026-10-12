@@ -265,6 +265,12 @@ namespace Simitone.Client.UI.Screens
                 return;
             }
             ActiveFamily = Content.Get().Neighborhood.GetFamilyForHouse((short)house);
+            // SimsRedux: starting from the neighbourhood is never a trip. Forget the last trip
+            // (Downtown etc.) so its travelling Sim can't turn up on this family's lot.
+            var travel = Content.Get().Neighborhood.GameState;
+            travel.ActiveFamily = ActiveFamily;
+            travel.LotTransitInfo = 0;
+            travel.DowntownSimGUID = (ActiveFamily?.FamilyGUIDs != null && ActiveFamily.FamilyGUIDs.Length > 0) ? ActiveFamily.FamilyGUIDs[0] : 0;
             InitializeLot(Content.Get().Neighborhood.GetHousePath(house), false);// "UserData/Houses/House21.iff"
             Remove(TS1NeighPanel);
             if (switcher != null) Remove(switcher);
