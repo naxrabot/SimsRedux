@@ -77,7 +77,7 @@ jobs:
           set +e
           dotnet build Client/Simitone/Simitone.Web/Simitone.Web.csproj -c Release -v minimal -clp:NoSummary > build.log 2>&1
           code=$?
-          grep -E ': error ' build.log | sed -E 's#^.*/(Client|FreeSO)/#\1/#' | sed -E 's# \[/home.*\]$##' | sort -u > errors.txt
+          grep -E 'error ' build.log | sed -E 's#/home/runner/work/SimsRedux/SimsRedux/##g' | sed -E 's# \[[^]]*\.csproj\]$##' | cut -c1-400 | sort -u > errors.txt
           echo "Errors: $(wc -l < errors.txt)"
           grep -oE 'error [A-Z]+[0-9]+' errors.txt | sort | uniq -c | sort -rn | head -20
           exit $code
