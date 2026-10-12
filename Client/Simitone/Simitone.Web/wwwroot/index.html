@@ -82,6 +82,12 @@
             window.requestAnimationFrame(tickJS);
         }
 
+        // graphics mode from the address, e.g. .../SimsRedux/?gfx=desktop
+        window.simsReduxGfxMode = () =>
+        {
+            return (new URLSearchParams(location.search).get('gfx') || 'mobile').toLowerCase();
+        };
+
         window.simsReduxCanvasSize = () =>
         {
             var holder = document.getElementById('canvasHolder');

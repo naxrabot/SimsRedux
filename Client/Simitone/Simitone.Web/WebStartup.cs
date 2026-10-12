@@ -15,7 +15,7 @@ namespace Simitone.Web
         /// <summary>Where the player's own Sims 1 files appear once they've chosen their game folder (stage 3).</summary>
         public const string GamePath = "/sims/";
 
-        public static SimitoneGame CreateGame(int width, int height)
+        public static SimitoneGame CreateGame(int width, int height, string gfxMode)
         {
             FSOFileSystem.Current = new BrowserFileSystem(); // the player's files live in the browser (js/simsfs.js)
             FSOEnvironment.NoThreads = true;      // browsers can't run the game's loading threads
@@ -25,10 +25,23 @@ namespace Simitone.Web
             FSO.Common.Utils.TextureLoad.Decoder = WebImageDecoder.Decode;
             FSOEnvironment.DirectX = false;
             FSOEnvironment.Linux = false;
-            // WebGL is like the phone (iOS) build: GL ES style shaders, depth done in software
-            FSOEnvironment.GLVer = 2;
-            FSOEnvironment.SoftwareDepth = true;
-            FSOEnvironment.UseMRT = false;        // WebGL has limited multiple-render-target support
+            // Graphics mode (choose with ?gfx=... in the address while we find the best one):
+            //   mobile  - like the phone (iOS) build: simple shaders, depth worked out in software
+            //   desktop - like the PC build: real depth, two outputs at once (WebGL 2 can do this)
+            //   nomrt   - like the PC build but drawing depth in a separate pass
+            Console.WriteLine("[SimsRedux] graphics mode: " + gfxMode);
+            if (gfxMode == "desktop" || gfxMode == "nomrt")
+            {
+                FSOEnvironment.GLVer = 3;
+                FSOEnvironment.SoftwareDepth = false;
+                FSOEnvironment.UseMRT = gfxMode == "desktop";
+            }
+            else
+            {
+                FSOEnvironment.GLVer = 2;
+                FSOEnvironment.SoftwareDepth = true;
+                FSOEnvironment.UseMRT = false;
+            }
             FSOEnvironment.TexCompress = false;
             FSOEnvironment.TexCompressSupport = false;
             FSOEnvironment.MSAASupport = false;

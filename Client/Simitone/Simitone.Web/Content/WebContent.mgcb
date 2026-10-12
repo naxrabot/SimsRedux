@@ -102,3 +102,38 @@
 /processorParam:Defines=WEBGL=1
 /build:../../../../FreeSO/TSOClient/tso.content/ContentSrc/Effects/VerShader.fx;Web/Effects/VerShader.fx
 
+# the desktop versions too, for the 'real depth' graphics mode (?gfx=desktop)
+#begin Web/Effects/2DWorldBatch.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/processorParam:Defines=WEBGL=1
+/build:../../../../FreeSO/TSOClient/tso.content/ContentSrc/Effects/2DWorldBatch.fx;Web/Effects/2DWorldBatch.fx
+
+#begin Web/Effects/GrassShader.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/processorParam:Defines=WEBGL=1
+/build:../../../../FreeSO/TSOClient/tso.content/ContentSrc/Effects/GrassShader.fx;Web/Effects/GrassShader.fx
+
+#begin Web/Effects/RCObject.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/processorParam:Defines=WEBGL=1
+/build:../../../../FreeSO/TSOClient/tso.content/ContentSrc/Effects/RCObject.fx;Web/Effects/RCObject.fx
+
+#begin Web/Effects/SpriteEffects.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/processorParam:Defines=WEBGL=1
+/build:../../../../FreeSO/TSOClient/tso.content/ContentSrc/Effects/SpriteEffects.fx;Web/Effects/SpriteEffects.fx
+
+#begin Web/Effects/Vitaboy.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/processorParam:Defines=WEBGL=1
+/build:../../../../FreeSO/TSOClient/tso.content/ContentSrc/Effects/Vitaboy.fx;Web/Effects/Vitaboy.fx

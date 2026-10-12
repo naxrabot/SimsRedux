@@ -92,7 +92,10 @@ namespace Simitone.Client.UI.Panels.CAS
             var baseX = MaxWidth / 2 - (guids.Length-1) * 50;
             foreach (var sim in guids)
             {
-                var fam = vm.Context.CreateObjectInstance(sim, LotTilePos.OUT_OF_WORLD, Direction.NORTH).BaseObject;
+                // SimsRedux: a family member whose Sim file is missing (e.g. lost in a crash) is skipped, not a crash
+                var inst = vm.Context.CreateObjectInstance(sim, LotTilePos.OUT_OF_WORLD, Direction.NORTH);
+                if (inst?.BaseObject == null) { Console.WriteLine("[SimsRedux] family member " + sim.ToString("x8") + " could not be loaded"); continue; }
+                var fam = inst.BaseObject;
                 fam.Tick();
                 var btn = new UIAvatarSelectButton(UIIconCache.GetObject(fam));
                 btn.Opacity = 1f;
