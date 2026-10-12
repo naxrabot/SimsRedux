@@ -89,6 +89,10 @@ jobs:
         shell: bash
         run: |
           dotnet publish Client/Simitone/Simitone.Web/Simitone.Web.csproj -c Release -v minimal -clp:NoSummary -o publish > publish.log 2>&1 || { grep -E 'error ' publish.log | sort -u | head -20 | while read -r l; do echo "::error::$l"; done; exit 1; }
+          grep -i "SimsRedux:" publish.log | while read -r l; do echo "::warning::$l"; done
+          echo "::warning::site: $(ls publish/wwwroot | tr '\n' ' ')"
+          echo "::warning::project wwwroot: $(ls Client/Simitone/Simitone.Web/wwwroot | tr '\n' ' ')"
+          echo "::warning::publish root: $(ls publish | tr '\n' ' ')"
           cd publish/wwwroot
           touch .nojekyll
           git init -q -b web-build

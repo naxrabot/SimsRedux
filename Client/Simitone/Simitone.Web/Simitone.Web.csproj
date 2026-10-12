@@ -78,6 +78,7 @@
       <GameGfxTextures Include="$(FSOContent)OGL\Textures\**\*" />
       <BuiltEffects Include="wwwroot\Content\**\*" />
     </ItemGroup>
+    <Message Importance="high" Text="SimsRedux: copying game content to $(SiteContent)" />
     <Copy SourceFiles="@(GameContent)" DestinationFiles="@(GameContent->'$(SiteContent)%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(GameGfxFonts)" DestinationFiles="@(GameGfxFonts->'$(SiteContent)Web\Fonts\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(GameGfxTextures)" DestinationFiles="@(GameGfxTextures->'$(SiteContent)Web\Textures\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
