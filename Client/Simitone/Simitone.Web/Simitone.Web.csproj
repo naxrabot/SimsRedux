@@ -32,6 +32,7 @@
     <Compile Include="Program.cs" />
     <Compile Include="Pages\Index.razor.cs" />
     <Compile Include="WebStartup.cs" />
+    <Compile Include="BrowserFileSystem.cs" />
     <Compile Include="GlobalUsings.cs" />
   </ItemGroup>
 
@@ -87,6 +88,11 @@
     <Copy SourceFiles="@(GameGfxFonts)" DestinationFiles="@(GameGfxFonts->'$(SiteContent)Web\Fonts\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(GameGfxTextures)" DestinationFiles="@(GameGfxTextures->'$(SiteContent)Web\Textures\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(BuiltEffects)" DestinationFiles="@(BuiltEffects->'$(SiteContent)%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    <!-- the list of content files, so the browser can load them all at the start (js/simsfs.js) -->
+    <ItemGroup>
+      <SiteContentFiles Include="$(SiteContent)**\*" Exclude="$(SiteContent)files.txt" />
+    </ItemGroup>
+    <WriteLinesToFile File="$(SiteContent)files.txt" Lines="@(SiteContentFiles->'%(RecursiveDir)%(Filename)%(Extension)')" Overwrite="true" />
   </Target>
 
   <ItemGroup>

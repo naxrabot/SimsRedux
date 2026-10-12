@@ -1,5 +1,6 @@
 using FSO.Client;
 using FSO.Common;
+using FSO.Common.IO;
 using FSO.LotView;
 using Simitone.Client;
 
@@ -16,6 +17,7 @@ namespace Simitone.Web
 
         public static SimitoneGame CreateGame()
         {
+            FSOFileSystem.Current = new BrowserFileSystem(); // the player's files live in the browser (js/simsfs.js)
             FSOEnvironment.NoThreads = true;      // browsers can't run the game's loading threads
             FSOEnvironment.DirectX = false;
             FSOEnvironment.Linux = false;

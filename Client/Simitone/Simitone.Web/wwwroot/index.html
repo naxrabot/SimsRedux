@@ -72,6 +72,7 @@
     <script src="_content/nkast.Wasm.Audio/js/Audio.10.0.3.js"></script>
     <script src="_content/nkast.Wasm.XR/js/XR.10.0.3.js"></script>
 
+    <script src="js/simsfs.js"></script>
     <script>
         function tickJS()
         {
@@ -91,8 +92,9 @@
             // disable context menu on right click
             canvas.addEventListener("contextmenu", e => e.preventDefault());
 
-            // begin game loop
-            window.requestAnimationFrame(tickJS);
+            // first make sure the player's Sims files are here (asks for the folder the first time),
+            // then begin the game loop
+            SimsFS.prepare().then(() => window.requestAnimationFrame(tickJS));
         };
 
         window.addEventListener("keydown", function(event)
