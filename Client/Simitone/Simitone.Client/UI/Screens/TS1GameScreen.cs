@@ -880,6 +880,8 @@ namespace Simitone.Client.UI.Screens
                 var server = (VMServerDriver)Driver;
                 server.ConnectClient(myClient);
                 LoadSurrounding(short.Parse(lotName.Substring(lotName.Length - 6, 2)));
+                LotDebug("after load (" + Path.GetFileName(lotName) + ")");
+                GameThread.SetTimeout(() => LotDebug("3 seconds later"), 3000);
 
                 GameFacade.Cursor.SetCursor(CursorType.Normal);
                 ZoomLevel = 1;
@@ -1005,6 +1007,36 @@ namespace Simitone.Client.UI.Screens
                 lotId = (uint)ActiveFamily.HouseNumber;
             }
             SwitchLot = (int)lotId;
+        }
+
+        /// <summary>
+        /// SimsRedux: writes every Sim on the lot to lot_debug.log (who they are, which family,
+        /// who controls them), to track down Sims appearing on lots they don't belong on.
+        /// </summary>
+        private void LotDebug(string when)
+        {
+            try
+            {
+                if (vm == null) return;
+                var neigh = Content.Get().Neighborhood;
+                var fam = vm.TS1State?.CurrentFamily;
+                var lines = new List<string>();
+                lines.Add(DateTime.Now.ToString("HH:mm:ss") + " ---- " + when);
+                lines.Add("  lot global10=" + vm.GetGlobalValue(10) + " family=" + (fam == null ? "none" : fam.ChunkID + " house=" + fam.HouseNumber
+                    + " members=" + string.Join(",", (fam.FamilyGUIDs ?? new uint[0]).Select(x => x.ToString("X8")))
+                    + " active=" + string.Join(",", (fam.RuntimeSubset ?? new uint[0]).Select(x => x.ToString("X8")))));
+                lines.Add("  trip: family=" + (neigh.GameState.ActiveFamily?.ChunkID.ToString() ?? "none") + " sim=" + neigh.GameState.DowntownSimGUID.ToString("X8") + " transit=" + neigh.GameState.LotTransitInfo
+                    + " selected(global3)=" + vm.GetGlobalValue(3) + " me=" + vm.MyUID);
+                foreach (var a in vm.Context.ObjectQueries.Avatars)
+                {
+                    lines.Add("  sim " + a.ObjectID + " " + a.Name + " guid=" + a.Object.OBJ.GUID.ToString("X8")
+                        + " familyNo=" + a.GetPersonData(FSO.SimAntics.Model.VMPersonDataVariable.TS1FamilyNumber)
+                        + " personType=" + a.GetPersonData(FSO.SimAntics.Model.VMPersonDataVariable.PersonType)
+                        + " pid=" + a.PersistID + " inFamily=" + (fam?.FamilyGUIDs?.Contains(a.Object.OBJ.GUID) == true));
+                }
+                FSO.Common.IO.FSOFile.AppendAllLines(Path.Combine(FSOEnvironment.UserDir, "lot_debug.log"), lines);
+            }
+            catch { }
         }
 
         private int RefreshCount;
