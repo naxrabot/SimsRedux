@@ -26,7 +26,36 @@
         proto.__srxPatched = true;
     }
 
-    if (window.WebGL2RenderingContext) patch(WebGL2RenderingContext.prototype);
+    // ---- diagnostics: report graphics errors in the console (a few times, not every frame) ----
+    let reports = 0;
+    function report(gl, what) {
+        if (reports >= 20) return;
+        reports++;
+        console.warn('[SimsRedux] graphics: ' + what);
+    }
+    function watch(proto) {
+        const bind = proto.bindTexture;
+        proto.bindTexture = function (target, tex) {
+            if (tex && !this.isTexture(tex) && tex.__srxDeleted) report(this, 'a picture was drawn after it was thrown away (deleted texture)');
+            return bind.call(this, target, tex);
+        };
+        const del = proto.deleteTexture;
+        proto.deleteTexture = function (tex) { if (tex) tex.__srxDeleted = true; return del.call(this, tex); };
+        let frames = 0;
+        for (const name of ['drawElements', 'drawArrays']) {
+            const draw = proto[name];
+            proto[name] = function () {
+                const r = draw.apply(this, arguments);
+                if ((++frames & 1023) === 0) {
+                    const err = this.getError();
+                    if (err) report(this, name + ' failed with WebGL error ' + err + ' (0x' + err.toString(16) + ')');
+                }
+                return r;
+            };
+        }
+    }
+
+    if (window.WebGL2RenderingContext) { patch(WebGL2RenderingContext.prototype); watch(WebGL2RenderingContext.prototype); }
     if (window.WebGLRenderingContext) patch(WebGLRenderingContext.prototype);
     window.SimsReduxFixShader = fixShader;
 })();

@@ -151,6 +151,7 @@
   <div class="srx-progress hidden"><div class="bar"><div></div></div></div>
   <div class="status"></div>
   <div class="again hidden" style="margin-top:10px"><button class="link change">Use a different Sims folder</button></div>
+  <div style="margin-top:14px;font-size:11px;color:#7878b8">build ${(document.querySelector('meta[name="srx-build"]') || {}).content || 'dev'}</div>
 </div>`;
         document.body.appendChild(el);
         ui = {
@@ -329,6 +330,8 @@
 
     // Shows the setup screen as needed; resolves once the game can start.
     async function prepare() {
+        const build = (document.querySelector('meta[name="srx-build"]') || {}).content || 'dev';
+        console.log('[SimsRedux] web build ' + build);
         await openDb();
         screen().change.onclick = async () => {
             if (!confirm('Choose a different Sims folder? Your current Sims files will be removed from this browser (homes saved in the game go with them).')) return;

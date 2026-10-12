@@ -88,6 +88,7 @@ jobs:
       - name: Publish the web version
         shell: bash
         run: |
+          sed -i "s/__BUILD__/$(date -u +%m%d-%H%M)-${GITHUB_SHA::7}/" Client/Simitone/Simitone.Web/wwwroot/index.html
           dotnet publish Client/Simitone/Simitone.Web/Simitone.Web.csproj -c Release -v minimal -clp:NoSummary -o publish > publish.log 2>&1 || { grep -E 'error ' publish.log | sort -u | head -20 | while read -r l; do echo "::error::$l"; done; exit 1; }
           grep -i "SimsRedux:" publish.log | while read -r l; do echo "::warning::$l"; done
           echo "::warning::site: $(ls publish/wwwroot | tr '\n' ' ')"
