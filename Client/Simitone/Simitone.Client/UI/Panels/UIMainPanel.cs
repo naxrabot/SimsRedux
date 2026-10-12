@@ -186,6 +186,8 @@ namespace Simitone.Client.UI.Panels
         public void SetMode(UIMainPanelMode mode)
         {
             if (mode == Mode) return;
+            // SimsRedux online: visitors can't buy or build on a friend's lot
+            if (Game.IsGuest && (mode == UIMainPanelMode.BUY || mode == UIMainPanelMode.BUILD)) return;
             Mode = mode;
 
             Game.LotControl.World.State.BuildMode = 0;

@@ -1,4 +1,4 @@
-﻿
+
 using FSO.Client;
 using FSO.Client.Debug;
 using FSO.Client.UI.Controls;
@@ -188,6 +188,18 @@ namespace Simitone.Client.UI.Screens
         }
         public int? MoveInFamily;
 
+        // ---- SimsRedux online play ----
+        /// <summary>Hosting this lot for friends (null when not hosting).</summary>
+        public ReduxHost Host;
+        /// <summary>Visiting a friend's lot (null when not visiting).</summary>
+        public ReduxGuest Guest;
+        public bool IsGuest { get { return Guest != null; } }
+        /// <summary>Start hosting as soon as the next lot finishes loading.</summary>
+        public bool HostAfterLoad;
+        private UIClassicOnlineStatus OnlineStatus;
+        private UIClassicLoadScreen JoinScreen;
+        private int OnlineStateLog;
+
         public void StartMoveIn(int familyID)
         {
             MoveInFamily = familyID;
@@ -255,6 +267,11 @@ namespace Simitone.Client.UI.Screens
             InitializeLot(Content.Get().Neighborhood.GetHousePath(house), false);// "UserData/Houses/House21.iff"
             Remove(TS1NeighPanel);
             if (switcher != null) Remove(switcher);
+            if (HostAfterLoad)
+            {
+                HostAfterLoad = false;
+                GameThread.NextUpdate((s) => StartHosting());
+            }
         }
 
         public void MoveInAndPlay(short house, int family, UIElement switcher)
@@ -271,7 +288,188 @@ namespace Simitone.Client.UI.Screens
             family.Budget += family.ValueInArch;
             family.ValueInArch = 0;
             Content.Get().Neighborhood.MoveOut(houseID);
+            TS1NeighPanel.RefreshHouses(); // SimsRedux: plumbbob and hover popup follow the family out
             TS1NeighPanel.SelectHouse(houseID);
+        }
+
+        // ================= SimsRedux online play =================
+
+        /// <summary>Start letting friends join the lot that's open now.</summary>
+        public void StartHosting()
+        {
+            if (vm == null || IsGuest || Host != null) return;
+            var server = Driver as VMServerDriver;
+            if (server == null) return;
+            var host = new ReduxHost(vm, server);
+            string error;
+            if (!host.Start(ReduxOnlineInfo.DefaultPort, out error))
+            {
+                UIClassicDialog.Ok("Couldn't Host", "The game couldn't open port " + ReduxOnlineInfo.DefaultPort + " for friends to join.\n\n" + error
+                    + "\n\nIs another copy of the game already hosting?");
+                return;
+            }
+            Host = host;
+            host.OnNotice += (text) => OnlineStatus?.Notice(text);
+            ShowOnlineStatus();
+            UIClassicDialog.Ok("Hosting Online", "Friends can now join this lot.\n\nOn this PC (for testing): localhost\nOn your home network: this PC's IP address\nOver the internet: " + ReduxOnlineInfo.DefaultAddress
+                + " (once the Cloudflare tunnel is running)\n\nThe lot stops being online when you go back to the neighborhood.");
+        }
+
+        private void ShowOnlineStatus()
+        {
+            if (OnlineStatus != null) Remove(OnlineStatus);
+            OnlineStatus = new UIClassicOnlineStatus(this);
+            Add(OnlineStatus);
+        }
+
+        /// <summary>
+        /// Visit a friend's lot with one of your Sims. The lot itself arrives over the network:
+        /// until it has, a loading box shows.
+        /// </summary>
+        public void JoinOnline(string address, string playerName, uint simGUID)
+        {
+            if (vm != null) return;
+            string error;
+            var join = ReduxGuest.MakeJoinPacket(playerName, simGUID, out error);
+            if (join == null)
+            {
+                UIClassicDialog.Ok("Couldn't Join", error);
+                return;
+            }
+
+            CleanupLastWorld();
+            World = new FSO.LotView.World(GameFacade.GraphicsDevice);
+            World.Opacity = 1;
+            World.Visible = false;
+            GameFacade.Scenes.Add(World);
+
+            var driver = new VMClientDriver(GuestStateChange);
+            Driver = driver;
+            vm = new VM(new VMContext(World), Driver, new UIHeadlineRendererProvider());
+            vm.ListenBHAVChanges();
+            vm.Init();
+            vm.OnFullRefresh += VMRefreshed;
+            vm.OnRequestLotSwitch += VMLotSwitch;
+            vm.OnGenericVMEvent += Vm_OnGenericVMEvent;
+            ActiveFamily = null;
+            Downtown = false;
+
+            if (TS1NeighPanel != null) Remove(TS1NeighPanel);
+            JoinScreen = UIClassicLoadScreen.ShowWaiting("Visiting a Friend", "Connecting...");
+
+            Guest = new ReduxGuest(vm, driver, address, join);
+            Guest.Connect();
+        }
+
+        private void GuestStateChange(int state, float progress)
+        {
+            // 1 = connected, 2 = loading the lot (progress), 3 = ready
+            if (state == 2) JoinScreen?.SetWaiting("Loading the lot...", progress);
+            if (state == 3) GameThread.NextUpdate((s) => GuestReady());
+        }
+
+        private void GuestReady()
+        {
+            if (vm == null || Guest == null || LotControl != null) return;
+            if (JoinScreen != null) { JoinScreen.Close(); JoinScreen = null; }
+            LotControl = new UILotControl(vm, World);
+            this.AddAt(0, LotControl);
+            m_ZoomLevel = 4;
+            ZoomLevel = 1;
+            GameFacade.Cursor.SetCursor(CursorType.Normal);
+            Frontend = new UISimitoneFrontend(this);
+            this.Add(Frontend);
+            ShowOnlineStatus();
+            ReduxOnlineInfo.Log("On the host's lot");
+        }
+
+        private void GuestLost()
+        {
+            var reason = Guest?.Failure ?? "The connection to the host was lost.";
+            ReduxOnlineInfo.Log("Left the host's lot: " + reason);
+            ExitLot();
+            UIClassicDialog.Ok("Back Home", reason);
+        }
+
+        /// <summary>SimsRedux: open the lot in Build mode first (New House).</summary>
+        public bool StartInBuild;
+
+        /// <summary>
+        /// SimsRedux: New House. Opens an empty lot with nobody living there, straight into
+        /// Build mode, so a house can be built and then sold or moved into later.
+        /// </summary>
+        public void BuildNewHouse(short house)
+        {
+            StartInBuild = true;
+            PlayHouse(house, null);
+        }
+
+        /// <summary>
+        /// SimsRedux: Bulldoze. Loads the lot behind the loading box, removes everything that
+        /// can be sold (the mailbox, rubbish bin and other fixed objects stay), all walls and
+        /// floors, saves it and goes back to the neighbourhood.
+        /// </summary>
+        public void BulldozeLot(short house)
+        {
+            if (vm != null) return; // only from the neighbourhood
+            int removed = 0;
+            UIClassicLoadScreen.RunSteps("Bulldozing " + UIClassicLoadScreen.LotName(house), true,
+                () =>
+                {
+                    // something went wrong: back to the neighbourhood without saving
+                    if (vm != null) { Remove(TS1NeighPanel); ExitLot(); }
+                    UIClassicDialog.Ok("Bulldoze", "Sorry, this lot couldn't be bulldozed. Nothing was changed.");
+                },
+                new UIClassicLoadScreen.Step("Loading the lot...", () =>
+                {
+                    ActiveFamily = null;
+                    Downtown = false;
+                    InitializeLot(Content.Get().Neighborhood.GetHousePath(house), false);
+                    if (vm == null) throw new Exception("The lot didn't load.");
+                    Remove(TS1NeighPanel);
+                }, 6),
+                new UIClassicLoadScreen.Step("Bringing in the bulldozer...", () => { removed = ClearLot(); }, 12),
+                new UIClassicLoadScreen.Step("Clearing away the rubble...", null, 10),
+                new UIClassicLoadScreen.Step("Saving the neighborhood...", () =>
+                {
+                    Save();
+                    Console.WriteLine("[SimsRedux] Bulldozed lot " + house + " (" + removed + " objects removed).");
+                    ExitLot();
+                }, 4));
+        }
+
+        /// <summary>SimsRedux: removes every object players could sell, then every wall and floor. Returns how many objects went.</summary>
+        private int ClearLot()
+        {
+            int removed = 0;
+            var ctx = vm.Context;
+            foreach (var ent in vm.Entities.ToList())
+            {
+                if (ent.Dead || ent is VMAvatar) continue;
+                var flags = (VMMovementFlags)ent.GetValue(VMStackObjectVariable.MovementFlags);
+                if ((flags & VMMovementFlags.PlayersCanMove) == 0 || (flags & VMMovementFlags.PlayersCanDelete) == 0) continue;
+                try
+                {
+                    ent.ExecuteEntryPoint(12, ctx, true); // the object's own clean-up
+                    if (!ent.Dead) ent.Delete(true, ctx);
+                    removed++;
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("[SimsRedux] Couldn't remove " + ent.ToString() + ": " + e.Message);
+                }
+            }
+
+            var arch = ctx.Architecture;
+            for (int i = 0; i < arch.Stories; i++)
+            {
+                Array.Clear(arch.Walls[i], 0, arch.Walls[i].Length);
+                Array.Clear(arch.Floors[i], 0, arch.Floors[i].Length);
+            }
+            arch.RegenWallsAt();
+            arch.SignalAllDirty();
+            arch.Tick(); // rebuild rooms, roof and the picture now (the lot is paused)
+            return removed;
         }
 
         public override void GameResized()
@@ -293,6 +491,7 @@ namespace Simitone.Client.UI.Screens
 
         public void ChangeSpeedTo(int speed)
         {
+            if (IsGuest) return; // SimsRedux: the host controls the speed on their lot
             //0 speed is 0x
             //1 speed is 1x
             //2 speed is 3x
@@ -349,13 +548,17 @@ namespace Simitone.Client.UI.Screens
                     break;
             }
 
+            int target = 1;
             switch (speed)
             {
-                case 0: vm.SpeedMultiplier = 0; break;
-                case 1: vm.SpeedMultiplier = 1; break;
-                case 2: vm.SpeedMultiplier = 3; break;
-                case 3: vm.SpeedMultiplier = 10; break;
+                case 0: target = 0; break;
+                case 1: target = 1; break;
+                case 2: target = 3; break;
+                case 3: target = 10; break;
             }
+            // SimsRedux online: while hosting, the speed goes through the lot so friends' games match
+            if (Host != null) vm.SendCommand(new VMNetSetSpeedCmd() { Speed = target });
+            else vm.SpeedMultiplier = target;
             vm.ResetTickAlign();
         }
 
@@ -420,6 +623,25 @@ namespace Simitone.Client.UI.Screens
                 else DoSwitchLot(target);
             }
             //vm.Context.Clock.Hours = 12;
+            // SimsRedux online: messages from friends / the host go in before the lot ticks
+            Host?.Process();
+            if (Guest != null && !Guest.Process()) GuestLost();
+            if ((Host != null || IsGuest) && vm != null && ++OnlineStateLog >= 300)
+            {
+                // SimsRedux online: a line every ~5 seconds about the lot, for tracking down problems
+                OnlineStateLog = 0;
+                var me = vm.GetAvatarByPersist(vm.MyUID);
+                ReduxOnlineInfo.Log((Host != null ? "[host]" : "[guest]") + " state: speed=" + vm.SpeedMultiplier + " last=" + vm.LastSpeedMultiplier
+                    + " ready=" + vm.Ready + " questionFrom=" + (vm.GlobalBlockingDialog == null ? "none" : vm.GlobalBlockingDialog.ObjectID + "/" + vm.GlobalBlockingDialog.PersistID)
+                    + " me=" + vm.MyUID + " mySim=" + (me == null ? "MISSING" : me.ObjectID + " " + me.Name + " pid=" + me.PersistID)
+                    + " selected=" + (LotControl?.ActiveEntity == null ? "none" : LotControl.ActiveEntity.ObjectID.ToString())
+                    + " mode=" + (LotControl == null ? "-" : (LotControl.LiveMode ? "live" : "buy/build"))
+                    + (Host != null ? " friends=" + Host.GuestCount : "")
+                    + " lotUpdates=" + (LotControl?.DebugUpdates ?? -1) + "/" + (LotControl?.DebugFullUpdates ?? -1)
+                    + " refreshes=" + RefreshCount
+                    + " lotVisible=" + (LotControl?.Visible.ToString() ?? "-")
+                    + " onTop=" + string.Join(",", GetChildren().Skip(Math.Max(0, GetChildren().Count - 4)).Select(x => x.GetType().Name)));
+            }
             if (vm != null) vm.Update();
 
             //SaveHouseButton_OnButtonClick(null);
@@ -471,8 +693,9 @@ namespace Simitone.Client.UI.Screens
             GameFacade.Scenes.Remove(World);
             World.Dispose();
             //LotControl.Dispose();
-            this.Remove(LotControl);
-            this.Remove(Frontend);
+            if (LotControl != null) this.Remove(LotControl);
+            if (Frontend != null) this.Remove(Frontend);
+            Frontend = null;
             vm.SuppressBHAVChanges();
             vm = null;
             World = null;
@@ -768,6 +991,7 @@ namespace Simitone.Client.UI.Screens
 
         private void VMLotSwitch(uint lotId)
         {
+            if (IsGuest || Host != null) return; // SimsRedux: no travelling while online (for now)
             vm.SpeedMultiplier = 0;
             if ((short)lotId == -1)
             {
@@ -776,9 +1000,12 @@ namespace Simitone.Client.UI.Screens
             SwitchLot = (int)lotId;
         }
 
+        private int RefreshCount;
         private void VMRefreshed()
         {
-            if (vm == null) return;
+            RefreshCount++;
+            // SimsRedux online: a visitor's lot arrives before the lot controls exist
+            if (vm == null || LotControl == null) return;
             LotControl.ActiveEntity = null;
             LotControl.RefreshCut();
         }
@@ -799,12 +1026,33 @@ namespace Simitone.Client.UI.Screens
         }
 
         private UIMobileAlert CloseAlert;
+        /// <summary>SimsRedux: set once the player has said yes to quitting, so the window really closes.</summary>
+        public static bool ExitConfirmed;
+
         public override bool CloseAttempt()
         {
+            if (ExitConfirmed) return true;
             if (CloseAlert != null) return true;
 
             GameThread.NextUpdate(x =>
             {
+                // SimsRedux: the classic Sims 1 popup in the classic interface
+                if (UIClassicNeighborhoodBar.Enabled)
+                {
+                    if (ClassicCloseOpen) return;
+                    ClassicCloseOpen = true;
+                    var save = vm != null && !IsGuest;
+                    if (save)
+                        UIClassicDialog.Show(GameFacade.Strings.GetString("153", "1"), GameFacade.Strings.GetString("153", "6"),
+                            Tuple.Create<string, Action>("Yes", () => { Save(); ExitConfirmed = true; GameFacade.Game.Exit(); }),
+                            Tuple.Create<string, Action>("No", () => { ExitConfirmed = true; GameFacade.Game.Exit(); }),
+                            Tuple.Create<string, Action>("Cancel", () => { ClassicCloseOpen = false; }));
+                    else
+                        UIClassicDialog.Show(GameFacade.Strings.GetString("153", "1"), GameFacade.Strings.GetString("153", "2"),
+                            Tuple.Create<string, Action>("Yes", () => { ExitConfirmed = true; GameFacade.Game.Exit(); }),
+                            Tuple.Create<string, Action>("No", () => { ClassicCloseOpen = false; }));
+                    return;
+                }
                 if (CloseAlert == null)
                 {
                     var canSave = vm != null;
@@ -831,8 +1079,26 @@ namespace Simitone.Client.UI.Screens
             return false;
         }
 
+        private bool ClassicCloseOpen;
+
         public void ReturnToNeighbourhood()
         {
+            if (IsGuest)
+            {
+                UIClassicDialog.YesNo("Leave Lot?", "Do you want to leave your friend's lot and go back to your own neighborhood?", () => ExitLot());
+                return;
+            }
+            if (UIClassicNeighborhoodBar.Enabled)
+            {
+                // SimsRedux: the original "save before going back?" question
+                if (ClassicCloseOpen) return;
+                ClassicCloseOpen = true;
+                UIClassicDialog.Show(GameFacade.Strings.GetString("153", "3"), GameFacade.Strings.GetString("153", "4"),
+                    Tuple.Create<string, Action>("Yes", () => { ClassicCloseOpen = false; Save(); ExitLot(); }),
+                    Tuple.Create<string, Action>("No", () => { ClassicCloseOpen = false; ExitLot(); }),
+                    Tuple.Create<string, Action>("Cancel", () => { ClassicCloseOpen = false; }));
+                return;
+            }
             if (CloseAlert == null)
             {
                 CloseAlert = new UIMobileAlert(new FSO.Client.UI.Controls.UIAlertOptions
@@ -852,10 +1118,19 @@ namespace Simitone.Client.UI.Screens
 
         public void Save()
         {
+            // SimsRedux online: a visitor never saves the host's lot or neighbourhood, and the
+            // host saves without the visiting Sims (they belong to the friends' own games)
+            if (IsGuest || vm == null) return;
+            if (Host != null) { Host.SaveWithoutVisitors(SaveLot); return; }
+            SaveLot();
+        }
+
+        private void SaveLot()
+        {
             //save the house first
             var iff = new IffFile();
             vm.TS1State.UpdateSIMI(vm);
-            var marshal = vm.Save();
+            var marshal = vm.Save(Host != null); // SimsRedux: leaves visiting friends' Sims out
             var fsov = new FSOV();
             fsov.ChunkLabel = "Simitone Lot Data";
             fsov.ChunkID = 1;
@@ -911,7 +1186,27 @@ namespace Simitone.Client.UI.Screens
 
         public void ExitLot()
         {
+            // SimsRedux online: stop hosting / leave the friend's lot first
+            if (Host != null)
+            {
+                Host.Stop("The host left the lot.");
+                Host = null;
+            }
+            bool wasGuest = Guest != null;
+            if (Guest != null)
+            {
+                Guest.Leave();
+                Guest = null;
+            }
+            if (OnlineStatus != null) { Remove(OnlineStatus); OnlineStatus = null; }
+            if (JoinScreen != null) { JoinScreen.Close(); JoinScreen = null; }
             CleanupLastWorld();
+            if (wasGuest)
+            {
+                // back to the player's own neighbourhood
+                try { Content.Get().Neighborhood.InitSpecific(0); }
+                catch (Exception e) { ReduxOnlineInfo.Log("Couldn't reload your neighbourhood: " + e.Message); }
+            }
             NeighSelection(NeighSelectionMode.Normal);
             Downtown = false;
             SavedLot = null;

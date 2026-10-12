@@ -73,6 +73,7 @@ namespace Simitone.Client.UI.Panels
         private UILotControl Lot;
         private Vector2? GrabTile;       // the ground point held by the right mouse button
         private bool MiddleDown;
+        private bool Panning;
         private int MiddleStartX;        // 2D: where the middle-drag started (for 90 degree turns)
 
         public bool Dragging { get { return GrabTile != null; } }
@@ -173,10 +174,20 @@ namespace Simitone.Client.UI.Panels
                         world.State.ScrollAnchor = null;
                         world.State.CenterTile += delta;
                         moved = true;
+                        // SimsRedux: the original grabbing-hand cursor while dragging the ground
+                        if (!Panning) { Panning = true; GameFacade.Cursor.SetCursor(FSO.Common.Rendering.Framework.CursorType.Pan, 1); }
                     }
                 }
             }
-            else GrabTile = null;
+            else
+            {
+                GrabTile = null;
+                if (Panning)
+                {
+                    Panning = false;
+                    GameFacade.Cursor.SetCursor(FSO.Common.Rendering.Framework.CursorType.Normal, 1);
+                }
+            }
 
             // right-click (not a drag)
             bool right = mouse.RightButton == ButtonState.Pressed;

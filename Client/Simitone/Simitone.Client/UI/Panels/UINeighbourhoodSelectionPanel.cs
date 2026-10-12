@@ -12,6 +12,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using FSO.Common.Rendering.Framework.Model;
+using FSO.Common.Rendering.Framework;
 using FSO.HIT;
 using FSO.Client;
 using FSO.Content;
@@ -89,6 +90,66 @@ namespace Simitone.Client.UI.Panels
         public bool MoveInMode;
         public UIClassicNeighborhoodBar ClassicBar;
 
+        // SimsRedux: hover popup and the New House / Bulldoze / Rezone tools
+        public enum NeighTool { None, NewHouse, Bulldoze, Rezone }
+        private NeighTool _tool;
+        public NeighTool Tool
+        {
+            get { return _tool; }
+            set
+            {
+                _tool = value;
+                GameFacade.Cursor.SetCursor(ToolCursor(null));
+                ClassicBar?.ToolChanged();
+            }
+        }
+        /// <summary>Called when a house is clicked while a tool is picked.</summary>
+        public Action<int> ToolPick;
+        public UINeighborhoodHouseButton HoveredHouse;
+        public UIClassicHousePopup HousePopup;
+        public int CurrentMode => Mode;
+
+        /// <summary>The cursor to show for the current tool (over a house, or anywhere else when house is null).</summary>
+        public CursorType ToolCursor(UINeighborhoodHouseButton house)
+        {
+            switch (_tool)
+            {
+                case NeighTool.None:
+                    if (house == null) return CursorType.Normal;
+                    return MoveInMode ? CursorType.MoveIn : CursorType.Finger;
+                case NeighTool.Bulldoze:
+                    if (house != null && !house.ToolAllowed(_tool)) return CursorType.NoDrop;
+                    return CursorType.Bulldoze;
+                case NeighTool.NewHouse:
+                    if (house != null && !house.ToolAllowed(_tool)) return CursorType.NoDrop;
+                    return CursorType.MoveIn;
+                case NeighTool.Rezone:
+                    if (house != null && !house.ToolAllowed(_tool)) return CursorType.NoDrop;
+                    return CursorType.Finger;
+            }
+            return CursorType.Normal;
+        }
+
+        /// <summary>SimsRedux: re-reads every lot on the map (after an eviction, rezone...).</summary>
+        public void RefreshHouses()
+        {
+            foreach (var child in GetChildren())
+                (child as UINeighborhoodHouseButton)?.Refresh();
+        }
+
+        /// <summary>A house was clicked: open its popup, or use the current tool on it.</summary>
+        public void HouseClicked(int house)
+        {
+            HoveredHouse = null;
+            if (_tool != NeighTool.None && ToolPick != null)
+            {
+                ToolPick(house);
+                return;
+            }
+            GameFacade.Cursor.SetCursor(CursorType.Normal);
+            SelectHouse(house);
+        }
+
         private Vector2 _cp = new Vector2(800, 600) / 2;
         public float CenterPositionX
         {
@@ -158,11 +219,39 @@ namespace Simitone.Client.UI.Panels
         {
             if (ClassicBar == null || ScaleX <= 0) return;
             float w = GlobalSettings.Default.GraphicsWidth, h = GlobalSettings.Default.GraphicsHeight;
-            float fit = h / 600.0f;                      // the size it was designed for
-            if (800 * fit > w) fit = w / 800.0f;         // narrow windows: fit the width instead
+            float fit = UIFit();
             var screenPos = new Vector2((w - 800 * fit) / 2, 0);
             ClassicBar.ScaleX = ClassicBar.ScaleY = fit / ScaleX;
             ClassicBar.Position = new Vector2((screenPos.X - X) / ScaleX, (screenPos.Y - Y) / ScaleY);
+        }
+
+        /// <summary>SimsRedux: how big the classic interface is drawn (1 = the original 800x600 size).</summary>
+        public static float UIFit()
+        {
+            float w = GlobalSettings.Default.GraphicsWidth, h = GlobalSettings.Default.GraphicsHeight;
+            float fit = h / 600.0f;                      // the size it was designed for
+            if (800 * fit > w) fit = w / 800.0f;         // narrow windows: fit the width instead
+            return fit;
+        }
+
+        /// <summary>SimsRedux: keeps the hover popup next to the house under the mouse, at interface size.</summary>
+        private void PlacePopup()
+        {
+            if (HousePopup == null) return;
+            var house = HoveredHouse;
+            if (house == null || house.Parent != this || ScaleX <= 0)
+            {
+                HousePopup.SetHouse(null, _tool);
+                return;
+            }
+            float fit = UIFit();
+            var anchor = house.Position + house.PopupAnchor;
+            HousePopup.ScaleX = HousePopup.ScaleY = fit / ScaleX;
+            HousePopup.Position = anchor;
+            HousePopup.SetHouse(house, _tool);
+            // where that is on the screen, so the box can stay inside the window
+            var screen = new Vector2(X + anchor.X * ScaleX, Y + anchor.Y * ScaleY);
+            HousePopup.Fit(screen, fit, GlobalSettings.Default.GraphicsWidth, GlobalSettings.Default.GraphicsHeight);
         }
 
         /// <summary>
@@ -224,6 +313,10 @@ namespace Simitone.Client.UI.Panels
                 _cp = ClampCenter(ClampCenter(_cp) + move * (6f / Math.Max(0.5f, Zoom)));
                 UpdatePosition();
             }
+
+            // Esc puts the current tool away
+            if (_tool != NeighTool.None && state.NewKeys.Contains(Microsoft.Xna.Framework.Input.Keys.Escape)) Tool = NeighTool.None;
+            PlacePopup();
         }
 
         public override void GameResized()
@@ -265,7 +358,7 @@ namespace Simitone.Client.UI.Panels
                 var loc = locations.GetString(i).Split(',');
                 var num = int.Parse(loc[0].TrimStart());
                 if (num == 99) continue;
-                var button = new UINeighborhoodHouseButton(num, SelectHouse, config.Scale);
+                var button = new UINeighborhoodHouseButton(num, HouseClicked, config.Scale);
                 button.Position = new Vector2(int.Parse(loc[1].TrimStart()), int.Parse(loc[2].TrimStart()));
                 HousePositions[num] = button.Position;
                 buttons.Add(button);
@@ -295,6 +388,11 @@ namespace Simitone.Client.UI.Panels
                 ClassicBar = new UIClassicNeighborhoodBar(this, mode, MoveInMode);
                 Add(ClassicBar);
                 PinClassicBar();
+                HoveredHouse = null;
+                if (_tool != NeighTool.None) GameFacade.Cursor.SetCursor(CursorType.Normal);
+                _tool = NeighTool.None;
+                HousePopup = new UIClassicHousePopup();
+                Add(HousePopup);
             }
 
             Zoom = Zoom;
@@ -448,7 +546,6 @@ namespace Simitone.Client.UI.Panels
         /// <summary>SimsRedux: the family living here, or null for an empty lot.</summary>
         public string FamilyName;
         private static Texture2D Plumbbob;
-        private static TextStyle TagStyle;
 
         /// <summary>A small green plumbbob, made once in code (light top half, darker bottom half).</summary>
         private static Texture2D GetPlumbbob()
@@ -496,35 +593,101 @@ namespace Simitone.Client.UI.Panels
 
             HouseScale = scale;
 
-            // SimsRedux: is one of the player's families living here? (shows a green plumbbob)
-            try
-            {
-                var hood = Content.Get().Neighborhood;
-                var fam = hood.GetFamilyForHouse((short)houseNumber);
-                if (fam != null && fam.HouseNumber == houseNumber && fam.FamilyGUIDs != null && fam.FamilyGUIDs.Length > 0)
-                    FamilyName = hood.MainResource.Get<FAMs>(fam.ChunkID)?.GetString(0) ?? "Your family";
-            }
-            catch { }
+            HouseID = houseNumber;
+            Refresh();
 
             var w = (int)(HouseTex.Width / HouseScale);
             var h = (int)(HouseTex.Height / HouseScale);
             var clickHandler =
                 ListenForMouse(new Rectangle(w / -2, w / -4, w, h/2), (evt, state) =>
                 {
+                    var panel = Parent as UINeighborhoodSelectionPanel;
                     switch (evt)
                     {
                         case UIMouseEventType.MouseUp:
                             HITVM.Get().PlaySoundEvent(FSO.Client.UI.Model.UISounds.NeighborhoodClick);
+                            Hovered = false;
+                            if (panel != null && panel.HoveredHouse == this) panel.HoveredHouse = null;
+                            GameFacade.Cursor.SetCursor(panel?.ToolCursor(null) ?? CursorType.Normal);
                             selectionCallback(houseNumber); break;
                         case UIMouseEventType.MouseOver:
                             GameFacade.Screens.Tween.To(this, 0.5f, new Dictionary<string, float>() { { "AlphaTime", 1f } });
                             HITVM.Get().PlaySoundEvent(FSO.Client.UI.Model.UISounds.NeighborhoodRollover);
+                            // SimsRedux: the original pointing finger (or the move-in / tool cursor)
+                            if (panel != null)
+                            {
+                                panel.HoveredHouse = this;
+                                GameFacade.Cursor.SetCursor(panel.ToolCursor(this));
+                            }
+                            else GameFacade.Cursor.SetCursor(CursorType.Finger);
                             Hovered = true; break;
                         case UIMouseEventType.MouseOut:
                             GameFacade.Screens.Tween.To(this, 0.5f, new Dictionary<string, float>() { { "AlphaTime", 0f } });
+                            if (panel != null && panel.HoveredHouse == this) panel.HoveredHouse = null;
+                            GameFacade.Cursor.SetCursor(panel?.ToolCursor(null) ?? CursorType.Normal);
                             Hovered = false; break;
                     }
                 });
+        }
+
+        /// <summary>SimsRedux: which lot this is.</summary>
+        public int HouseID;
+
+        /// <summary>SimsRedux: re-reads who lives here (after a move-in, eviction, rezone...).</summary>
+        public void Refresh()
+        {
+            _info = null;
+            FamilyName = null;
+            // is one of the player's families living here? (shows a green plumbbob)
+            try
+            {
+                var hood = Content.Get().Neighborhood;
+                var fam = hood.GetFamilyForHouse((short)HouseID);
+                if (fam != null && fam.HouseNumber == HouseID && fam.FamilyGUIDs != null && fam.FamilyGUIDs.Length > 0)
+                    FamilyName = hood.MainResource.Get<FAMs>(fam.ChunkID)?.GetString(0) ?? "Your family";
+            }
+            catch { }
+        }
+        private UIClassicLotInfo.HoverInfo _info;
+        /// <summary>SimsRedux: what the hover popup says about this lot (read once, when first needed).</summary>
+        public UIClassicLotInfo.HoverInfo Info
+        {
+            get
+            {
+                if (_info == null)
+                {
+                    try { _info = UIClassicLotInfo.GetHover(HouseID); }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine("[SimsRedux] Couldn't read lot " + HouseID + ": " + e.Message);
+                        _info = new UIClassicLotInfo.HoverInfo() { Title = "Lot " + HouseID };
+                    }
+                }
+                return _info;
+            }
+        }
+
+        /// <summary>SimsRedux: can the given neighbourhood tool be used on this lot?</summary>
+        public bool ToolAllowed(UINeighborhoodSelectionPanel.NeighTool tool)
+        {
+            bool ok;
+            var hint = UIClassicLotInfo.ToolHint(Info, tool, out ok);
+            return hint == null || ok;
+        }
+
+        /// <summary>SimsRedux: the point (relative to this button) the hover popup hangs from: just above the house.</summary>
+        public Vector2 PopupAnchor
+        {
+            get
+            {
+                if (Offsets == null || HouseTex == null) return new Vector2(0, -20);
+                var yOff = new Vector2(Offsets.XOff, -Offsets.BaseYOff) / HouseScale;
+                var img = new Vector2(-Offsets.Width, -Offsets.Height) / HouseScale + yOff;
+                float imgW = HouseTex.Width / HouseScale, imgH = HouseTex.Height / HouseScale;
+                float top = img.Y + imgH * 0.22f;
+                if (FamilyName != null) top -= 30; // above the plumbbob
+                return new Vector2(img.X + imgW / 2, top);
+            }
         }
 
         public override void Draw(UISpriteBatch batch)
@@ -539,6 +702,7 @@ namespace Simitone.Client.UI.Panels
             DrawLocalTexture(batch, HouseTex, null, new Vector2(-Offsets.Width, -Offsets.Height) / HouseScale + yOff, new Vector2(1f / HouseScale, 1f / HouseScale), Color.White * (1 - AlphaTime));
 
             // SimsRedux: green plumbbob over the player's families' homes, gently bobbing
+            // (the family name now shows in the hover popup)
             if (FamilyName != null)
             {
                 var bob = GetPlumbbob();
@@ -550,21 +714,6 @@ namespace Simitone.Client.UI.Panels
                 var pos = new Vector2(img.X + imgW / 2 - bob.Width / 2f, img.Y + imgH * 0.22f - bob.Height + lift);
                 DrawLocalTexture(batch, bob, null, pos + new Vector2(1, 2), Vector2.One, Color.Black * 0.35f); // shadow
                 DrawLocalTexture(batch, bob, null, pos, Vector2.One);
-                if (Hovered)
-                {
-                    if (TagStyle == null)
-                    {
-                        TagStyle = TextStyle.DefaultLabel.Clone();
-                        TagStyle.Size = 11;
-                        TagStyle.Color = Color.White;
-                        TagStyle.Shadow = true;
-                    }
-                    int tw = 14 + FamilyName.Length * 7;
-                    var box = new Rectangle((int)(pos.X + bob.Width / 2f - tw / 2f), (int)(pos.Y - 20), tw, 17);
-                    var px = TextureGenerator.GetPxWhite(GameFacade.GraphicsDevice);
-                    DrawLocalTexture(batch, px, null, new Vector2(box.X, box.Y), new Vector2(box.Width, box.Height), new Color(14, 34, 132) * 0.92f);
-                    DrawLocalString(batch, FamilyName, new Vector2(box.X, box.Y), TagStyle, new Rectangle(0, 0, box.Width, box.Height), TextAlignment.Center | TextAlignment.Middle);
-                }
             }
         }
 

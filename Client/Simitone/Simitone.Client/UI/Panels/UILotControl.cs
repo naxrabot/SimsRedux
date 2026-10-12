@@ -31,6 +31,7 @@ using FSO.Client;
 using FSO.Content;
 using FSO.Client.Debug;
 using Simitone.Client.UI.Screens;
+using Simitone.Client.Utils;
 using FSO.LotView.RC;
 using Simitone.Client.UI.Panels.LotControls;
 using FSO.Client.UI.Panels.LotControls;
@@ -122,7 +123,8 @@ namespace Simitone.Client.UI.Panels
 
         private void CheckStuckDialog()
         {
-            if (!vm.TS1 || vm.GlobalBlockingDialog == null || BlockingDialog != null || TS1NeighSelector != null)
+            if (vm.GlobalBlockingDialog != null && !OwnsCaller(vm.GlobalBlockingDialog)) { StuckFrames = 0; return; }
+            if (!vm.TS1 || vm.GlobalBlockingDialog == null || BlockingDialog != null || ClassicBlocking != null || TS1NeighSelector != null)
             {
                 StuckFrames = 0;
                 if (vm.GlobalBlockingDialog == null) StuckRetries = 0;
@@ -263,6 +265,12 @@ namespace Simitone.Client.UI.Panels
         }
         void vm_OnDialog(FSO.SimAntics.Model.VMDialogInfo info)
         {
+            // SimsRedux online: only show the questions for this player's own Sims
+            if (info != null && !OwnsDialog(info))
+            {
+                DialogLog("(not mine, skipped) " + info.Title + " | block=" + info.Block + " caller=" + (info.Caller?.PersistID.ToString() ?? "none"));
+                return;
+            }
             if (info != null)
             {
                 DialogLog("Dialog: " + info.Title + " | block=" + info.Block + " id=" + info.DialogID + " type=" + (info.Operand?.Type.ToString() ?? "-") + (info.DialogID == LastDialogID ? " (duplicate)" : ""));
@@ -271,6 +279,13 @@ namespace Simitone.Client.UI.Panels
             else DialogLog("Dialog cleared");
             if (info != null && ((info.DialogID == LastDialogID && info.DialogID != 0 && info.Block))) return;
             //return if same dialog as before, or not ours
+            if ((info == null || info.Block) && ClassicBlocking != null)
+            {
+                // SimsRedux: same for the classic popup
+                ClassicBlocking.Close();
+                ClassicBlocking = null;
+                LastDialogID = 0;
+            }
             if ((info == null || info.Block) && BlockingDialog != null)
             {
                 //cancel current dialog because it's no longer valid
@@ -295,6 +310,29 @@ namespace Simitone.Client.UI.Panels
                 var key = SimanticsErrorKey(info.Message);
                 if (SeenSimanticsErrors.Contains(key)) return;
                 SeenSimanticsErrors.Add(key);
+            }
+
+            // SimsRedux: in the classic interface, the game's questions use the original Sims 1 popup
+            VMDialogType ctype = (info.Operand == null) ? VMDialogType.Message : info.Operand.Type;
+            if (UIClassicNeighborhoodBar.Enabled && (ctype == VMDialogType.Message || ctype == VMDialogType.YesNo || ctype == VMDialogType.YesNoCancel))
+            {
+                var block = info.Block;
+                Func<byte, Action> answer = (code) => () => { if (block) ClassicResponse(code); };
+                Tuple<string, Action>[] buttons;
+                if (ctype == VMDialogType.YesNo)
+                    buttons = new[] { Tuple.Create(info.Yes ?? "Yes", answer(0)), Tuple.Create(info.No ?? "No", answer(1)) };
+                else if (ctype == VMDialogType.YesNoCancel)
+                    buttons = new[] { Tuple.Create(info.Yes ?? "Yes", answer(0)), Tuple.Create(info.No ?? "No", answer(1)), Tuple.Create(info.Cancel ?? "Cancel", answer(2)) };
+                else
+                    buttons = new[] { Tuple.Create(string.IsNullOrEmpty(info.Yes) ? "OK" : info.Yes, answer(0)) };
+                var classic = new UIClassicDialog(info.Title, info.Message, buttons);
+                UIScreen.GlobalShowDialog(classic, true);
+                if (block)
+                {
+                    ClassicBlocking = classic;
+                    LastDialogID = info.DialogID;
+                }
+                return;
             }
 
             var options = new UIAlertOptions
@@ -423,6 +461,17 @@ namespace Simitone.Client.UI.Panels
             });
             Parent.Remove(TS1NeighSelector);
             TS1NeighSelector = null;
+        }
+
+        // SimsRedux: the classic popup currently waiting for an answer
+        private UIClassicDialog ClassicBlocking;
+
+        private void ClassicResponse(byte code)
+        {
+            DialogLog("Answered (classic) with button " + code);
+            ClassicBlocking = null;
+            LastDialogID = 0;
+            vm.SendCommand(new VMNetDialogResponseCmd { ResponseCode = code, ResponseText = "" });
         }
 
         private void DialogButton0(UIElement button) { DialogResponse(0); }
@@ -633,8 +682,32 @@ namespace Simitone.Client.UI.Panels
 
         private int AutoSelectCooldown;
         /// <summary>SimsRedux: takes control of the game's selected Sim, or the first family member on the lot.</summary>
+        /// <summary>
+        /// SimsRedux online: is this Sim (or object) one this player should answer for? Offline,
+        /// always. On a shared lot: your own Sim, and for the host also the family's other Sims
+        /// and the game's own questions (no Sim attached).
+        /// </summary>
+        private bool OwnsCaller(VMEntity caller)
+        {
+            var screen = Parent as TS1GameScreen;
+            bool online = screen != null && (screen.Host != null || screen.IsGuest);
+            if (!online) return true;
+            bool isHost = !screen.IsGuest;
+            // only friends' own Sims belong to them; everything else (the host's family, objects
+            // like the Help System, the game itself) is the host's to answer
+            if (caller is VMAvatar && caller.PersistID == vm.MyUID) return true;
+            if (caller is VMAvatar && caller.PersistID >= ReduxOnlineInfo.FirstGuestID) return false;
+            return isHost;
+        }
+
+        private bool OwnsDialog(FSO.SimAntics.Model.VMDialogInfo info)
+        {
+            return OwnsCaller(info.Caller);
+        }
+
         private void TryAutoSelectSim()
         {
+            if ((Parent as TS1GameScreen)?.IsGuest == true) return; // a visitor only ever has their own Sim
             if (AutoSelectCooldown > 0) { AutoSelectCooldown--; return; }
             AutoSelectCooldown = 60; // try about once a second, not every frame
             try
@@ -863,11 +936,16 @@ namespace Simitone.Client.UI.Panels
         }
 
         private WorldZoom LastZoom;
+        /// <summary>SimsRedux: frames this control has run, and how far (for the online debug log).</summary>
+        public int DebugUpdates, DebugFullUpdates;
+
         public override void Update(UpdateState state)
         {
             base.Update(state);
+            DebugUpdates++;
 
             if (!vm.Ready || vm.Context.Architecture == null) return;
+            DebugFullUpdates++;
 
             CheckStuckDialog();
 

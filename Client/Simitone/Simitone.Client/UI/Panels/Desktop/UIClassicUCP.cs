@@ -140,9 +140,7 @@ namespace Simitone.Client.UI.Panels.Desktop
             var sound = Btn("cpanel/Buttons/optsound.bmp", 309, 141);
             var play = Btn("cpanel/Buttons/optplay.bmp", 371, 141);
             save.OnButtonClick += (b) => Screen.Save();
-            nbhd.OnButtonClick += (b) => UIClassicDialog.YesNo("Return to Neighborhood?",
-                "Are you sure you want to go back to the neighborhood? Unsaved changes will be lost.",
-                () => Screen.ReturnToNeighbourhood());
+            nbhd.OnButtonClick += (b) => Screen.ReturnToNeighbourhood(); // asks "save first?" itself
             quit.OnButtonClick += (b) => Screen.CloseAttempt();
             graphics.SelectedFrame = sound.SelectedFrame = play.SelectedFrame = 1;
             graphics.OnButtonClick += (b) => ShowOptionsPage(UIClassicOptionsPages.Page.Graphics);
@@ -154,7 +152,9 @@ namespace Simitone.Client.UI.Panels.Desktop
             OptLineV = TS1UIGraphics.Get("cpanel/Backgrounds/OptionsToothpkVert.bmp");
 
             HelpBtn = Btn("cpanel/Buttons/HelpButton.bmp", 5, 164);
-            HelpBtn.Disabled = true; // help: not available
+            HelpBtn.OnButtonClick += (b) => UIClassicHelpDialog.Toggle();
+            HelpBtn.OnButtonHover += (b) => GameFacade.Cursor.SetCursor(FSO.Common.Rendering.Framework.CursorType.Help);
+            HelpBtn.OnButtonExit += (b) => GameFacade.Cursor.SetCursor(FSO.Common.Rendering.Framework.CursorType.Normal);
 
             // text: clock, friends, money (Simitone's labels are reused for money)
             ClockLabel = Lcd(86, 117, 74, 15, TextAlignment.Center | TextAlignment.Middle, 12);
@@ -272,6 +272,7 @@ namespace Simitone.Client.UI.Panels.Desktop
             Reposition();
             base.Update(state);
             CurrentMode = SelectedMode();
+            if (state.NewKeys.Contains(Microsoft.Xna.Framework.Input.Keys.F1)) UIClassicHelpDialog.Toggle();
 
             // bar contents that are already classic: show ours, hide Simitone's
             bool options = CurrentMode == UIMainPanelMode.OPTIONS;

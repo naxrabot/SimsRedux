@@ -73,6 +73,13 @@ namespace Simitone.Client.Utils
             return fallback;
         }
 
+        public static string GetString(string key, string fallback)
+        {
+            Load();
+            string v;
+            return Values.TryGetValue(key.ToLowerInvariant(), out v) ? v : fallback;
+        }
+
         public static bool Has(string key)
         {
             Load();

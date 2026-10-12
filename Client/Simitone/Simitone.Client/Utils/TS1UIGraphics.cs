@@ -39,7 +39,10 @@ namespace Simitone.Client.Utils
             Tried = true;
             try
             {
-                var basePath = Content.Get().TS1BasePath;
+                // SimsRedux: works before the game content is loaded too (cursors are set up very early)
+                string basePath = null;
+                try { basePath = Content.Get()?.TS1BasePath; } catch { }
+                if (string.IsNullOrEmpty(basePath)) basePath = GlobalSettings.Default.TS1HybridPath;
                 var farPath = Path.Combine(basePath, "UIGraphics", "UIGraphics.far");
                 if (!File.Exists(farPath))
                 {
@@ -61,6 +64,43 @@ namespace Simitone.Client.Utils
                 Console.WriteLine("[SimsRedux] Failed to open UIGraphics.far: " + e.Message);
                 Archive = null;
             }
+        }
+
+        /// <summary>
+        /// SimsRedux: copies the original Sims 1 font files (Fonts/*.ffn) out of UIGraphics.far into
+        /// Documents\Simitone\redux_fonts, once, so the font format can be worked out.
+        /// </summary>
+        public static void DumpFontsOnce()
+        {
+            try
+            {
+                var dir = Path.Combine(FSO.Common.FSOEnvironment.UserDir, "redux_fonts");
+                if (Directory.Exists(dir)) return;
+                Init();
+                if (Archive == null) return;
+                Directory.CreateDirectory(dir);
+                foreach (var pair in Entries)
+                {
+                    var name = pair.Key;
+                    if (!name.StartsWith("fonts\\") || name.Substring(6).Contains("\\")) continue; // only the main fonts folder
+                    var data = Archive.GetEntry(pair.Value);
+                    File.WriteAllBytes(Path.Combine(dir, name.Substring(6)), data);
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("[SimsRedux] Font copy: " + e.Message);
+            }
+        }
+
+        /// <summary>SimsRedux: the raw bytes of a file in UIGraphics.far (null if missing).</summary>
+        public static byte[] GetBytes(string path)
+        {
+            Init();
+            FarEntry entry;
+            if (Archive == null || !Entries.TryGetValue(Normalize(path), out entry)) return null;
+            try { return Archive.GetEntry(entry); }
+            catch { return null; }
         }
 
         /// <summary>

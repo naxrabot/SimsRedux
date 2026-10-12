@@ -1,0 +1,25 @@
+name: Build
+
+# Builds the Windows game on every push to the browser-port branch (and when run by hand),
+# so compile errors show up here instead of on Joey's PC.
+on:
+  push:
+    branches: [ browser-port ]
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - name: Get the code (with the FreeSO submodule)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Build the Windows game
+        run: dotnet build Client/Simitone/Simitone.Windows/Simitone.Windows.csproj -c Release -v minimal -clp:ErrorsOnly

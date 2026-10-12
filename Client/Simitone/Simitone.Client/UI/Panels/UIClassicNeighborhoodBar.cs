@@ -35,6 +35,7 @@ namespace Simitone.Client.UI.Panels
         private Texture2D Logo;
         private ushort Mode;
         private UILabel NeighNumber;
+        private UITS1Button NewHouseBtn, BulldozeBtn, RezoneBtn;
 
         // button layout measured from the original screens
         private const int ButtonY = 5;
@@ -46,6 +47,7 @@ namespace Simitone.Client.UI.Panels
             Panel = panel;
             Mode = mode;
             Banner = TS1UIGraphics.Get(mode == 4 ? "NghUI/banner_neighborhood.bmp" : "NghUI/banner_downtown.bmp");
+            panel.ToolPick = UseTool;
             Logo = TS1UIGraphics.Get("NghUI/TheSimsLogo.bmp");
 
             switch (mode)
@@ -104,16 +106,28 @@ namespace Simitone.Client.UI.Panels
             magic.OnButtonClick += (b) => Panel.ClassicGoTo(7);
             exit.OnButtonClick += (b) => ConfirmExit();
 
-            // not supported yet
-            newHouse.Disabled = true;
-            bulldoze.Disabled = true;
-            rezone.Disabled = true;
+            // SimsRedux: pick a tool, then click a lot
+            NewHouseBtn = newHouse; BulldozeBtn = bulldoze; RezoneBtn = rezone;
+            newHouse.OnButtonClick += (b) => PickTool(UINeighborhoodSelectionPanel.NeighTool.NewHouse);
+            bulldoze.OnButtonClick += (b) => PickTool(UINeighborhoodSelectionPanel.NeighTool.Bulldoze);
+            rezone.OnButtonClick += (b) => PickTool(UINeighborhoodSelectionPanel.NeighTool.Rezone);
+
+            // SimsRedux: play online (host a house, or visit a friend)
+            if (!moveIn)
+            {
+                var online = new UITS1TileButton(TS1UIGraphics.Get("cpanel/Buttons/ButtonTileDialog.bmp"), "Online", 110);
+                online.TextSize = 15;
+                online.Position = new Vector2(x + Spacing + 6, 9);
+                online.OnButtonClick += (b) => UIClassicOnlineDialog.Show();
+                Add(online);
+            }
 
             // while moving a family in, you can only pick a house here
             if (moveIn)
             {
                 family.Disabled = true;
                 downtown.Disabled = vacation.Disabled = studio.Disabled = true;
+                newHouse.Disabled = bulldoze.Disabled = rezone.Disabled = true;
             }
         }
 
@@ -130,8 +144,88 @@ namespace Simitone.Client.UI.Panels
             var import = Btn(importPath, x, ButtonY);
 
             back.OnButtonClick += (b) => Panel.ClassicGoTo(4);
-            bulldoze.Disabled = true; // not supported yet
+            BulldozeBtn = bulldoze;
+            bulldoze.OnButtonClick += (b) => PickTool(UINeighborhoodSelectionPanel.NeighTool.Bulldoze);
             import.Disabled = true;   // not supported yet
+        }
+
+        /// <summary>Clicking a tool picks it; clicking it again puts it away.</summary>
+        private void PickTool(UINeighborhoodSelectionPanel.NeighTool tool)
+        {
+            Panel.Tool = (Panel.Tool == tool) ? UINeighborhoodSelectionPanel.NeighTool.None : tool;
+        }
+
+        /// <summary>Lights up the button of the tool in use.</summary>
+        public void ToolChanged()
+        {
+            var tool = Panel.Tool;
+            if (NewHouseBtn != null) NewHouseBtn.Selected = tool == UINeighborhoodSelectionPanel.NeighTool.NewHouse;
+            if (BulldozeBtn != null) BulldozeBtn.Selected = tool == UINeighborhoodSelectionPanel.NeighTool.Bulldoze;
+            if (RezoneBtn != null) RezoneBtn.Selected = tool == UINeighborhoodSelectionPanel.NeighTool.Rezone;
+        }
+
+        /// <summary>A lot was clicked with a tool picked: check it, ask, then do it.</summary>
+        private void UseTool(int house)
+        {
+            var tool = Panel.Tool;
+            UIClassicLotInfo.HoverInfo info;
+            try { info = UIClassicLotInfo.GetHover(house); }
+            catch (Exception e)
+            {
+                Console.WriteLine("[SimsRedux] Couldn't read lot " + house + ": " + e.Message);
+                return;
+            }
+            bool ok;
+            var hint = UIClassicLotInfo.ToolHint(info, tool, out ok);
+            var screen = UIScreen.Current as Simitone.Client.UI.Screens.TS1GameScreen;
+            if (screen == null) return;
+            var name = info.Title;
+
+            switch (tool)
+            {
+                case UINeighborhoodSelectionPanel.NeighTool.NewHouse:
+                    if (!ok)
+                    {
+                        UIClassicDialog.Ok("New House", info.Occupied
+                            ? "Someone already lives at " + name + ". Pick an empty lot to build a new house."
+                            : name + " already has a building on it. Bulldoze it first, or pick an empty lot.");
+                        return;
+                    }
+                    UIClassicDialog.YesNo("New House", "Do you want to build a new " + (info.Community ? "community lot" : "house") + " on " + name + "?",
+                        () => { Panel.Tool = UINeighborhoodSelectionPanel.NeighTool.None; screen.BuildNewHouse((short)house); });
+                    break;
+
+                case UINeighborhoodSelectionPanel.NeighTool.Bulldoze:
+                    if (!ok)
+                    {
+                        UIClassicDialog.Ok("Bulldoze", info.Occupied
+                            ? "The family living at " + name + " must be evicted before it can be bulldozed. Click the lot and choose Evict."
+                            : "There is nothing on " + name + " to bulldoze.");
+                        return;
+                    }
+                    UIClassicDialog.YesNo("Bulldoze", "Are you sure you want to bulldoze " + name + "? Everything on the lot will be destroyed. This can't be undone.",
+                        () => { Panel.Tool = UINeighborhoodSelectionPanel.NeighTool.None; screen.BulldozeLot((short)house); });
+                    break;
+
+                case UINeighborhoodSelectionPanel.NeighTool.Rezone:
+                    if (!ok)
+                    {
+                        UIClassicDialog.Ok("Rezone", "The family living at " + name + " must be evicted before the lot can be rezoned.");
+                        return;
+                    }
+                    var toCommunity = !info.Community;
+                    UIClassicDialog.YesNo("Rezone", toCommunity
+                        ? "Make " + name + " a community lot? Families won't be able to live there, but your Sims can visit it."
+                        : "Make " + name + " a home lot? Families will be able to move in.",
+                        () =>
+                        {
+                            Panel.Tool = UINeighborhoodSelectionPanel.NeighTool.None;
+                            if (!FSO.Content.Content.Get().Neighborhood.SetZone((short)house, toCommunity))
+                                UIClassicDialog.Ok("Rezone", "The new zoning couldn't be saved, so it will be lost when you quit.");
+                            Panel.RefreshHouses();
+                        });
+                    break;
+            }
         }
 
         private void GoToCAS()
@@ -141,7 +235,7 @@ namespace Simitone.Client.UI.Panels
 
         private void ConfirmExit()
         {
-            UIClassicDialog.YesNo("Quit The Sims?", "Are you sure you want to quit?", () => GameFacade.Game.Exit());
+            UIClassicDialog.YesNo("Quit The Sims?", "Are you sure you want to quit?", () => { Simitone.Client.UI.Screens.TS1GameScreen.ExitConfirmed = true; GameFacade.Game.Exit(); });
         }
 
         public override void Draw(UISpriteBatch batch)

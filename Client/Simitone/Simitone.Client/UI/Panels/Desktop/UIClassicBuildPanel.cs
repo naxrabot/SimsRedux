@@ -430,8 +430,40 @@ namespace Simitone.Client.UI.Panels.Desktop
         }
 
         /// <summary>Switch on one of Simitone's build tools (wall placer, floor painter...).</summary>
+        // SimsRedux: the original Sims 1 cursor for the tool in use (shown while over the lot)
+        private FSO.Common.Rendering.Framework.CursorType ToolCursor = FSO.Common.Rendering.Framework.CursorType.Normal;
+        private FSO.Common.Rendering.Framework.CursorType? ShownCursor;
+
+        private static FSO.Common.Rendering.Framework.CursorType CursorFor(Type control, List<int> parameters)
+        {
+            if (control == typeof(UITerrainRaiser)) return FSO.Common.Rendering.Framework.CursorType.SimsRaise;
+            if (control == typeof(UITerrainFlatten)) return FSO.Common.Rendering.Framework.CursorType.SimsLevel;
+            if (control == typeof(UIFloorPainter) && parameters != null && parameters.Count > 0)
+            {
+                if (parameters[0] == 65535) return FSO.Common.Rendering.Framework.CursorType.Hole;
+                if (parameters[0] == 65534) return FSO.Common.Rendering.Framework.CursorType.Water;
+            }
+            return FSO.Common.Rendering.Framework.CursorType.Normal;
+        }
+
+        private void UpdateCursor()
+        {
+            var lot = Game.LotControl;
+            FSO.Common.Rendering.Framework.CursorType? want = null;
+            if (Visible && lot != null && lot.MouseIsOn && lot.ObjectHolder.Holding == null)
+            {
+                // (with no tool, the object holder shows the Sims 1 move hand itself)
+                if (lot.CustomControl != null) want = ToolCursor;
+            }
+            if (want == ShownCursor) return;
+            // left the lot / dropped the tool: back to the normal arrow (once)
+            GameFacade.Cursor.SetCursor(want ?? FSO.Common.Rendering.Framework.CursorType.Normal);
+            ShownCursor = want;
+        }
+
         private void StartTool(Type control, List<int> parameters, ulong resID, UICatalogResProvider res)
         {
+            ToolCursor = CursorFor(control, parameters);
             var lot = Game.LotControl;
             lot.ObjectHolder.ClearSelected();
             if (lot.CustomControl != null)
@@ -606,6 +638,7 @@ namespace Simitone.Client.UI.Panels.Desktop
                 if (SellCatcher.Visible) SellCatcher.Width = (int)(GlobalSettings.Default.GraphicsWidth / ((Parent?.Parent as UIClassicUCP)?.UIScale ?? 1f)) - 218;
             }
             if (Game.LotControl != null && Visible) Game.LotControl.PickupPanel.Opacity = 0f;
+            if (Visible || ShownCursor != null) UpdateCursor();
             base.Update(state);
         }
 

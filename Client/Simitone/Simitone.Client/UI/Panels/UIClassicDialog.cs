@@ -224,6 +224,20 @@ namespace Simitone.Client.UI.Panels
             }
         }
 
+        /// <summary>SimsRedux: the words on the button.</summary>
+        public string Caption
+        {
+            get { return Text; }
+            set { Text = value ?? ""; }
+        }
+
+        /// <summary>SimsRedux: caption size (18 by default).</summary>
+        public int TextSize
+        {
+            get { return Style.Size; }
+            set { Style.Size = value; }
+        }
+
         public override Vector2 Size
         {
             get { return new Vector2(ButtonW, Texture?.Height ?? 33); }
@@ -241,7 +255,7 @@ namespace Simitone.Client.UI.Panels
             int frames = 4;
             int fw = Texture.Width / frames, h = Texture.Height;
             var state = CurrentFrame; // 0 normal, 1 pressed, 2 hover
-            int frame = Disabled ? 3 : (state == 1 ? 2 : (state == 2 ? 1 : 0));
+            int frame = Disabled ? 3 : ((state == 1 || Selected) ? 2 : (state == 2 ? 1 : 0));
             int x0 = frame * fw;
             int third = fw / 3;
             int mid = fw - third * 2;
@@ -253,6 +267,7 @@ namespace Simitone.Client.UI.Panels
 
             var style = Style;
             if (state == 2 && !Disabled) { style = Style.Clone(); style.Color = Color.Cyan; }
+            else if (Selected && !Disabled) { style = Style.Clone(); style.Color = new Color(255, 240, 110); }
             DrawLocalString(batch, Text, Vector2.Zero, style, new Rectangle(0, 0, ButtonW, h), TextAlignment.Center | TextAlignment.Middle);
         }
     }

@@ -1,4 +1,4 @@
-﻿/*
+/*
 This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
 If a copy of the MPL was not distributed with this file, You can obtain one at
 http://mozilla.org/MPL/2.0/.
@@ -141,7 +141,10 @@ namespace Simitone.Client
             if (!GameFacade.Linux)
             {
                 CurLoader.BmpLoaderFunc = ImageLoader.BaseFunction;
+                // SimsRedux: The Sims 1 keeps its cursors inside UIGraphics.far
+                CursorManager.ExtraSource = (name) => Simitone.Client.Utils.TS1UIGraphics.GetBytes("Shared/cursors/" + name);
                 GameFacade.Cursor.Init(GlobalSettings.Default.TS1HybridPath, true);
+                Simitone.Client.Utils.TS1UIGraphics.DumpFontsOnce(); // SimsRedux: copies the Sims 1 font files out for the font work
             }
 
             /** Init any computed values **/
@@ -236,6 +239,10 @@ namespace Simitone.Client
 
                 GameFacade.VectorFont = new FSO.UI.Framework.MSDFFont(Content.Load<FieldFont>("../Fonts/mobile"));
                 GameFacade.EdithVectorFont = new FSO.UI.Framework.MSDFFont(Content.Load<FieldFont>("../Fonts/trebuchet"));
+                // SimsRedux: the original Sims 1 font in the classic interface (-modernfont keeps Simitone's)
+                if (Simitone.Client.UI.Panels.UIClassicNeighborhoodBar.Enabled && !FSOEnvironment.Args.Contains("-modernfont")
+                    && Simitone.Client.Utils.ReduxFonts.TryLoad(GraphicsDevice, GameFacade.MainFont))
+                    GameFacade.VectorFont = null;
                 GameFacade.EdithVectorFont.VectorScale = 0.366f;
                 GameFacade.EdithVectorFont.Height = 15;
                 GameFacade.EdithVectorFont.YOff = 11;

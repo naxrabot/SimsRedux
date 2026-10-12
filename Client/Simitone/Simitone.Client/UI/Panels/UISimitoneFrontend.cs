@@ -125,7 +125,9 @@ namespace Simitone.Client.UI.Panels
 
             if (Game.vm.GetGlobalValue(32) > 0)
             {
-                MainPanel.SetMode(UIMainPanelMode.BUY);
+                // SimsRedux: New House starts in Build mode, other empty lots in Buy mode
+                MainPanel.SetMode(Game.StartInBuild ? UIMainPanelMode.BUILD : UIMainPanelMode.BUY);
+                Game.StartInBuild = false;
                 ModeSwitcher?.EndSwitch(MainPanel.Mode);
                 MainPanel.Open();
             } else
@@ -139,6 +141,8 @@ namespace Simitone.Client.UI.Panels
             Clock?.SetHidden(obj != UIMainPanelMode.LIVE);
             DesktopUCP?.SetMode(obj);
             var lotType = MainPanel.GetLotType(true);
+            // SimsRedux: base game Buy / Build music everywhere (no expansion pack music)
+            if (FSO.HIT.HITVM.BaseMusicOnly) lotType = UICatalogMode.Normal;
             var hit = FSO.HIT.HITVM.Get();
             switch (obj)
             {

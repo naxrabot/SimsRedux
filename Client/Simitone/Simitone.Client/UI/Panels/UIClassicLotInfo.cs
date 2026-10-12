@@ -120,6 +120,80 @@ namespace Simitone.Client.UI.Panels
             return info;
         }
 
+        /// <summary>SimsRedux: the short summary shown when the mouse is over a house on the map.</summary>
+        public class HoverInfo
+        {
+            public string Title = "";
+            public System.Collections.Generic.List<string> Lines = new System.Collections.Generic.List<string>();
+            public bool Occupied;
+            public bool Community;
+            /// <summary>Nothing has been built here yet (no walls or floors).</summary>
+            public bool Empty;
+        }
+
+        public static HoverInfo GetHover(int houseID)
+        {
+            var hover = new HoverInfo();
+            var neigh = Content.Get().Neighborhood;
+            var info = Get(houseID);
+            var family = neigh.GetFamilyForHouse((short)houseID);
+            SIMI simi = null;
+            try { simi = neigh.GetHouse(houseID)?.Get<SIMI>(1); } catch { }
+
+            if (family != null)
+            {
+                hover.Occupied = true;
+                var famName = neigh.MainResource.Get<FAMs>(family.ChunkID)?.GetString(0) ?? "?";
+                hover.Title = "The " + famName + " Family";
+                hover.Lines.Add("Family funds: §" + family.Budget.ToString("##,#0"));
+                hover.Lines.Add("House value: §" + family.ValueInArch.ToString("##,#0"));
+            }
+            else if (neigh.IsCommunity((short)houseID))
+            {
+                hover.Community = true;
+                hover.Title = info.Name;
+                hover.Lines.Add("Community Lot");
+                hover.Empty = simi != null && simi.ArchitectureValue <= 0;
+            }
+            else
+            {
+                hover.Title = info.Name;
+                hover.Empty = simi != null && simi.ArchitectureValue <= 0;
+                var price = simi?.PurchaseValue ?? 0;
+                hover.Lines.Add((hover.Empty ? "Empty lot: §" : "For sale: §") + price.ToString("##,#0"));
+            }
+            if (!string.IsNullOrEmpty(info.Street) && info.Street != hover.Title) hover.Lines.Add(info.Street);
+            if (string.IsNullOrEmpty(hover.Title)) hover.Title = "Lot " + houseID;
+            return hover;
+        }
+
+        /// <summary>
+        /// SimsRedux: what a neighbourhood tool would do to this lot (shown in the hover popup).
+        /// "ok" says whether the tool can be used here. Null when no tool is picked.
+        /// </summary>
+        public static string ToolHint(HoverInfo info, UINeighborhoodSelectionPanel.NeighTool tool, out bool ok)
+        {
+            ok = false;
+            switch (tool)
+            {
+                case UINeighborhoodSelectionPanel.NeighTool.NewHouse:
+                    if (info.Occupied) return "Someone lives here";
+                    if (!info.Empty) return "Not an empty lot: bulldoze it first";
+                    ok = true;
+                    return info.Community ? "Click to build a community lot here" : "Click to build a new house here";
+                case UINeighborhoodSelectionPanel.NeighTool.Bulldoze:
+                    if (info.Occupied) return "Evict the family first";
+                    ok = true;
+                    return info.Empty ? "Click to clear the lot again" : "Click to bulldoze";
+                case UINeighborhoodSelectionPanel.NeighTool.Rezone:
+                    if (info.Occupied) return "Evict the family first";
+                    ok = true;
+                    return info.Community ? "Click to make this a home lot" : "Click to make this a community lot";
+            }
+            ok = true;
+            return null;
+        }
+
         private static void ConfirmEvict(int houseID)
         {
             var neigh = Content.Get().Neighborhood;
