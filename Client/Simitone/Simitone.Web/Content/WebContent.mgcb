@@ -15,77 +15,90 @@
 /importer:EffectImporter
 /processor:EffectProcessor
 /processorParam:DebugMode=Auto
+/processorParam:Defines=WEBGL=1
 /build:../../../../FreeSO/TSOClient/tso.content/ContentSrc/Effects/2DWorldBatchiOS.fx;Web/Effects/2DWorldBatchiOS.fx
 
 #begin Web/Effects/gradpoly2D.fx
 /importer:EffectImporter
 /processor:EffectProcessor
 /processorParam:DebugMode=Auto
+/processorParam:Defines=WEBGL=1
 /build:../../../../FreeSO/TSOClient/tso.content/ContentSrc/Effects/gradpoly2D.fx;Web/Effects/gradpoly2D.fx
 
 #begin Web/Effects/colorpoly2D.fx
 /importer:EffectImporter
 /processor:EffectProcessor
 /processorParam:DebugMode=Auto
+/processorParam:Defines=WEBGL=1
 /build:../../../../FreeSO/TSOClient/tso.content/ContentSrc/Effects/colorpoly2D.fx;Web/Effects/colorpoly2D.fx
 
 #begin Web/Effects/LightMap2D.fx
 /importer:EffectImporter
 /processor:EffectProcessor
 /processorParam:DebugMode=Auto
+/processorParam:Defines=WEBGL=1
 /build:../../../../FreeSO/TSOClient/tso.content/ContentSrc/Effects/LightMap2D.fx;Web/Effects/LightMap2D.fx
 
 #begin Web/Effects/GrassShaderiOS.fx
 /importer:EffectImporter
 /processor:EffectProcessor
 /processorParam:DebugMode=Auto
+/processorParam:Defines=WEBGL=1
 /build:../../../../FreeSO/TSOClient/tso.content/ContentSrc/Effects/GrassShaderiOS.fx;Web/Effects/GrassShaderiOS.fx
 
 #begin Web/Effects/RCObjectiOS.fx
 /importer:EffectImporter
 /processor:EffectProcessor
 /processorParam:DebugMode=Auto
+/processorParam:Defines=WEBGL=1
 /build:../../../../FreeSO/TSOClient/tso.content/ContentSrc/Effects/RCObjectiOS.fx;Web/Effects/RCObjectiOS.fx
 
 #begin Web/Effects/SSAA.fx
 /importer:EffectImporter
 /processor:EffectProcessor
 /processorParam:DebugMode=Auto
+/processorParam:Defines=WEBGL=1
 /build:../../../../FreeSO/TSOClient/tso.content/ContentSrc/Effects/SSAA.fx;Web/Effects/SSAA.fx
 
 #begin Web/Effects/SpriteEffectsiOS.fx
 /importer:EffectImporter
 /processor:EffectProcessor
 /processorParam:DebugMode=Auto
+/processorParam:Defines=WEBGL=1
 /build:../../../../FreeSO/TSOClient/tso.content/ContentSrc/Effects/SpriteEffectsiOS.fx;Web/Effects/SpriteEffectsiOS.fx
 
 #begin Web/Effects/ParticleShader.fx
 /importer:EffectImporter
 /processor:EffectProcessor
 /processorParam:DebugMode=Auto
+/processorParam:Defines=WEBGL=1
 /build:../../../../FreeSO/TSOClient/tso.content/ContentSrc/Effects/ParticleShader.fx;Web/Effects/ParticleShader.fx
 
 #begin Web/Effects/VitaboyiOS.fx
 /importer:EffectImporter
 /processor:EffectProcessor
 /processorParam:DebugMode=Auto
+/processorParam:Defines=WEBGL=1
 /build:../../../../FreeSO/TSOClient/tso.content/ContentSrc/Effects/VitaboyiOS.fx;Web/Effects/VitaboyiOS.fx
 
 #begin Web/Effects/MSDFFont.fx
 /importer:EffectImporter
 /processor:EffectProcessor
 /processorParam:DebugMode=Auto
+/processorParam:Defines=WEBGL=1
 /build:../../../../FreeSO/TSOClient/tso.content/ContentSrc/Effects/MSDFFont.fx;Web/Effects/MSDFFont.fx
 
 #begin Web/Effects/PixShader.fx
 /importer:EffectImporter
 /processor:EffectProcessor
 /processorParam:DebugMode=Auto
+/processorParam:Defines=WEBGL=1
 /build:../../../../FreeSO/TSOClient/tso.content/ContentSrc/Effects/PixShader.fx;Web/Effects/PixShader.fx
 
 #begin Web/Effects/VerShader.fx
 /importer:EffectImporter
 /processor:EffectProcessor
 /processorParam:DebugMode=Auto
+/processorParam:Defines=WEBGL=1
 /build:../../../../FreeSO/TSOClient/tso.content/ContentSrc/Effects/VerShader.fx;Web/Effects/VerShader.fx
 
