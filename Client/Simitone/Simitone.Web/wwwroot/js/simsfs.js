@@ -133,7 +133,7 @@
 #srx-setup .bar div { height: 100%; width: 0; background: linear-gradient(#7cf08a, #2fae45); transition: width .15s; }
 #srx-setup .status { font-size: 13px; min-height: 18px; }
 #srx-setup .error { color: #ff9a8a; }
-#srx-setup .hidden { display: none; }`;
+#srx-setup .hidden, #srx-setup.hidden { display: none; }`;
         document.head.appendChild(style);
         const el = document.createElement('div');
         el.id = 'srx-setup';

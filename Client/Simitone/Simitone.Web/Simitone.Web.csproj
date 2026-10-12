@@ -79,12 +79,20 @@
     </PropertyGroup>
     <ItemGroup>
       <GameContent Include="$(FSOContent)**\*" Exclude="$(FSOContent)DX\**;$(FSOContent)OGL\**;$(FSOContent)iOS\**;$(FSOContent)Effects\**" />
+      <!-- the rest of what the Windows build puts in its Content folder (FSO.Content.TSO, FSO.Client, Simitone.Client).
+           TSO-only object replacements (262 MB) and the TSO setup picture aren't needed for The Sims 1. -->
+      <TsoContent Include="$(FSORoot)FSO.Content.TSO\Content\**\*" Exclude="$(FSORoot)FSO.Content.TSO\Content\Objects\**;$(FSORoot)FSO.Content.TSO\Content\setup.png" />
+      <ClientContent Include="$(FSORoot)tso.client\Content\**\*" Exclude="$(FSORoot)tso.client\Content\ArchiveCities\**" />
+      <SimitoneContent Include="..\Simitone.Client\Content\**\*" />
       <GameGfxFonts Include="$(FSOContent)OGL\Fonts\**\*" />
       <GameGfxTextures Include="$(FSOContent)OGL\Textures\**\*" />
       <BuiltEffects Include="wwwroot\Content\**\*" />
     </ItemGroup>
     <Message Importance="high" Text="SimsRedux: copying game content to $(SiteContent)" />
     <Copy SourceFiles="@(GameContent)" DestinationFiles="@(GameContent->'$(SiteContent)%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(TsoContent)" DestinationFiles="@(TsoContent->'$(SiteContent)%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(ClientContent)" DestinationFiles="@(ClientContent->'$(SiteContent)%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(SimitoneContent)" DestinationFiles="@(SimitoneContent->'$(SiteContent)%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(GameGfxFonts)" DestinationFiles="@(GameGfxFonts->'$(SiteContent)Web\Fonts\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(GameGfxTextures)" DestinationFiles="@(GameGfxTextures->'$(SiteContent)Web\Textures\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(BuiltEffects)" DestinationFiles="@(BuiltEffects->'$(SiteContent)%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
