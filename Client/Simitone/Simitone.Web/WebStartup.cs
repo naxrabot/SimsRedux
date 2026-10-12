@@ -15,7 +15,7 @@ namespace Simitone.Web
         /// <summary>Where the player's own Sims 1 files appear once they've chosen their game folder (stage 3).</summary>
         public const string GamePath = "/sims/";
 
-        public static SimitoneGame CreateGame()
+        public static SimitoneGame CreateGame(int width, int height)
         {
             FSOFileSystem.Current = new BrowserFileSystem(); // the player's files live in the browser (js/simsfs.js)
             FSOEnvironment.NoThreads = true;      // browsers can't run the game's loading threads
@@ -48,6 +48,14 @@ namespace Simitone.Web
             GlobalSettings.Default.LightingMode = 0;
             GlobalSettings.Default.AntiAlias = 0;
             GlobalSettings.Default.ComplexShaders = false;
+            // the game fills the browser window (and follows it when the window is resized),
+            // so the mouse lines up with what's drawn
+            GlobalSettings.Default.Windowed = true;
+            if (width > 0 && height > 0)
+            {
+                GlobalSettings.Default.GraphicsWidth = width;
+                GlobalSettings.Default.GraphicsHeight = height;
+            }
             GlobalSettings.Default.EnableTransitions = true;
 
             return new SimitoneGame();

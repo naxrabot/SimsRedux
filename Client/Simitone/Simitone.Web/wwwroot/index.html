@@ -81,6 +81,12 @@
             window.requestAnimationFrame(tickJS);
         }
 
+        window.simsReduxCanvasSize = () =>
+        {
+            var holder = document.getElementById('canvasHolder');
+            return [holder.clientWidth, holder.clientHeight];
+        };
+
         window.simsReduxCrashed = (message) =>
         {
             var box = document.createElement('div');

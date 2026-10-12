@@ -27,7 +27,8 @@ namespace Simitone.Web.Pages
             {
                 if (_game == null)
                 {
-                    _game = WebStartup.CreateGame();
+                    var size = ((IJSInProcessRuntime)JsRuntime).Invoke<int[]>("simsReduxCanvasSize");
+                    _game = WebStartup.CreateGame(size[0], size[1]);
                     _game.Run();
                 }
                 _game.Tick();
