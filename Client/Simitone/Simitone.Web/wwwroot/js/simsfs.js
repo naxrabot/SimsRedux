@@ -124,7 +124,7 @@
 #srx-setup h1 { font-size: 26px; margin: 0 0 4px; color: #fff; font-weight: 600; }
 #srx-setup h2 { font-size: 15px; margin: 0 0 18px; color: #78ff8c; font-weight: 600; }
 #srx-setup p { font-size: 14px; line-height: 1.5; margin: 0 0 12px; }
-#srx-setup code { background: #000052; padding: 1px 5px; color: #fff; font-size: 13px; word-break: break-all; }
+#srx-setup code { background: #000052; padding: 1px 5px; color: #fff; font-size: 13px; overflow-wrap: anywhere; }
 #srx-setup button { font: inherit; font-size: 15px; font-weight: 600; color: #fff; background: #2d6ae0; border: 2px solid #8fb4ff;
   border-right-color: #12307a; border-bottom-color: #12307a; padding: 9px 18px; cursor: pointer; margin-top: 6px; }
 #srx-setup button:hover { background: #3b7bf5; }
