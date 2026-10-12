@@ -1,3 +1,4 @@
+using System.Linq;
 using System;
 using Microsoft.JSInterop;
 using Microsoft.Xna.Framework;
@@ -38,7 +39,9 @@ namespace Simitone.Web.Pages
                 // SimsRedux: stop on the first error and show the whole thing in the console
                 _crashed = true;
                 Console.WriteLine("[SimsRedux] The game stopped: " + e);
-                JsRuntime.InvokeVoidAsync("simsReduxCrashed", e.Message);
+                // the first few lines of where it happened go in the on-screen box too (one screenshot is enough)
+                var where = string.Join(" | ", (e.StackTrace ?? "").Split('\n').Take(5).Select(l => l.Trim()));
+                JsRuntime.InvokeVoidAsync("simsReduxCrashed", e.GetType().Name + ": " + e.Message + "  —  " + where);
             }
         }
     }
