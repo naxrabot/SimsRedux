@@ -48,6 +48,10 @@ namespace Simitone.Client.UI.Panels
         public bool DirChanged;
         public bool ShowTooltip;
         public bool Roommate = true;
+
+        // SimsRedux: hold Alt while placing for free placement (anywhere inside the tile) and
+        // diagonal rotation. 3D only; never for objects that hang on walls.
+        public bool AltHeld;
         public bool UseNet = false;
 
         public event HolderEventHandler OnPickup;
@@ -99,6 +103,28 @@ namespace Simitone.Client.UI.Panels
             }
         }
 
+        /// <summary>SimsRedux: free placement works for anything that doesn't hang on a wall.</summary>
+        public bool CanFreePlace()
+        {
+            if (Holding == null) return false;
+            foreach (var obj in Holding.Group.Objects)
+            {
+                var wallFlags = obj.GetValue(VMStackObjectVariable.WallPlacementFlags);
+                if ((wallFlags & 15) != 0) return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// SimsRedux: the exact spot under the mouse instead of the tile centre (no grid snapping).
+        /// The game then checks the spot like any other: objects can't overlap other objects, and
+        /// FreePlacementValid stops them poking through walls, fences or off the lot.
+        /// </summary>
+        private LotTilePos FreeTilePos(Vector2 pos, Direction dir)
+        {
+            return new LotTilePos((short)Math.Round(pos.X * 16f), (short)Math.Round(pos.Y * 16f), World.State.Level);
+        }
+
         public void MoveSelected(Vector2 pos, sbyte level)
         {
             Holding.TilePos = pos;
@@ -122,7 +148,8 @@ namespace Simitone.Client.UI.Panels
             {
                 for (int i = 0; i < 4; i++)
                 {
-                    status = Holding.Group.ChangePosition(LotTilePos.FromBigTile((short)pos.X, (short)pos.Y, World.State.Level), dir, vm.Context, VMPlaceRequestFlags.UserPlacement).Status;
+                    var target = (AltHeld && CanFreePlace()) ? FreeTilePos(pos, dir) : LotTilePos.FromBigTile((short)pos.X, (short)pos.Y, World.State.Level);
+                    status = Holding.Group.ChangePosition(target, dir, vm.Context, VMPlaceRequestFlags.UserPlacement).Status;
                     if (status != VMPlacementError.MustBeAgainstWall) break;
                     dir = (Direction)((((int)dir << 6) & 255) | ((int)dir >> 2));
                 }
@@ -345,6 +372,7 @@ namespace Simitone.Client.UI.Panels
                     Cancel();
                 }
             }
+            AltHeld = state.KeyboardState.IsKeyDown(Keys.LeftAlt) || state.KeyboardState.IsKeyDown(Keys.RightAlt);
             if (Holding != null && Roommate)
             {
                 if (MouseClicked) Holding.Clicked = true;
@@ -365,6 +393,11 @@ namespace Simitone.Client.UI.Panels
                         dir += Math.PI / 2;
                         if (dir < 0) dir += Math.PI * 2;
                         var newDir = (Direction)(1 << (((int)Math.Round(dir / (Math.PI / 2)) % 4) * 2));
+                        // SimsRedux: with Alt, objects can also face diagonally (8 directions)
+                        // (single-tile objects only: bigger ones would poke through neighbouring tiles)
+                        // (diagonals need 3D models: Sims 1 objects only have 2D pictures for 4 directions)
+                        if (AltHeld && FSOEnvironment.Enable3D && CanFreePlace() && Holding.Group.Objects.Count == 1)
+                            newDir = (Direction)(1 << ((int)Math.Round(dir / (Math.PI / 4)) % 8));
 
                         if (newDir != Holding.Dir || MouseClicked)
                         {
@@ -404,14 +437,15 @@ namespace Simitone.Client.UI.Panels
                 }
                 else
                 {
-                    var tilePos = World.EstTileAtPosWithScroll(new Vector2(mpos.X, mpos.Y) / FSOEnvironment.DPIScaleFactor) + Holding.TilePosOffset;
+                    var tilePos = World.EstTileAtPosWithScroll(ParentControl.ToWorldScreen(new Vector2(mpos.X, mpos.Y)) / FSOEnvironment.DPIScaleFactor) + Holding.TilePosOffset;
                     MoveSelected(tilePos, 1);
                 }
             }
             else if (MouseClicked)
             {
                 //not holding an object, but one can be selected
-                var newHover = World.GetObjectIDAtScreenPos(state.MouseState.X, state.MouseState.Y, GameFacade.GraphicsDevice);
+                var pickPt = ParentControl.ToWorldScreen(new Vector2(state.MouseState.X, state.MouseState.Y));
+                var newHover = World.GetObjectIDAtScreenPos((int)pickPt.X, (int)pickPt.Y, GameFacade.GraphicsDevice);
                 if (MouseClicked && (newHover != 0) && (vm.GetObjectById(newHover) is VMGameObject))
                 {
                     var objGroup = vm.GetObjectById(newHover).MultitileGroup;
@@ -431,7 +465,7 @@ namespace Simitone.Client.UI.Panels
                         Holding.CanDelete = canDelete;
                         Holding.MoveTarget = newHover;
                         var estBase = state.MouseState.Position; //FSOEnvironment.SoftwareKeyboard ? new Point(UIScreen.Current.ScreenWidth / 2, UIScreen.Current.ScreenHeight / 2) : state.MouseState.Position;
-                        Holding.TilePosOffset = new Vector2(objBasePos.x / 16f, objBasePos.y / 16f) - World.EstTileAtPosWithScroll(new Vector2(estBase.X, estBase.Y) / FSOEnvironment.DPIScaleFactor);
+                        Holding.TilePosOffset = new Vector2(objBasePos.x / 16f, objBasePos.y / 16f) - World.EstTileAtPosWithScroll(ParentControl.ToWorldScreen(new Vector2(estBase.X, estBase.Y)) / FSOEnvironment.DPIScaleFactor);
                         if (OnPickup != null) OnPickup(Holding, state);
                         //ExecuteEntryPoint(12); //User Pickup
                         if (FSOEnvironment.SoftwareKeyboard) MouseIsDown = false;

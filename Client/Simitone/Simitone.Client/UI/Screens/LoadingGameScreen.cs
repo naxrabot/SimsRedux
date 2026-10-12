@@ -42,6 +42,9 @@ namespace Simitone.Client.UI.Screens
         public UITweenInstance LogoTween;
 
         private bool Closing = false;
+        /// <summary>SimsRedux: the loading text sits near the bottom, under the wallpaper.</summary>
+        private const float LabelY = 0.9f;
+        private UIReduxProgressBar ReduxBar;
         private float _i;
         public float InterpolatedAnimation
         {
@@ -49,7 +52,7 @@ namespace Simitone.Client.UI.Screens
             {
                 TextDiag.X = (Closing) ? 0 : (ScreenWidth * (1 - value));
                 TextDiag.BodySize = new Point((int)(value * ScreenWidth), 75);
-                TextDiag.Y = ScreenHeight*0.75f - 37;
+                TextDiag.Y = ScreenHeight*LabelY - 37;
 
                 ProgressDiag.X = (Closing) ? (ScreenWidth * (1 - value)) : 0;
                 ProgressDiag.BodySize = new Point((int)(value * ScreenWidth), 150);
@@ -78,7 +81,7 @@ namespace Simitone.Client.UI.Screens
             Add(ProgressDiag);
 
             TextDiag = new UIDiagonalStripe(new Point(0, 150), UIDiagonalStripeSide.LEFT, Color.Black * 0.5f);
-            TextDiag.Position = new Vector2(0, ScreenHeight * 0.75f - 37);
+            TextDiag.Position = new Vector2(0, ScreenHeight * LabelY - 37);
             Add(TextDiag);
 
             GameFacade.Screens.Tween.To(this, 0.5f, new Dictionary<string, float>() { { "InterpolatedAnimation", 1f } }, TweenQuad.EaseOut);
@@ -91,6 +94,15 @@ namespace Simitone.Client.UI.Screens
             Logo.Position = new Vector2(ScreenWidth, ScreenHeight) / 2;
             Add(Logo);
             LogoTween = GameFacade.Screens.Tween.To(Logo, 1f, new Dictionary<string, float>() { { "Y", ScreenHeight/4 }, { "ScaleX", 0.5f }, { "ScaleY", 0.5f } }, TweenQuad.EaseOut);
+
+            // SimsRedux: The Sims Redux wallpaper instead of Simitone's logo and music-staff progress bar.
+            // (Those two ignore Visible, so take them off the screen completely.)
+            Remove(Logo);
+            Remove(LoadProgress);
+            Remove(ProgressDiag);
+            Remove(TextDiag);
+            ReduxBar = new UIReduxProgressBar();
+            Add(ReduxBar);
 
             InterpolatedAnimation = InterpolatedAnimation;
 
@@ -117,10 +129,11 @@ namespace Simitone.Client.UI.Screens
 
                 GameThread.SetTimeout(() =>
                 {
-                    ProgressDiag.Parent.Remove(ProgressDiag);
-                    TextDiag.Parent.Remove(TextDiag);
-                    Logo.Parent.Remove(Logo);
-                    LoadProgress.Parent.Remove(LoadProgress);
+                    Remove(ProgressDiag);
+                    Remove(TextDiag);
+                    Remove(Logo);
+                    Remove(LoadProgress);
+                    if (ReduxBar != null) ReduxBar.Parent.Remove(ReduxBar);
                     Bg.Parent.Remove(Bg);
                 }, 500);
             }, 750);
@@ -132,10 +145,10 @@ namespace Simitone.Client.UI.Screens
             GameFacade.Screens.Tween.Stop(LogoTween, true);
             Bg.Position = (new Vector2(ScreenWidth, ScreenHeight)) / 2;
             ProgressDiag.Position = new Vector2(0, ScreenHeight / 2 - 75);
-            TextDiag.Position = new Vector2(0, ScreenHeight * 0.75f - 37);
+            TextDiag.Position = new Vector2(0, ScreenHeight * LabelY - 37);
             LoadProgress.Position = (new Vector2(ScreenWidth, ScreenHeight) - new Vector2(1012, 128)) / 2;
             Logo.Position = new Vector2(ScreenWidth, ScreenHeight/2) / 2;
-            if (LastLabel != null) LastLabel.Position = new Vector2(ScreenWidth / 2, ScreenHeight * 0.75f);
+            if (LastLabel != null) LastLabel.Position = new Vector2(ScreenWidth / 2, ScreenHeight * LabelY);
 
             InterpolatedAnimation = InterpolatedAnimation;
         }
@@ -153,10 +166,11 @@ namespace Simitone.Client.UI.Screens
                     LastLabel.Kill();
                 }
                 LastLabel = new UISimitoneLoadLabel(LoadText[(int)LastProgress]);
-                LastLabel.Position = new Vector2(ScreenWidth/2, ScreenHeight * 0.75f);
+                LastLabel.Position = new Vector2(ScreenWidth/2, ScreenHeight * LabelY);
                 Add(LastLabel);
 
                 LoadProgress.OverallPercent = (float)LastProgress / (float)ContentLoadingProgress.Done;
+                if (ReduxBar != null) ReduxBar.Target = LoadProgress.OverallPercent;
             }
             lock (this)
             {
@@ -188,18 +202,72 @@ namespace Simitone.Client.UI.Screens
     public class UISimitoneBg : UIElement
     {
         public Texture2D Bg;
+        // SimsRedux: The Sims Redux wallpaper (Content/redux/loading_wallpaper.jpg)
+        private static Texture2D Wallpaper;
+        private static bool WallpaperTried;
+        private static readonly Color WallpaperBlue = new Color(0, 43, 135); // the wallpaper's own background colour
 
         public UISimitoneBg() : base()
         {
             var ui = Content.Get().CustomUI;
             Bg = ui.Get("load_static_bg.png").Get(GameFacade.GraphicsDevice);
+            if (!WallpaperTried)
+            {
+                WallpaperTried = true;
+                try
+                {
+                    var path = System.IO.Path.Combine(FSO.Common.FSOEnvironment.ContentDir, "redux/loading_wallpaper.jpg");
+                    if (System.IO.File.Exists(path))
+                        using (var stream = System.IO.File.OpenRead(path))
+                            Wallpaper = Texture2D.FromStream(GameFacade.GraphicsDevice, stream);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("[SimsRedux] Couldn't load the loading wallpaper: " + e.Message);
+                }
+            }
         }
 
         public override void Draw(UISpriteBatch batch)
         {
             if (!Visible) return;
-            var scale = Math.Max(GameFacade.Screens.CurrentUIScreen.ScreenWidth / 1136f, GameFacade.Screens.CurrentUIScreen.ScreenHeight / 640f);
+            float sw = GameFacade.Screens.CurrentUIScreen.ScreenWidth, sh = GameFacade.Screens.CurrentUIScreen.ScreenHeight;
+            if (Wallpaper != null)
+            {
+                // whole picture visible, centred, blue fills the rest of the screen
+                var px = TextureGenerator.GetPxWhite(batch.GraphicsDevice);
+                DrawLocalTexture(batch, px, null, new Vector2(-sw, -sh), new Vector2(sw * 2, sh * 2), WallpaperBlue * Opacity);
+                var wscale = Math.Min(sw / Wallpaper.Width, sh / Wallpaper.Height);
+                DrawLocalTexture(batch, Wallpaper, null, new Vector2(Wallpaper.Width, Wallpaper.Height) / -2 * wscale, new Vector2(wscale), Color.White * Opacity);
+                return;
+            }
+            var scale = Math.Max(sw / 1136f, sh / 640f);
             DrawLocalTexture(batch, Bg, null, new Vector2(Bg.Width, Bg.Height) / -2 * scale, new Vector2(scale));
+        }
+    }
+
+    /// <summary>SimsRedux: a slim classic progress bar under the loading wallpaper.</summary>
+    public class UIReduxProgressBar : UIElement
+    {
+        public float Target;
+        private float Shown;
+
+        public override void Update(UpdateState state)
+        {
+            base.Update(state);
+            Shown += (Target - Shown) * 0.15f;
+        }
+
+        public override void Draw(UISpriteBatch batch)
+        {
+            if (!Visible) return;
+            float sw = GameFacade.Screens.CurrentUIScreen.ScreenWidth, sh = GameFacade.Screens.CurrentUIScreen.ScreenHeight;
+            var px = TextureGenerator.GetPxWhite(batch.GraphicsDevice);
+            float w = Math.Min(460, sw * 0.6f), h = 10;
+            var pos = new Vector2((sw - w) / 2, sh * 0.84f);
+            DrawLocalTexture(batch, px, null, pos - new Vector2(2, 2), new Vector2(w + 4, h + 4), new Color(150, 170, 230));
+            DrawLocalTexture(batch, px, null, pos, new Vector2(w, h), new Color(0, 20, 80));
+            DrawLocalTexture(batch, px, null, pos, new Vector2(w * Math.Max(0, Math.Min(1, Shown)), h), new Color(240, 220, 110)); // the "REDUX!" yellow
         }
     }
 

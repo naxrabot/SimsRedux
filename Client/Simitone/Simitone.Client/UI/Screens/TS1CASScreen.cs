@@ -99,6 +99,9 @@ namespace Simitone.Client.UI.Screens
         public UITwoStateButton BackButton;
         public UITwoStateButton AcceptButton;
 
+        // SimsRedux: classic (original Sims 1) Create-a-Family / Create-a-Sim screens
+        public UIClassicCAS Classic;
+
         public Vector3[] ModePositions = new Vector3[]
         {
             new Vector3(177.3843f, 150.92333f, 3.25105f),
@@ -366,6 +369,14 @@ namespace Simitone.Client.UI.Screens
 
         private void SetBody(VMAvatar body, int i)
         {
+            body.BodyOutfit = new FSO.SimAntics.Model.VMOutfitReference(BuildBodyOutfit(i));
+        }
+
+        /// <summary>
+        /// Builds the body outfit (with matching hands) for body index i of the current sim type.
+        /// </summary>
+        public Outfit BuildBodyOutfit(int i)
+        {
             i = (int)DirectionUtils.PosMod(i, ActiveBodies.Count);
             var code = CurrentCode[0];
             if (CurrentCode[1] != 'a') code = 'u';
@@ -391,13 +402,133 @@ namespace Simitone.Client.UI.Screens
                 }
             };
 
-            body.BodyOutfit = new FSO.SimAntics.Model.VMOutfitReference(oft);
+            return oft;
         }
 
         private void SetHead(VMAvatar head, int i)
         {
+            head.HeadOutfit = new FSO.SimAntics.Model.VMOutfitReference(BuildHeadOutfit(i));
+        }
+
+        /// <summary>
+        /// Builds the head outfit for head index i of the current sim type.
+        /// </summary>
+        public Outfit BuildHeadOutfit(int i)
+        {
             i = (int)DirectionUtils.PosMod(i, ActiveHeads.Count);
-            head.HeadOutfit = new FSO.SimAntics.Model.VMOutfitReference(new Outfit() { TS1AppearanceID = ActiveHeads[i] + ".apr", TS1TextureID = ActiveHeadTex[i] });
+            return new Outfit() { TS1AppearanceID = ActiveHeads[i] + ".apr", TS1TextureID = ActiveHeadTex[i] };
+        }
+
+        // ------------------------------------------------------------------
+        // SimsRedux: helpers used by the classic Create-a-Sim screens
+        // ------------------------------------------------------------------
+
+        /// <summary>Loads the heads/bodies for a sim type ("ma", "fa", "mc", "fc") and skin ("lgt", "med", "drk").</summary>
+        public void ClassicPopulate(string code, string skin)
+        {
+            CurrentSkin = skin;
+            PopulateSimType(code);
+        }
+
+        /// <summary>Adds a new family member (index -1) or replaces an existing one.</summary>
+        public void ClassicCommitMember(CASFamilyMember member, int index)
+        {
+            if (index < 0 || index >= WIPFamily.Count)
+            {
+                WIPFamily.Add(member);
+                SetFamilyMember(WIPFamily.Count - 1);
+            }
+            else
+            {
+                WIPFamily[index] = member;
+                SetFamilyMember(index);
+            }
+        }
+
+        public void ClassicDeleteMember(int index)
+        {
+            if (index >= 0 && index < WIPFamily.Count) ModifySim(true, index);
+        }
+
+        public void ClassicSaveFamily(string lastName)
+        {
+            FamilyPanel.SecondName.CurrentText = lastName;
+            SaveFamily();
+            SetMode(UICASMode.FamilySelect);
+        }
+
+        public void ClassicMoveIn(FAMI family)
+        {
+            MoveInFamily = family.ChunkID;
+            SetMode(UICASMode.ToNeighborhood);
+        }
+
+        /// <summary>
+        /// Deletes a family that isn't living in a house (like the original "Delete Family" button):
+        /// removes the family, its name, and its members from the neighbourhood, then saves.
+        /// Asks for confirmation first.
+        /// </summary>
+        public void ClassicDeleteFamily(FAMI family)
+        {
+            if (family == null || family.HouseNumber != 0) return;
+            UIClassicDialog.YesNo("Delete Family?", "Are you sure you want to delete this family? This can't be undone.",
+                () => DeleteFamilyNow(family));
+        }
+
+        private void DeleteFamilyNow(FAMI family)
+        {
+            try
+            {
+                var neigh = Content.Get().Neighborhood;
+                var res = neigh.MainResource;
+                var nbrs = neigh.Neighbors;
+                var removed = new HashSet<short>();
+
+                if (nbrs != null)
+                {
+                    foreach (var guid in family.FamilyGUIDs)
+                    {
+                        foreach (var n in nbrs.Entries.Where(x => x.GUID == guid).ToList())
+                        {
+                            nbrs.Entries.Remove(n);
+                            nbrs.NeighbourByID.Remove(n.NeighbourID);
+                            removed.Add(n.NeighbourID);
+                        }
+                        nbrs.DefaultNeighbourByGUID.Remove(guid);
+                    }
+                    // fix indexes and forget relationships with the deleted sims
+                    for (int i = 0; i < nbrs.Entries.Count; i++)
+                    {
+                        var e = nbrs.Entries[i];
+                        e.RuntimeIndex = i;
+                        if (e.Relationships != null)
+                            foreach (var id in removed) e.Relationships.Remove(id);
+                    }
+                }
+
+                var fams = res.Get<FAMs>(family.ChunkID);
+                res.FullRemoveChunk(family);
+                if (fams != null) res.FullRemoveChunk(fams);
+
+                neigh.SaveNeighbourhood(false);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("[SimsRedux] Failed to delete family: " + e.ToString());
+            }
+            SetFamilies();
+        }
+
+        public void ClassicBackToNeighborhood()
+        {
+            MoveInFamily = null;
+            SetMode(UICASMode.ToNeighborhood);
+        }
+
+        public void ClassicCancelFamily()
+        {
+            ClearFamily();
+            SetMode(UICASMode.FamilySelect);
         }
 
         private void PopulateReal()
@@ -461,6 +592,14 @@ namespace Simitone.Client.UI.Screens
 
             BackButton.OnButtonClick += GoBack;
             AcceptButton.OnButtonClick += Accept;
+
+            // SimsRedux: classic Create-a-Sim (turn on with -classiccas)
+            if (UIClassicNeighborhoodBar.Enabled) // -classic (or the older -classiccas)
+            {
+                Classic = new UIClassicCAS(this);
+                Classic.Visible = false;
+                Add(Classic);
+            }
         }
 
         private int EditIndex = -1;
@@ -632,6 +771,20 @@ namespace Simitone.Client.UI.Screens
                 FamilyPanel.Reset();
             }
 
+            if (Classic != null)
+            {
+                // the classic screens replace the family + sim editors
+                var classicOn = mode == UICASMode.FamilySelect || mode == UICASMode.FamilyEdit || mode == UICASMode.SimEdit;
+                Classic.Visible = classicOn;
+                CASPanel.Visible = !classicOn;
+                FamilyPanel.Visible = !classicOn;
+                FamiliesPanel.Visible = !classicOn;
+                BackButton.Visible = !classicOn;
+                AcceptButton.Visible = !classicOn;
+                if (mode == UICASMode.FamilyEdit) Classic.ShowFamilyPage();
+                else if (mode == UICASMode.FamilySelect) Classic.ShowPickPage();
+            }
+
             FamiliesPanel.SetSelection(-1);
             if (mode == UICASMode.FamilySelect) AcceptButton.Texture = Content.Get().CustomUI.Get("btn_movein.png").Get(GameFacade.GraphicsDevice);
             else AcceptButton.Texture = Content.Get().CustomUI.Get("btn_accept.png").Get(GameFacade.GraphicsDevice);
@@ -771,6 +924,7 @@ namespace Simitone.Client.UI.Screens
             var all = Content.Get().Neighborhood.MainResource.List<FAMI>();
             var families = all.Where(x => (x.Unknown & 16) > 0 && x.HouseNumber == 0);
             FamiliesPanel.UpdateFamilies(families.ToList(), vm);
+            Classic?.UpdateFamilies(families.ToList(), vm);
         }
 
         public void SetFamilyMember(int index)

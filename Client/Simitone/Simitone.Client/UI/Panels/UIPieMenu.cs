@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using FSO.Client.UI.Framework;
@@ -14,6 +14,9 @@ using FSO.Common.Utils;
 using FSO.SimAntics.NetPlay.Model.Commands;
 using FSO.Common;
 using FSO.Client;
+using Microsoft.Xna.Framework.Graphics;
+using Simitone.Client.Utils;
+using Simitone.Client.UI.Controls;
 
 namespace Simitone.Client.UI.Panels
 {
@@ -45,6 +48,70 @@ namespace Simitone.Client.UI.Panels
         private TextStyle ButtonStyle;
         private TextStyle HighlightStyle;
 
+        // SimsRedux: classic Sims 1 pie menu (a soft dark shadow behind the head, every choice on a
+        // dark blue rounded tag with white words, like the original "Go Here")
+        public static bool Classic
+        {
+            get { return UIInteraction.Classic; }
+        }
+        private Texture2D ClassicBack;
+        private static Texture2D ClearButton;
+        private List<Vector2> Balls = new List<Vector2>();
+        private const float Radius = 62f, BallGap = 2f;
+
+        private static Texture2D ShadowTex;
+
+        /// <summary>The soft dark shadow the original draws around the head (darkest in the middle).</summary>
+        private static Texture2D SoftShadow()
+        {
+            if (ShadowTex != null && !ShadowTex.IsDisposed) return ShadowTex;
+            const int size = 128;
+            var data = new Color[size * size];
+            for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
+                {
+                    float dx = (x + 0.5f) / size * 2 - 1, dy = (y + 0.5f) / size * 2 - 1;
+                    float r = (float)Math.Sqrt(dx * dx + dy * dy);
+                    float a = (r >= 1) ? 0 : (float)Math.Pow(1 - r, 0.9) * 0.62f;
+                    data[y * size + x] = new Color(0, 0, 0) * a;
+                }
+            ShadowTex = new Texture2D(GameFacade.GraphicsDevice, size, size);
+            ShadowTex.SetData(data);
+            return ShadowTex;
+        }
+
+        /// <summary>
+        /// Classic: a dark blue tag with rounded ends (drawn by the button as left end, stretched
+        /// middle, right end), like the original's "Go Here".
+        /// </summary>
+        private Texture2D ButtonTexture()
+        {
+            if (!Classic) return TextureGenerator.GetPieButtonImg(GameFacade.GraphicsDevice);
+            if (ClearButton == null || ClearButton.IsDisposed)
+            {
+                const int third = 9, w = third * 3, h = 30, rad = 8;
+                var fill = new Color(14, 34, 132);
+                var edge = new Color(70, 100, 200);
+                var data = new Color[w * h];
+                for (int y = 0; y < h; y++)
+                    for (int x = 0; x < w; x++)
+                    {
+                        // distance from the rounded rectangle's edge (negative = inside)
+                        float qx = Math.Max(rad, Math.Min(w - 1 - rad, x));
+                        float qy = Math.Max(rad, Math.Min(h - 1 - rad, y));
+                        float d = (float)Math.Sqrt((x - qx) * (x - qx) + (y - qy) * (y - qy)) - rad;
+                        Color c;
+                        if (d > 0.5f) c = Color.Transparent;
+                        else if (d > -1.5f) c = edge * Math.Min(1f, 0.5f - d); // soft lighter rim
+                        else c = fill;
+                        data[y * w + x] = c;
+                    }
+                ClearButton = new Texture2D(GameFacade.GraphicsDevice, w, h);
+                ClearButton.SetData(data);
+            }
+            return ClearButton;
+        }
+
         public UIPieMenu(List<VMPieMenuInteraction> pie, VMEntity obj, VMEntity caller, UILotControl parent)
         {
             if (FSOEnvironment.UIZoomFactor > 1.33f) ScaleX = ScaleY = FSOEnvironment.UIZoomFactor * 0.75f;
@@ -66,8 +133,25 @@ namespace Simitone.Client.UI.Panels
             HighlightStyle = ButtonStyle.Clone();
             HighlightStyle.Color = Color.Yellow;
 
+            if (Classic)
+            {
+                // SimsRedux: the Sims 1 look: white words on dark blue rounded tags, yellow under the mouse
+                ButtonStyle.Color = Color.White;
+                ButtonStyle.HighlightedColor = Color.Yellow;
+                ButtonStyle.SelectedColor = Color.Yellow;
+                ButtonStyle.Shadow = true;
+                ButtonStyle.Size = 15;
+                HighlightStyle.Size = 15;
+                HighlightStyle.Shadow = true;
+                HighlightStyle.HighlightedColor = Color.White;
+                ClassicBack = SoftShadow();
+                // classic interface size on big screens
+                var uiScale = Math.Max(1f, (float)Math.Floor(GlobalSettings.Default.GraphicsHeight / 768f * 4) / 4f);
+                if (uiScale > ScaleX) { ScaleX = ScaleY = uiScale; TrueScale = ScaleX * FSOEnvironment.DPIScaleFactor; }
+            }
+
             lerpSpeed = 0.125f * (60.0f / FSOEnvironment.RefreshRate);
-            m_Bg = new UIImage(TextureGenerator.GetPieBG(GameFacade.GraphicsDevice));
+            m_Bg = new UIImage((Classic && ClassicBack != null) ? ClassicBack : TextureGenerator.GetPieBG(GameFacade.GraphicsDevice));
             m_Bg.SetSize(2, 2); //is scaled up later
             m_Bg.Position = new Vector2(-1, -1);
             this.AddAt(0, m_Bg);
@@ -187,9 +271,10 @@ namespace Simitone.Client.UI.Panels
                 m_BgGrow += 1.0 / 30.0 * (60.0 / FSOEnvironment.RefreshRate);
                 HeadCamera.Zoom = (float)m_BgGrow * 5.12f;
 
-                m_Bg.SetSize((float)m_BgGrow * 200, (float)m_BgGrow * 200);
-                m_Bg.X = (float)m_BgGrow * (-100);
-                m_Bg.Y = (float)m_BgGrow * (-100);
+                float bgSize = Classic ? 300 : 200; // the classic shadow spreads wider
+                m_Bg.SetSize((float)m_BgGrow * bgSize, (float)m_BgGrow * bgSize);
+                m_Bg.X = (float)m_BgGrow * (-bgSize / 2);
+                m_Bg.Y = (float)m_BgGrow * (-bgSize / 2);
             }
             RotateHeadCam(GlobalPoint(new Vector2(state.MouseState.X, state.MouseState.Y)));
             ShiftDown = state.ShiftDown;
@@ -202,6 +287,7 @@ namespace Simitone.Client.UI.Panels
                 this.Remove(m_PieButtons[i]);
             }
             m_PieButtons.Clear();
+            Balls.Clear();
 
             var elems = m_CurrentItem.Children;
             int dirConfig;
@@ -219,11 +305,23 @@ namespace Simitone.Client.UI.Panels
                     Caption = elem.Name, // + ((elem.Category) ? "..." : ""),
                     CaptionStyle = (elem.ColorMod > 0) ? HighlightStyle : ButtonStyle,
                     ImageStates = 1,
-                    Texture = TextureGenerator.GetPieButtonImg(GameFacade.GraphicsDevice)
+                    Texture = ButtonTexture()
                 };
 
                 double dir = (((double)i) / dirConfig) * Math.PI * 2;
-                but.AutoMargins = 4;
+                but.AutoMargins = Classic ? 9 : 4;
+                if (Classic)
+                {
+                    var ball = new Vector2((float)(Math.Sin(dir) * Radius), (float)(Math.Cos(dir) * -Radius));
+                    Balls.Add(ball);
+                    PlaceClassic(but, ball, i, dirConfig);
+                    this.Add(but);
+                    m_PieButtons.Add(but);
+                    but.OnButtonClick += new ButtonClickDelegate(PieButtonClick);
+                    but.OnButtonHover += new ButtonClickDelegate(PieButtonHover);
+                    but.OnButtonExit += new ButtonClickDelegate(PieButtonExit);
+                    continue;
+                }
 
                 if (i == 0)
                 { //top
@@ -262,9 +360,9 @@ namespace Simitone.Client.UI.Panels
                     Caption = elem.Name + ((elem.Category) ? "..." : ""),
                     CaptionStyle = (elem.ColorMod > 0) ? HighlightStyle : ButtonStyle,
                     ImageStates = 1,
-                    Texture = TextureGenerator.GetPieButtonImg(GameFacade.GraphicsDevice)
+                    Texture = ButtonTexture()
                 };
-                but.AutoMargins = 4;
+                but.AutoMargins = Classic ? 9 : 4;
 
                 but.X = (float)(-but.Width / 2);
                 if (top)
@@ -291,17 +389,27 @@ namespace Simitone.Client.UI.Panels
                     Caption = m_CurrentItem.Name,
                     CaptionStyle = ButtonStyle.Clone(),
                     ImageStates = 1,
-                    Texture = TextureGenerator.GetPieButtonImg(GameFacade.GraphicsDevice)
+                    Texture = ButtonTexture()
                 };
 
                 but.CaptionStyle.Color = but.CaptionStyle.SelectedColor;
-                but.AutoMargins = 4;
+                but.AutoMargins = Classic ? 9 : 4;
                 but.X = (float)(-but.Width / 2);
                 but.Y = (float)(-but.Size.Y / 2);
                 this.Add(but);
                 m_PieButtons.Add(but);
                 but.OnButtonClick += new ButtonClickDelegate(BackButtonPress);
             }
+        }
+
+        /// <summary>Classic: the words sit outside the ball (above, below, left or right of it).</summary>
+        private void PlaceClassic(UIButton but, Vector2 ball, int i, int dirConfig)
+        {
+            float h = but.Size.Y;
+            if (i == 0) { but.X = ball.X - but.Width / 2; but.Y = ball.Y - BallGap - h; }
+            else if (i == dirConfig / 2) { but.X = ball.X - but.Width / 2; but.Y = ball.Y + BallGap; }
+            else if (i < dirConfig / 2) { but.X = ball.X + BallGap; but.Y = ball.Y - h / 2; }
+            else { but.X = ball.X - BallGap - but.Width; but.Y = ball.Y - h / 2; }
         }
 
         void PieButtonHover(UIElement button)
@@ -396,6 +504,7 @@ namespace Simitone.Client.UI.Panels
         public override void Draw(UISpriteBatch batch)
         {
             base.Draw(batch);
+
             if (m_CurrentItem == m_PieTree)
             {
                 var invScale = new Vector2(1 / TrueScale, 1 / TrueScale);

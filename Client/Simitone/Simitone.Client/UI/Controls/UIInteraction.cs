@@ -1,4 +1,4 @@
-﻿/*
+/*
 This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
 If a copy of the MPL was not distributed with this file, You can obtain one at
 http://mozilla.org/MPL/2.0/.
@@ -22,6 +22,7 @@ using Simitone.Client.UI.Panels;
 using FSO.Client;
 using FSO.HIT;
 using FSO.Content;
+using Simitone.Client.Utils;
 
 namespace Simitone.Client.UI.Controls
 {
@@ -49,15 +50,35 @@ namespace Simitone.Client.UI.Controls
         public float RimScale;
         public bool Dead;
 
+        /// <summary>
+        /// SimsRedux: classic look. Every action is a 45x45 picture in the original Sims 1 frame
+        /// (cpanel/Buttons/IconFrame.bmp: grey, or yellow for the one being done now), cancelled
+        /// ones get the original red X (Other/QueueCancel.bmp). No big "current action" bubble.
+        /// </summary>
+        public static bool Classic
+        {
+            get { return UIClassicNeighborhoodBar.Enabled; }
+        }
+        private bool Hover;
+
         public void SetCancelled()
         {
             OverlayScale = 2f;
-            Overlay = Content.Get().CustomUI.Get("int_cancel.png").Get(GameFacade.GraphicsDevice);
+            Overlay = Classic ? TS1UIGraphics.Get("Other/QueueCancel.bmp") : Content.Get().CustomUI.Get("int_cancel.png").Get(GameFacade.GraphicsDevice);
             GameFacade.Screens.Tween.To(this, 0.5f, new Dictionary<string, float>() { { "OverlayScale", 1f }}, TweenQuad.EaseOut);
         }
 
         public void SetActive(bool active)
         {
+            if (Classic)
+            {
+                Rim = null;
+                Background = TS1UIGraphics.Get("cpanel/Buttons/IconFrame.bmp");
+                ClickHandler.Region = new Rectangle(-23, -23, 46, 46);
+                ScaleX = ScaleY = 1f;
+                this.Active = active;
+                return;
+            }
             if (active)
             {
                 Rim = Content.Get().CustomUI.Get("int_big_sel.png").Get(GameFacade.GraphicsDevice);
@@ -117,11 +138,14 @@ namespace Simitone.Client.UI.Controls
         private void MouseEvt(UIMouseEventType type, UpdateState state)
         {
             if (Dead) return;
+            if (type == UIMouseEventType.MouseOver) Hover = true;
+            else if (type == UIMouseEventType.MouseOut) Hover = false;
             if (type == UIMouseEventType.MouseDown) OnMouseEvent(this); //pass to parents to handle
         }
 
         public override void Draw(UISpriteBatch batch)
         {
+            if (Classic) { DrawClassic(batch); return; }
             base.Draw(batch);
             DrawLocalTexture(batch, Background, null, new Vector2(-Background.Width, -Background.Height)/2, Vector2.One, new Color(104, 164, 184, 255));
             var iconSize = (Active) ? 74f : 37f;
@@ -135,6 +159,27 @@ namespace Simitone.Client.UI.Controls
             }
             if (Overlay != null) DrawLocalTexture(batch, Overlay, null, new Vector2(Overlay.Width, Overlay.Height) * (OverlayScale/-2), new Vector2(OverlayScale), Color.White * (2 - OverlayScale));
             if (Rim != null) DrawLocalTexture(batch, Rim, null, new Vector2(Rim.Width, Rim.Height) * (RimScale / -2), new Vector2(RimScale), Color.Yellow * (2-RimScale));
+        }
+
+        private void DrawClassic(UISpriteBatch batch)
+        {
+            base.Draw(batch);
+            // frame: 0 grey, 1 yellow (the action being done now, or under the mouse)
+            if (Background != null && Background.Width > 1)
+            {
+                int fw = Background.Width / 2;
+                int frame = (Active || Hover) ? 1 : 0;
+                DrawLocalTexture(batch, Background, new Rectangle(frame * fw, 0, fw, Background.Height), new Vector2(-fw / 2f, -Background.Height / 2f));
+            }
+            const float iconSize = 39f;
+            if (Icon != null)
+            {
+                var src = (Icon.Width / (float)Icon.Height < 1.1f) ? new Rectangle(0, 0, Icon.Width, Icon.Height) : new Rectangle(0, 0, Icon.Width / 2, Icon.Height);
+                float s = iconSize / Math.Max(src.Width, src.Height);
+                DrawLocalTexture(batch, Icon, src, new Vector2(src.Width * s / -2, src.Height * s / -2), new Vector2(s, s));
+            }
+            if (Overlay != null && Overlay.Width > 1)
+                DrawLocalTexture(batch, Overlay, null, new Vector2(Overlay.Width, Overlay.Height) * (OverlayScale / -2), new Vector2(OverlayScale), Color.White * Math.Min(1f, 2 - OverlayScale));
         }
 
         public override Rectangle GetBounds()

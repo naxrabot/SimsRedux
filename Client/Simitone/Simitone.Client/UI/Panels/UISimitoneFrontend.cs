@@ -32,6 +32,9 @@ namespace Simitone.Client.UI.Panels
         public UIModeSwitcher ModeSwitcher;
         public UIDesktopUCP DesktopUCP;
         public UICheatTextbox CheatTextbox;
+        // SimsRedux: in classic mode the object info popup and the "sell" panel live here instead
+        // of inside Simitone's (hidden) mode panel
+        public UIContainer ClassicQueryHost, ClassicPickupHost;
 
         public bool PanelActive;
         public int LastCut = 0;
@@ -75,10 +78,33 @@ namespace Simitone.Client.UI.Panels
 
             if (Game.Desktop)
             {
-                DesktopUCP = new UIDesktopUCP(screen);
-                DesktopUCP.Position = new Vector2(15, screen.ScreenHeight - (278 + 15));
+                // SimsRedux: original Sims 1 control panel in classic mode
+                if (UIClassicNeighborhoodBar.Enabled) DesktopUCP = new UIClassicUCP(screen);
+                else
+                {
+                    DesktopUCP = new UIDesktopUCP(screen);
+                    DesktopUCP.Position = new Vector2(15, screen.ScreenHeight - (278 + 15));
+                }
                 DesktopUCP.OnModeClick += LiveButtonClicked;
                 Add(DesktopUCP);
+                if (DesktopUCP is UIClassicUCP)
+                {
+                    // SimsRedux: keep the mode contents on top of the classic bottom bar
+                    SendToFront(MainPanel);
+                    ((UIClassicUCP)DesktopUCP).ModeContents = MainPanel;
+                    MainPanel.ClassicCatalog = true;
+
+                    var lc = Game.LotControl;
+                    ClassicQueryHost = new UIContainer();
+                    ClassicPickupHost = new UIContainer();
+                    MainPanel.Remove(lc.QueryPanel);
+                    lc.QueryPanel.X = 0;
+                    ClassicQueryHost.Add(lc.QueryPanel);
+                    MainPanel.Remove(lc.PickupPanel);
+                    ClassicPickupHost.Add(lc.PickupPanel);
+                    Add(ClassicPickupHost);
+                    Add(ClassicQueryHost);
+                }
             }
             else
             {
@@ -94,6 +120,7 @@ namespace Simitone.Client.UI.Panels
             if (Game.Desktop) MainPanel.X += 100;
             MainPanel.GameResized();
             MainPanel.Y = screen.ScreenHeight - (128 + 15);
+            PlaceClassicPanel();
             MainPanel.Visible = false;
 
             if (Game.vm.GetGlobalValue(32) > 0)
@@ -272,6 +299,19 @@ namespace Simitone.Client.UI.Panels
             }
         }
 
+        /// <summary>SimsRedux: put the mode panel (Live/Buy/Build contents) on the classic bottom bar.</summary>
+        private void PlaceClassicPanel()
+        {
+            var classic = DesktopUCP as UIClassicUCP;
+            if (classic == null) return;
+            var scale = Math.Max(1f, (float)Math.Floor(GlobalSettings.Default.GraphicsHeight / 768f * 4) / 4f);
+            MainPanel.X = (UIClassicUCP.WingW + 6) * scale;
+            MainPanel.Y = Game.ScreenHeight - (128 + 6);
+            // the info popup rises from the top of the classic bar
+            if (ClassicQueryHost != null) ClassicQueryHost.Position = new Vector2((UIClassicUCP.WingW + 6) * scale, Game.ScreenHeight - 100 * scale);
+            if (ClassicPickupHost != null) ClassicPickupHost.Position = new Vector2((UIClassicUCP.WingW + 6) * scale, Game.ScreenHeight - 128);
+        }
+
         public override void GameResized()
         {
             base.GameResized();
@@ -288,9 +328,10 @@ namespace Simitone.Client.UI.Panels
             }
             else
             {
-                DesktopUCP.Position = new Vector2(15, Game.ScreenHeight - (278 + 15));
+                if (!(DesktopUCP is UIClassicUCP)) DesktopUCP.Position = new Vector2(15, Game.ScreenHeight - (278 + 15));
             }
             MainPanel.Y = Game.ScreenHeight - (128 + 15);
+            PlaceClassicPanel();
         }
     }
 }

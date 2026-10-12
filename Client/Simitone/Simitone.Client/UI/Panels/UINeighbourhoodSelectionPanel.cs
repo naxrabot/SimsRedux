@@ -1,4 +1,4 @@
-﻿using FSO.Client.UI.Controls;
+using FSO.Client.UI.Controls;
 using FSO.Client.UI.Framework;
 using FSO.Common.Rendering.Framework.IO;
 using FSO.Content.Framework;
@@ -85,6 +85,10 @@ namespace Simitone.Client.UI.Panels
         public HITSound BgSound;
         public Dictionary<int, Vector2> HousePositions;
 
+        // SimsRedux: classic (original Sims 1) top bar
+        public bool MoveInMode;
+        public UIClassicNeighborhoodBar ClassicBar;
+
         private Vector2 _cp = new Vector2(800, 600) / 2;
         public float CenterPositionX
         {
@@ -134,11 +138,92 @@ namespace Simitone.Client.UI.Panels
         public void UpdatePosition()
         {
             base.GameResized();
-            var scale = GlobalSettings.Default.GraphicsHeight / 600.0f;
+            float w = GlobalSettings.Default.GraphicsWidth, h = GlobalSettings.Default.GraphicsHeight;
+            // SimsRedux: fill the whole window (no blue bars at the sides on wide screens).
+            // A little of the top/bottom is cut off instead; drag or scroll to see it.
+            var scale = Math.Max(h / 600.0f, w / 800.0f);
             ScaleX = ScaleY = scale * Zoom;
 
-            X = (GlobalSettings.Default.GraphicsWidth) / 2 - _cp.X * ScaleX;
-            Y = (GlobalSettings.Default.GraphicsHeight) / 2 - _cp.Y * ScaleY;
+            var c = ClampCenter(_cp);
+            X = w / 2 - c.X * ScaleX;
+            Y = h / 2 - c.Y * ScaleY;
+            PinClassicBar();
+        }
+
+        /// <summary>
+        /// SimsRedux: the classic top bar lives inside the map, but it should stay fixed at the top
+        /// of the screen, at its usual size, however the map is zoomed or scrolled.
+        /// </summary>
+        private void PinClassicBar()
+        {
+            if (ClassicBar == null || ScaleX <= 0) return;
+            float w = GlobalSettings.Default.GraphicsWidth, h = GlobalSettings.Default.GraphicsHeight;
+            float fit = h / 600.0f;                      // the size it was designed for
+            if (800 * fit > w) fit = w / 800.0f;         // narrow windows: fit the width instead
+            var screenPos = new Vector2((w - 800 * fit) / 2, 0);
+            ClassicBar.ScaleX = ClassicBar.ScaleY = fit / ScaleX;
+            ClassicBar.Position = new Vector2((screenPos.X - X) / ScaleX, (screenPos.Y - Y) / ScaleY);
+        }
+
+        /// <summary>
+        /// SimsRedux: keeps the view on the map. The edges are the picture's edges, pushed out a
+        /// little where a house sits past them, so every house can always be scrolled into view.
+        /// </summary>
+        private Vector2 ClampCenter(Vector2 center)
+        {
+            if (ScaleX <= 0) return center;
+            float minX = 0, minY = 0, maxX = 800, maxY = 600;
+            if (HousePositions != null)
+            {
+                foreach (var p in HousePositions.Values)
+                {
+                    minX = Math.Min(minX, p.X - 70); maxX = Math.Max(maxX, p.X + 70);
+                    minY = Math.Min(minY, p.Y - 50); maxY = Math.Max(maxY, p.Y + 40);
+                }
+            }
+            float halfW = GlobalSettings.Default.GraphicsWidth / ScaleX / 2;
+            float halfH = GlobalSettings.Default.GraphicsHeight / ScaleY / 2;
+            float x = (maxX - minX < halfW * 2) ? (minX + maxX) / 2 : Math.Max(minX + halfW, Math.Min(maxX - halfW, center.X));
+            float y = (maxY - minY < halfH * 2) ? (minY + maxY) / 2 : Math.Max(minY + halfH, Math.Min(maxY - halfH, center.Y));
+            // at the normal zoom, stay inside the picture itself unless scrolled out to a house
+            return new Vector2(x, y);
+        }
+
+        // SimsRedux: scroll the map with WASD / arrow keys or by dragging with the right mouse button
+        private Point? DragFrom;
+        private Vector2 DragCenter;
+        public override void Update(UpdateState state)
+        {
+            base.Update(state);
+            if (ScaleX <= 0) return;
+            bool typing = UIRevampedCamera.IsTyping(state);
+            var kb = state.KeyboardState;
+            var move = Vector2.Zero;
+            if (!typing)
+            {
+                if (kb.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.A) || kb.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.Left)) move.X -= 1;
+                if (kb.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.D) || kb.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.Right)) move.X += 1;
+                if (kb.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.W) || kb.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.Up)) move.Y -= 1;
+                if (kb.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.S) || kb.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.Down)) move.Y += 1;
+            }
+            var mouse = state.MouseState;
+            if (mouse.RightButton == Microsoft.Xna.Framework.Input.ButtonState.Pressed)
+            {
+                if (DragFrom == null) { DragFrom = new Point(mouse.X, mouse.Y); DragCenter = ClampCenter(_cp); }
+                else
+                {
+                    var d = new Vector2(mouse.X - DragFrom.Value.X, mouse.Y - DragFrom.Value.Y) / ScaleX;
+                    var target = ClampCenter(DragCenter - d);
+                    if (target != _cp) { _cp = target; UpdatePosition(); }
+                }
+            }
+            else DragFrom = null;
+
+            if (move != Vector2.Zero)
+            {
+                _cp = ClampCenter(ClampCenter(_cp) + move * (6f / Math.Max(0.5f, Zoom)));
+                UpdatePosition();
+            }
         }
 
         public override void GameResized()
@@ -204,10 +289,29 @@ namespace Simitone.Client.UI.Panels
                 BgSound.AddOwner(-25);
             }
             Mode = mode;
+
+            if (UIClassicNeighborhoodBar.Enabled)
+            {
+                ClassicBar = new UIClassicNeighborhoodBar(this, mode, MoveInMode);
+                Add(ClassicBar);
+                PinClassicBar();
+            }
+
             Zoom = Zoom;
             CenterPositionX = CenterPositionX;
             CenterPositionY = CenterPositionY;
             //SimitoneNeighOBJExporter.SaveOBJ(Path.Combine(FSOEnvironment.UserDir, "NeighModel" + mode + "/"), locations);
+        }
+
+        /// <summary>SimsRedux: travel to another neighbourhood from the classic bar.</summary>
+        public void ClassicGoTo(ushort mode)
+        {
+            LastHS?.Kill();
+            LastHS = null;
+            Zoom = 1f;
+            CenterPositionX = 400;
+            CenterPositionY = 300;
+            PopulateScreen(mode);
         }
 
         public void ResetZoom()
@@ -222,6 +326,12 @@ namespace Simitone.Client.UI.Panels
 
         public void SelectHouse(int house)
         {
+            if (UIClassicNeighborhoodBar.Enabled)
+            {
+                // SimsRedux: classic lot popup instead of the side panel
+                UIClassicLotInfo.Show(house, (h) => OnHouseSelect?.Invoke(h));
+                return;
+            }
             if (LastHS != null && LastHS.HouseID == house)
             {
                 ResetZoom();
@@ -231,7 +341,8 @@ namespace Simitone.Client.UI.Panels
                 LastHS?.Kill();
                 LastHS = new UIHouseSelectPanel(house);
                 GameFacade.Screens.CurrentUIScreen.Add(LastHS);
-                GameFacade.Screens.Tween.To(this, 0.5f, new Dictionary<string, float>() {
+                // the classic screen keeps the whole map in view, like the original
+                if (!UIClassicNeighborhoodBar.Enabled) GameFacade.Screens.Tween.To(this, 0.5f, new Dictionary<string, float>() {
                     { "Zoom", (Mode==4)?3f:1.5f },
                     { "CenterPositionX", HousePositions[house].X - ((Mode==4)?90f:180f) },
                     { "CenterPositionY", HousePositions[house].Y } }, TweenQuad.EaseOut);
@@ -254,11 +365,6 @@ namespace Simitone.Client.UI.Panels
         {
             base.Draw(batch);
             //DrawLocalTexture(batch, texture, new Vector2());
-        }
-
-        public override void Update(UpdateState state)
-        {
-            base.Update(state);
         }
     }
 
@@ -339,6 +445,38 @@ namespace Simitone.Client.UI.Panels
         private bool Hovered;
         private THMB Offsets;
         public float AlphaTime { get; set; }
+        /// <summary>SimsRedux: the family living here, or null for an empty lot.</summary>
+        public string FamilyName;
+        private static Texture2D Plumbbob;
+        private static TextStyle TagStyle;
+
+        /// <summary>A small green plumbbob, made once in code (light top half, darker bottom half).</summary>
+        private static Texture2D GetPlumbbob()
+        {
+            if (Plumbbob != null && !Plumbbob.IsDisposed) return Plumbbob;
+            const int w = 15, h = 27;
+            var data = new Color[w * h];
+            float cx = (w - 1) / 2f, mid = 9f; // the widest point sits a bit above the middle, like the real one
+            for (int y = 0; y < h; y++)
+            {
+                float half = (y <= mid) ? cx * (y / mid) : cx * ((h - 1 - y) / (h - 1 - mid));
+                for (int x = 0; x < w; x++)
+                {
+                    float dx = x - cx;
+                    if (Math.Abs(dx) > half + 0.5f) continue;
+                    bool edge = Math.Abs(dx) > half - 1f;
+                    bool left = dx < 0;
+                    Color c;
+                    if (y <= mid) c = left ? new Color(170, 255, 140) : new Color(100, 225, 80);
+                    else c = left ? new Color(60, 190, 50) : new Color(30, 140, 30);
+                    if (edge) c = new Color(10, 70, 10);
+                    data[y * w + x] = c;
+                }
+            }
+            Plumbbob = new Texture2D(GameFacade.GraphicsDevice, w, h);
+            Plumbbob.SetData(data);
+            return Plumbbob;
+        }
 
         public UINeighborhoodHouseButton(int houseNumber, Action<int> selectionCallback, float scale)
         {
@@ -357,6 +495,16 @@ namespace Simitone.Client.UI.Panels
             }
 
             HouseScale = scale;
+
+            // SimsRedux: is one of the player's families living here? (shows a green plumbbob)
+            try
+            {
+                var hood = Content.Get().Neighborhood;
+                var fam = hood.GetFamilyForHouse((short)houseNumber);
+                if (fam != null && fam.HouseNumber == houseNumber && fam.FamilyGUIDs != null && fam.FamilyGUIDs.Length > 0)
+                    FamilyName = hood.MainResource.Get<FAMs>(fam.ChunkID)?.GetString(0) ?? "Your family";
+            }
+            catch { }
 
             var w = (int)(HouseTex.Width / HouseScale);
             var h = (int)(HouseTex.Height / HouseScale);
@@ -389,6 +537,35 @@ namespace Simitone.Client.UI.Panels
                 DrawLocalTexture(batch, HouseOpenTex, null, new Vector2(-Offsets.Width, -Offsets.Height)/ HouseScale + yOff2, new Vector2(1f / HouseScale, 1f / HouseScale));
             }
             DrawLocalTexture(batch, HouseTex, null, new Vector2(-Offsets.Width, -Offsets.Height) / HouseScale + yOff, new Vector2(1f / HouseScale, 1f / HouseScale), Color.White * (1 - AlphaTime));
+
+            // SimsRedux: green plumbbob over the player's families' homes, gently bobbing
+            if (FamilyName != null)
+            {
+                var bob = GetPlumbbob();
+                float t = (float)(Environment.TickCount % 2000) / 2000f;
+                float lift = (float)Math.Sin(t * Math.PI * 2) * 2.5f;
+                // centre it over the house picture itself, low enough to sit just above the roof
+                var img = new Vector2(-Offsets.Width, -Offsets.Height) / HouseScale + yOff;
+                float imgW = HouseTex.Width / HouseScale, imgH = HouseTex.Height / HouseScale;
+                var pos = new Vector2(img.X + imgW / 2 - bob.Width / 2f, img.Y + imgH * 0.22f - bob.Height + lift);
+                DrawLocalTexture(batch, bob, null, pos + new Vector2(1, 2), Vector2.One, Color.Black * 0.35f); // shadow
+                DrawLocalTexture(batch, bob, null, pos, Vector2.One);
+                if (Hovered)
+                {
+                    if (TagStyle == null)
+                    {
+                        TagStyle = TextStyle.DefaultLabel.Clone();
+                        TagStyle.Size = 11;
+                        TagStyle.Color = Color.White;
+                        TagStyle.Shadow = true;
+                    }
+                    int tw = 14 + FamilyName.Length * 7;
+                    var box = new Rectangle((int)(pos.X + bob.Width / 2f - tw / 2f), (int)(pos.Y - 20), tw, 17);
+                    var px = TextureGenerator.GetPxWhite(GameFacade.GraphicsDevice);
+                    DrawLocalTexture(batch, px, null, new Vector2(box.X, box.Y), new Vector2(box.Width, box.Height), new Color(14, 34, 132) * 0.92f);
+                    DrawLocalString(batch, FamilyName, new Vector2(box.X, box.Y), TagStyle, new Rectangle(0, 0, box.Width, box.Height), TextAlignment.Center | TextAlignment.Middle);
+                }
+            }
         }
 
         public override void Removed()

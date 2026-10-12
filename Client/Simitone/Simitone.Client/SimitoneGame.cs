@@ -101,15 +101,9 @@ namespace Simitone.Client
                 settings.GraphicsHeight = (int)(GraphicsDevice.Viewport.Height / FSOEnvironment.DPIScaleFactor);
             }
 
-            var initialMode = (GlobalGraphicsMode)settings.GlobalGraphicsMode;
-            if (FSOEnvironment.Enable3D)
-            {
-                if (initialMode == GlobalGraphicsMode.Full2D) initialMode = GlobalGraphicsMode.Full3D;
-            }
-            else
-            {
-                initialMode = GlobalGraphicsMode.Full2D;
-            }
+            // SimsRedux: always 2D (the original Sims 1 look), whatever was saved before
+            FSOEnvironment.Enable3D = false;
+            var initialMode = GlobalGraphicsMode.Full2D;
             GraphicsModeControl.ChangeMode(initialMode);
             GraphicsModeControl.ModeChanged += SaveGraphicsModePreference;
 
@@ -289,7 +283,7 @@ namespace Simitone.Client
             {
                 this.IsMouseVisible = true;
                 if (!FSOEnvironment.SoftwareKeyboard) AddTextInput();
-                this.Window.Title = "Simitone";
+                this.Window.Title = "The Sims Redux"; // SimsRedux
                 HasUpdated = true;
                 GameFacade.Screens = uiLayer;
                 GameController.EnterLoading();

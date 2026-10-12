@@ -1,4 +1,4 @@
-﻿/*
+/*
 This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
 If a copy of the MPL was not distributed with this file, You can obtain one at
 http://mozilla.org/MPL/2.0/.
@@ -85,6 +85,10 @@ namespace Simitone.Client.UI.Panels
         private bool FoundMe; //if false and avatar changes, center. Should center on join lot.
 
         public bool RMBScroll;
+        /// <summary>SimsRedux: Sims 3 style camera controls (WASD, Q/E, Z/X, drag to move).</summary>
+        public UIRevampedCamera RevampedCamera;
+        /// <summary>SimsRedux: Sims 1 style cutaway (whole floor), not Simitone's cut around the mouse. -mousecutaway turns the old way back on.</summary>
+        public static bool ClassicCutaway => !(FSOEnvironment.Args ?? "").Contains("-mousecutaway");
         private int RMBScrollX;
         private int RMBScrollY;
 
@@ -98,6 +102,56 @@ namespace Simitone.Client.UI.Panels
         private UIMobileDialog BlockingDialog;
         private UINeighborhoodSelectionPanel TS1NeighSelector;
         private ulong LastDialogID;
+
+        // SimsRedux: stuck-dialog guard. In The Sims 1 a question box pauses the whole game until
+        // it's answered. If the box never appears (or vanished), the game sits paused with the Sim
+        // frozen mid-action. If that lasts a couple of seconds, show the question again, and if
+        // that doesn't work, answer it with the last button so the game carries on.
+        private FSO.SimAntics.Model.VMDialogInfo LastBlockInfo;
+        private int StuckFrames, StuckRetries;
+
+        private static void DialogLog(string text)
+        {
+            try
+            {
+                var path = System.IO.Path.Combine(FSO.Common.FSOEnvironment.UserDir, "dialog_debug.log");
+                System.IO.File.AppendAllText(path, DateTime.Now.ToString("HH:mm:ss") + " " + text + "\r\n");
+            }
+            catch { }
+        }
+
+        private void CheckStuckDialog()
+        {
+            if (!vm.TS1 || vm.GlobalBlockingDialog == null || BlockingDialog != null || TS1NeighSelector != null)
+            {
+                StuckFrames = 0;
+                if (vm.GlobalBlockingDialog == null) StuckRetries = 0;
+                return;
+            }
+            if (++StuckFrames < 120) return; // about 2 seconds with nothing on screen
+            StuckFrames = 0;
+            var owner = vm.GlobalBlockingDialog;
+            var waiting = owner.Thread?.BlockingState as FSO.SimAntics.Primitives.VMDialogResult;
+            DialogLog("Game paused for a question that isn't on screen. Owner=" + owner.ObjectID + " waiting=" + (waiting != null) + " retries=" + StuckRetries
+                + " last=" + (LastBlockInfo == null ? "none" : (LastBlockInfo.Title + " / " + LastBlockInfo.DialogID)));
+            if (waiting != null && !waiting.Responded && LastBlockInfo != null && LastBlockInfo.Caller == owner && StuckRetries < 2)
+            {
+                StuckRetries++;
+                LastDialogID = 0;
+                vm_OnDialog(LastBlockInfo); // show the question again
+            }
+            else
+            {
+                // give up and answer it (last button = "no" / "cancel"), which also un-pauses the game
+                StuckRetries = 0;
+                byte code = 1;
+                var type = LastBlockInfo?.Operand?.Type ?? VMDialogType.Message;
+                if (type == VMDialogType.Message) code = 0;
+                else if (type == VMDialogType.YesNoCancel) code = 2;
+                DialogLog("Answering it with button " + code + " so the game can carry on.");
+                vm.SendCommand(new VMNetDialogResponseCmd { ResponseCode = code, ResponseText = "" });
+            }
+        }
 
         private static uint GOTO_GUID = 0x000007C4;
         public VMEntity GotoObject;
@@ -133,6 +187,8 @@ namespace Simitone.Client.UI.Panels
             this.Add(Queue);
 
             ObjectHolder = new UIObjectHolder(vm, World, this);
+            RevampedCamera = new UIRevampedCamera(this);
+            RevampedCamera.OnRightClick = OnRightClickWorld;
             Touch = new UILotControlTouchHelper(this);
             Add(Touch);
             ArchTouch = new UIArchTouchHelper(this);
@@ -182,8 +238,37 @@ namespace Simitone.Client.UI.Panels
         }
 
         public static bool ShowSimanticsExceptions = true;
+        private static HashSet<string> SeenSimanticsErrors = new HashSet<string>();
+
+        /// <summary>SimsRedux: groups script errors by the error + the interaction that caused it.</summary>
+        private static string SimanticsErrorKey(string message)
+        {
+            if (message == null) return "";
+            var lines = message.Split('\n');
+            // key = the error itself + the script it happened in. The object/Sim name and how deep
+            // the script was called are left out, so the same error from several objects pops up once.
+            var parts = new List<string>();
+            string lastFrame = "";
+            bool seenName = false;
+            foreach (var line in lines)
+            {
+                var t = line.Trim();
+                if (t.Length == 0 || t.StartsWith("A SimAntics Exception") || t.StartsWith("been suppressed") || t.StartsWith("The object will be reset")) continue;
+                if (t.StartsWith("(")) { seenName = true; continue; }
+                if (t.StartsWith(">")) { if (t.Length > 1) lastFrame = t; continue; }
+                if (!seenName) parts.Add(t);
+            }
+            parts.Add(lastFrame);
+            return string.Join("|", parts);
+        }
         void vm_OnDialog(FSO.SimAntics.Model.VMDialogInfo info)
         {
+            if (info != null)
+            {
+                DialogLog("Dialog: " + info.Title + " | block=" + info.Block + " id=" + info.DialogID + " type=" + (info.Operand?.Type.ToString() ?? "-") + (info.DialogID == LastDialogID ? " (duplicate)" : ""));
+                if (info.Block) { LastBlockInfo = info; }
+            }
+            else DialogLog("Dialog cleared");
             if (info != null && ((info.DialogID == LastDialogID && info.DialogID != 0 && info.Block))) return;
             //return if same dialog as before, or not ours
             if ((info == null || info.Block) && BlockingDialog != null)
@@ -197,6 +282,20 @@ namespace Simitone.Client.UI.Panels
 
             if (!ShowSimanticsExceptions && info.Title == "SimAntics Exception!")
                 return;
+
+            // SimsRedux: log every script error to a file, but only pop up each kind once per session
+            if (info.Title == "SimAntics Exception!")
+            {
+                try
+                {
+                    var logPath = System.IO.Path.Combine(FSO.Common.FSOEnvironment.UserDir, "simantics_errors.log");
+                    System.IO.File.AppendAllText(logPath, "[" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "]\r\n" + info.Message + "\r\n\r\n");
+                }
+                catch { }
+                var key = SimanticsErrorKey(info.Message);
+                if (SeenSimanticsErrors.Contains(key)) return;
+                SeenSimanticsErrors.Add(key);
+            }
 
             var options = new UIAlertOptions
             {
@@ -332,6 +431,7 @@ namespace Simitone.Client.UI.Panels
 
         private void DialogResponse(byte code)
         {
+            DialogLog("Answered with button " + code);
             if (BlockingDialog == null || !(BlockingDialog is UIMobileAlert)) return;
             BlockingDialog.Close();
             var ma = (UIMobileAlert)BlockingDialog;
@@ -531,6 +631,68 @@ namespace Simitone.Client.UI.Panels
             TipIsError = true;
         }
 
+        private int AutoSelectCooldown;
+        /// <summary>SimsRedux: takes control of the game's selected Sim, or the first family member on the lot.</summary>
+        private void TryAutoSelectSim()
+        {
+            if (AutoSelectCooldown > 0) { AutoSelectCooldown--; return; }
+            AutoSelectCooldown = 60; // try about once a second, not every frame
+            try
+            {
+                var family = vm.TS1State?.CurrentFamily;
+                if (family == null) return;
+                var members = vm.Context.ObjectQueries.Avatars
+                    .Where(x => !x.Dead && family.RuntimeSubset.Contains(x.Object.OBJ.GUID))
+                    .ToList();
+                if (members.Count == 0) return;
+                var selected = vm.GetObjectById(vm.GetGlobalValue(3));
+                var target = (selected != null && members.Contains(selected)) ? selected : members[0];
+                vm.SendCommand(new VMNetChangeControlCmd() { TargetID = target.ObjectID });
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("[SimsRedux] Couldn't select a Sim: " + e.Message);
+            }
+        }
+
+        /// <summary>
+        /// SimsRedux: when zoomed between the normal zoom steps, the lot is drawn scaled around the
+        /// screen centre. Mouse positions have to be scaled back the same way before asking the world
+        /// what's under the mouse, or clicks land up and to the left of where you clicked.
+        /// (Simitone's pie menu already did this; picking up objects and hovering didn't.)
+        /// </summary>
+        /// <summary>
+        /// SimsRedux: right-clicking an object in Buy or Build mode opens its colour picker
+        /// (other colours to swap to, and Tint).
+        /// </summary>
+        private void OnRightClickWorld(Point screen)
+        {
+            try
+            {
+                if (LiveMode || ObjectHolder.Holding != null) return;
+                var game = Parent as TS1GameScreen;
+                if (game == null || vm == null) return;
+                var pt = ToWorldScreen(new Vector2(screen.X, screen.Y));
+                var id = World.GetObjectIDAtScreenPos((int)pt.X, (int)pt.Y, GameFacade.GraphicsDevice);
+                if (id <= 0) return;
+                var obj = vm.GetObjectById(id) as VMGameObject;
+                if (obj == null) return;
+                Simitone.Client.UI.Panels.Desktop.UIClassicColourDialog.Open(game, obj);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("[SimsRedux] Right-click colours: " + e.Message);
+            }
+        }
+
+        public Vector2 ToWorldScreen(Vector2 mouse)
+        {
+            var scale = World?.BackbufferScale ?? 1f;
+            if (scale <= 0) scale = 1f;
+            var mid = new Vector2(UIScreen.Current.ScreenWidth / 2f, UIScreen.Current.ScreenHeight / 2f);
+            return (mouse - mid) / scale + mid;
+        }
+
         public void ClosePie()
         {
             if (PieMenu != null)
@@ -556,8 +718,9 @@ namespace Simitone.Client.UI.Panels
                 {
                     OldMX = state.MouseState.X;
                     OldMY = state.MouseState.Y;
-                    var newHover = World.GetObjectIDAtScreenPos(state.MouseState.X,
-                        state.MouseState.Y,
+                    var hoverPt = ToWorldScreen(new Vector2(state.MouseState.X, state.MouseState.Y));
+                    var newHover = World.GetObjectIDAtScreenPos((int)hoverPt.X,
+                        (int)hoverPt.Y,
                         GameFacade.GraphicsDevice);
 
                     if (ObjectHover != newHover)
@@ -692,7 +855,7 @@ namespace Simitone.Client.UI.Panels
         public override void Draw(UISpriteBatch batch)
         {
             //DrawLocalTexture(batch, World.State.Light.LightMap, new Rectangle(0,0, World.State.Light.LightMap.Width/3, World.State.Light.LightMap.Height/2), new Vector2());
-            if (RMBScroll)
+            if (RMBScroll && !UIRevampedCamera.Enabled)
             {
                 DrawLocalTexture(batch, RMBCursor, new Vector2(RMBScrollX - RMBCursor.Width / 2, RMBScrollY - RMBCursor.Height / 2));
             }
@@ -705,6 +868,8 @@ namespace Simitone.Client.UI.Panels
             base.Update(state);
 
             if (!vm.Ready || vm.Context.Architecture == null) return;
+
+            CheckStuckDialog();
 
             //handling smooth scaled zoom
             var camType = World.State.Cameras.ActiveType;
@@ -764,11 +929,16 @@ namespace Simitone.Client.UI.Panels
                 Queue.QueueOwner = ActiveEntity;
             }
 
+            // SimsRedux: no Sim is under the player's control (this can happen with a save where the
+            // "selected Sim" got lost). Without one, clicking Sims and objects does nothing, so pick one.
+            if (ActiveEntity == null) TryAutoSelectSim();
+
             if (GotoObject == null) GotoObject = vm.Context.CreateObjectInstance(GOTO_GUID, LotTilePos.OUT_OF_WORLD, Direction.NORTH, true).Objects[0];
 
 
             //update plumbbob
-            var plumb = Content.Get().RCMeshes.Get("arrow.fsom");
+            // SimsRedux: the classic green Sims plumbbob (falls back to Simitone's arrow)
+            var plumb = Content.Get().RCMeshes.Get("plumbbob.fsom") ?? Content.Get().RCMeshes.Get("arrow.fsom");
             foreach (VMAvatar avatar in vm.Context.ObjectQueries.Avatars)
             {
                 if (avatar.Avatar == null) continue;
@@ -808,65 +978,73 @@ namespace Simitone.Client.UI.Panels
 
                 World.State.Cameras.CameraFirstPerson.CaptureMouse = true;
 
-                if (RMBScroll)
+                if (UIRevampedCamera.Enabled)
                 {
-                    World.State.ScrollAnchor = null;
-                    Vector2 scrollBy = new Vector2();
-                    if (state.TouchMode)
-                    {
-                        scrollBy = new Vector2(RMBScrollX - state.MouseState.X, RMBScrollY - state.MouseState.Y);
-                        RMBScrollX = state.MouseState.X;
-                        RMBScrollY = state.MouseState.Y;
-                        scrollBy /= 128f;
-                        scrollBy /= FSOEnvironment.DPIScaleFactor;
-                    }
-                    else
-                    {
-                        scrollBy = new Vector2(state.MouseState.X - RMBScrollX, state.MouseState.Y - RMBScrollY);
-                        scrollBy *= 0.0005f;
-
-                        var angle = (Math.Atan2(state.MouseState.X - RMBScrollX, (RMBScrollY - state.MouseState.Y) * 2) / Math.PI) * 4;
-                        angle += 8;
-                        angle %= 8;
-
-                        CursorType type = CursorType.ArrowUp;
-                        switch ((int)Math.Round(angle))
-                        {
-                            case 0: type = CursorType.ArrowUp; break;
-                            case 1: type = CursorType.ArrowUpRight; break;
-                            case 2: type = CursorType.ArrowRight; break;
-                            case 3: type = CursorType.ArrowDownRight; break;
-                            case 4: type = CursorType.ArrowDown; break;
-                            case 5: type = CursorType.ArrowDownLeft; break;
-                            case 6: type = CursorType.ArrowLeft; break;
-                            case 7: type = CursorType.ArrowUpLeft; break;
-                        }
-                        GameFacade.Cursor.SetCursor(type);
-                    }
-                    World.Scroll(scrollBy * (60f / FSOEnvironment.RefreshRate));
-                    scrolled = true;
+                    scrolled = RevampedCamera.Update(state, MouseIsOn);
+                    RMBScroll = RevampedCamera.Dragging; // hides hover highlights while dragging, like before
                 }
-                if (MouseIsOn)
+                else
                 {
-                    if (state.MouseState.RightButton == ButtonState.Pressed)
+                    if (RMBScroll)
                     {
-                        if (RMBScroll == false)
+                        World.State.ScrollAnchor = null;
+                        Vector2 scrollBy = new Vector2();
+                        if (state.TouchMode)
                         {
-                            RMBScroll = true;
+                            scrollBy = new Vector2(RMBScrollX - state.MouseState.X, RMBScrollY - state.MouseState.Y);
                             RMBScrollX = state.MouseState.X;
                             RMBScrollY = state.MouseState.Y;
+                            scrollBy /= 128f;
+                            scrollBy /= FSOEnvironment.DPIScaleFactor;
+                        }
+                        else
+                        {
+                            scrollBy = new Vector2(state.MouseState.X - RMBScrollX, state.MouseState.Y - RMBScrollY);
+                            scrollBy *= 0.0005f;
+
+                            var angle = (Math.Atan2(state.MouseState.X - RMBScrollX, (RMBScrollY - state.MouseState.Y) * 2) / Math.PI) * 4;
+                            angle += 8;
+                            angle %= 8;
+
+                            CursorType type = CursorType.ArrowUp;
+                            switch ((int)Math.Round(angle))
+                            {
+                                case 0: type = CursorType.ArrowUp; break;
+                                case 1: type = CursorType.ArrowUpRight; break;
+                                case 2: type = CursorType.ArrowRight; break;
+                                case 3: type = CursorType.ArrowDownRight; break;
+                                case 4: type = CursorType.ArrowDown; break;
+                                case 5: type = CursorType.ArrowDownLeft; break;
+                                case 6: type = CursorType.ArrowLeft; break;
+                                case 7: type = CursorType.ArrowUpLeft; break;
+                            }
+                            GameFacade.Cursor.SetCursor(type);
+                        }
+                        World.Scroll(scrollBy * (60f / FSOEnvironment.RefreshRate));
+                        scrolled = true;
+                    }
+                    if (MouseIsOn)
+                    {
+                        if (state.MouseState.RightButton == ButtonState.Pressed)
+                        {
+                            if (RMBScroll == false)
+                            {
+                                RMBScroll = true;
+                                RMBScrollX = state.MouseState.X;
+                                RMBScrollY = state.MouseState.Y;
+                            }
+                        }
+                        else
+                        {
+                            if (!scrolled && GlobalSettings.Default.EdgeScroll && !state.TouchMode) scrolled = World.TestScroll(state);
                         }
                     }
-                    else
-                    {
-                        if (!scrolled && GlobalSettings.Default.EdgeScroll && !state.TouchMode) scrolled = World.TestScroll(state);
-                    }
-                }
 
-                if (state.MouseState.RightButton != ButtonState.Pressed)
-                {
-                    if (RMBScroll) GameFacade.Cursor.SetCursor(CursorType.Normal);
-                    RMBScroll = false;
+                    if (state.MouseState.RightButton != ButtonState.Pressed)
+                    {
+                        if (RMBScroll) GameFacade.Cursor.SetCursor(CursorType.Normal);
+                        RMBScroll = false;
+                    }
                 }
 
                 if (!LiveMode && PieMenu != null)
@@ -906,7 +1084,10 @@ namespace Simitone.Client.UI.Panels
                         CustomControl.Modifiers = 0;
                         if (state.CtrlDown) CustomControl.Modifiers |= UILotControlModifiers.CTRL;
                         if (state.ShiftDown) CustomControl.Modifiers |= UILotControlModifiers.SHIFT;
-                        CustomControl.MousePosition = state.MouseState.Position;
+                        // SimsRedux: build tools get the zoom-corrected mouse position, so walls, floors
+                        // and terrain land under the cursor at every zoom level
+                        var wp = ToWorldScreen(new Vector2(state.MouseState.X, state.MouseState.Y));
+                        CustomControl.MousePosition = new Point((int)wp.X, (int)wp.Y);
                     }
                     CustomControl.Update(state, scrolled);
                 }
@@ -914,6 +1095,7 @@ namespace Simitone.Client.UI.Panels
 
                 //set cutaway around mouse
                 UpdateCutaway(state);
+                UpdateDoorHiding();
 
                 if (RMBScrollX == int.MinValue) Dummy(); //cannon fodder for mono AOT compilation: never called but gives these constructors a meaning in life
             }
@@ -928,6 +1110,39 @@ namespace Simitone.Client.UI.Panels
             CustomControl = new UIRoofer(vm, World, this, new List<int>());
             CustomControl = new UITerrainFlatten(vm, World, this, new List<int>());
             CustomControl = new UITerrainRaiser(vm, World, this, new List<int>());
+        }
+
+        // SimsRedux: doors only show with walls up or roofs; in cutaway and walls down they're hidden
+        private HashSet<VMEntity> HiddenDoors = new HashSet<VMEntity>();
+        private int DoorCheckTimer;
+        private void UpdateDoorHiding()
+        {
+            if (vm?.Context == null) return;
+            if (WallsMode <= 1) // 0 = walls down, 1 = cutaway
+            {
+                if (DoorCheckTimer-- > 0) return;
+                DoorCheckTimer = 30; // about twice a second: catches doors that were just placed
+                foreach (var ent in vm.Entities)
+                {
+                    if (!(ent is VMGameObject) || ent.Dead) continue;
+                    var flags2 = (VMEntityFlags2)ent.GetValue(FSO.SimAntics.Model.VMStackObjectVariable.FlagField2);
+                    if ((flags2 & VMEntityFlags2.ArchitectualDoor) == 0) continue;
+                    var comp = ent.WorldUI as ObjectComponent;
+                    if (comp == null) continue;
+                    if (comp.Visible) comp.Visible = false;
+                    HiddenDoors.Add(ent);
+                }
+            }
+            else if (HiddenDoors.Count > 0)
+            {
+                foreach (var ent in HiddenDoors)
+                {
+                    var comp = ent.WorldUI as ObjectComponent;
+                    if (comp != null && !ent.Dead) comp.Visible = ent.GetValue(FSO.SimAntics.Model.VMStackObjectVariable.Hidden) == 0;
+                }
+                HiddenDoors.Clear();
+                DoorCheckTimer = 0;
+            }
         }
 
         private void UpdateCutaway(UpdateState state)
@@ -970,8 +1185,11 @@ namespace Simitone.Client.UI.Panels
                 {
                     HashSet<uint> finalRooms;
                     int recut = 0;
-                    if (FSOEnvironment.SoftwareKeyboard)
+                    // SimsRedux: cut the front walls of every room on this floor, like Sims 1, instead of
+                    // cutting a hole around the mouse (that's what made walls vanish as the mouse moved)
+                    if (FSOEnvironment.SoftwareKeyboard || ClassicCutaway)
                     {
+                        MouseCutRect = new Rectangle();
                         finalRooms = new HashSet<uint>();
                         foreach (var room in vm.Context.RoomInfo)
                         {

@@ -1,4 +1,4 @@
-﻿using FSO.Client;
+using FSO.Client;
 using FSO.Client.UI.Framework;
 using FSO.Common.Utils;
 using FSO.Content;
@@ -53,6 +53,10 @@ namespace Simitone.Client.UI.Panels
         public UISwitchAvatarPanel SwitchAvatar;
         public bool PanelActive;
         public UIMainPanelMode Mode;
+        /// <summary>SimsRedux: true while the classic control panel shows its own contents for this mode.</summary>
+        public bool ClassicHidden;
+        /// <summary>SimsRedux: the classic control panel has its own Buy catalog, so don't open Simitone's.</summary>
+        public bool ClassicCatalog;
 
         public event Action OnEndSelect;
         public event Action<UIMainPanelMode> ModeChanged;
@@ -212,6 +216,7 @@ namespace Simitone.Client.UI.Panels
 
         public void Switcher_OnCategorySelect(int obj)
         {
+            if (ClassicCatalog && (Mode == UIMainPanelMode.BUY || Mode == UIMainPanelMode.BUILD || Mode == UIMainPanelMode.OPTIONS)) { SetSubpanel(null); return; }
             UISubpanel panel = null;
             switch (Mode)
             {
@@ -340,6 +345,7 @@ namespace Simitone.Client.UI.Panels
 
         public override void Draw(UISpriteBatch batch)
         {
+            if (!Visible) return; // SimsRedux: the background was drawn even while hidden
             if (CurWidth > 211)
             {
                 if (ShowingSelect)
@@ -359,7 +365,7 @@ namespace Simitone.Client.UI.Panels
         public override void Update(UpdateState state)
         {
             base.Update(state);
-            Visible = _CurWidth > 0;
+            Visible = _CurWidth > 0 && !ClassicHidden;
 
             if (!Game.Desktop)
             {

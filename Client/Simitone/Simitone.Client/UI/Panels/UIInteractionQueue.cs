@@ -1,4 +1,4 @@
-﻿/*
+/*
 This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
 If a copy of the MPL was not distributed with this file, You can obtain one at
 http://mozilla.org/MPL/2.0/.
@@ -33,6 +33,89 @@ namespace Simitone.Client.UI.Panels
         public VM vm;
         public Vector2 PieMenuClickPos = new Vector2(-1, -1);
 
+        // SimsRedux: stuck-action guard. If you cancel the action a Sim is doing and they still
+        // haven't stopped after a few seconds of game time, write down what they're stuck in
+        // (stuck_debug.log) and reset them, the same way the game recovers from a script error.
+        private ushort CancelledUID;
+        private int CancelledFrames = -1;
+        private const int StuckFrames = 60 * 6; // ~6 seconds at normal speed
+
+        private int TraceFrames = -1;
+        private List<string> StuckHeader;
+
+        private void CheckStuckCancel()
+        {
+            // stage 2: we've been watching the stuck Sim's script for a moment; write it all down, then reset them
+            if (TraceFrames >= 0)
+            {
+                if (++TraceFrames < 120) return;
+                TraceFrames = -1;
+                WriteStuckLog();
+                FSO.SimAntics.Engine.VMThread.TraceEntity = null;
+                vm.SendCommand(new VMNetResetSimCmd { ObjectID = QueueOwner.ObjectID });
+                return;
+            }
+
+            if (CancelledFrames < 0 || QueueOwner == null || vm == null) return;
+            var queue = QueueOwner.Thread.Queue;
+            bool stillDoingIt = queue.Count > 0 && queue[0].UID == CancelledUID;
+            if (!stillDoingIt) { CancelledFrames = -1; return; }
+            if (vm.SpeedMultiplier <= 0) return; // paused: wait
+            if (++CancelledFrames < StuckFrames) return;
+            CancelledFrames = -1;
+
+            // stage 1: note where they are, then trace their script for ~2 seconds
+            StuckHeader = new List<string>();
+            try
+            {
+                StuckHeader.Add(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " Sim " + QueueOwner.ObjectID + " ignored cancel of \"" + queue[0].Name + "\". Resetting them.");
+                StuckHeader.Add("  waiting on: " + (QueueOwner.Thread.BlockingState?.GetType().Name ?? "nothing"));
+                foreach (var frame in QueueOwner.Thread.Stack)
+                {
+                    if (frame == null) continue;
+                    StuckHeader.Add("  " + (frame.CodeOwner?.OBJ?.ChunkLabel ?? "?") + " / " + (frame.Routine?.Chunk?.ChunkLabel ?? "?")
+                        + " (bhav " + (frame.Routine?.ID.ToString() ?? "?") + ", line " + frame.InstructionPointer + ")");
+                }
+            }
+            catch { }
+            FSO.SimAntics.Engine.VMThread.TraceLog.Clear();
+            FSO.SimAntics.Engine.VMThread.TraceRoutines.Clear();
+            foreach (var frame in QueueOwner.Thread.Stack)
+                if (frame?.Routine != null && frame.CodeOwner != null && !(frame.CodeOwner.OBJ?.ChunkLabel ?? "").StartsWith("user"))
+                    FSO.SimAntics.Engine.VMThread.TraceRoutines.Add(frame.Routine); // the object's scripts, not the Sim's own
+            FSO.SimAntics.Engine.VMThread.TraceEntity = QueueOwner;
+            TraceFrames = 0;
+        }
+
+        private void WriteStuckLog()
+        {
+            try
+            {
+                var lines = new List<string>(StuckHeader ?? new List<string>());
+                lines.Add("");
+                lines.Add("  ---- script steps while stuck ----");
+                var trace = FSO.SimAntics.Engine.VMThread.TraceLog;
+                // keep it readable: first 400 steps
+                for (int i = 0; i < Math.Min(400, trace.Count); i++) lines.Add("  " + trace[i]);
+                lines.Add("");
+                lines.Add("  ---- the scripts involved ----");
+                foreach (var routine in FSO.SimAntics.Engine.VMThread.TraceRoutines)
+                {
+                    var chunk = routine?.Chunk;
+                    if (chunk == null) continue;
+                    lines.Add("  [" + chunk.ChunkLabel + " (bhav " + routine.ID + "), args " + chunk.Args + ", locals " + chunk.Locals + "]");
+                    for (int i = 0; i < chunk.Instructions.Length; i++)
+                    {
+                        var ins = chunk.Instructions[i];
+                        lines.Add("    " + i + ": op " + ins.Opcode + "  true->" + ins.TruePointer + " false->" + ins.FalsePointer
+                            + "  operand " + BitConverter.ToString(ins.Operand ?? new byte[0]));
+                    }
+                }
+                System.IO.File.AppendAllText(System.IO.Path.Combine(FSOEnvironment.UserDir, "stuck_debug.log"), string.Join("\r\n", lines) + "\r\n\r\n");
+            }
+            catch { }
+        }
+
         public UIInteractionQueue(VMEntity QueueOwner, VM vm)
         {
             this.vm = vm;
@@ -49,8 +132,15 @@ namespace Simitone.Client.UI.Panels
 
         public override void Update(UpdateState state)
         {
+            // SimsRedux: classic queue grows with the rest of the classic interface on big screens
+            if (UIInteraction.Classic)
+            {
+                var scale = Math.Max(1f, (float)Math.Floor(GlobalSettings.Default.GraphicsHeight / 768f * 4) / 4f);
+                ScaleX = ScaleY = scale;
+            }
             base.Update(state);
             if (QueueOwner == null) return;
+            CheckStuckCancel();
             //detect any changes in the interaction queue.
 
             var queue = QueueOwner.Thread.Queue;
@@ -142,7 +232,7 @@ namespace Simitone.Client.UI.Panels
                         {
                             Interaction = elem,
                             IconOwner = elem.IconOwner,
-                            SourcePos = (PieMenuClickPos.X < 0) ? (new Vector2(30 + position * 50, 30)) : PieMenuClickPos,
+                            SourcePos = (PieMenuClickPos.X < 0) ? (new Vector2(30 + position * 50, 30)) : PieMenuClickPos / ScaleX,
                             TweenProgress = 0,
                             UI = new UIInteraction(i == 0),
                             Active = (i == 0)
@@ -205,6 +295,7 @@ namespace Simitone.Client.UI.Panels
                 if (queue[i] == itemui.Interaction)
                 {
                     HITVM.Get().PlaySoundEvent(UISounds.QueueDelete);
+                    if (i == 0) { CancelledUID = itemui.Interaction.UID; CancelledFrames = 0; }
                     var priority = GetElemPriority(itemui.Interaction, i);
                     if (!(itemui.Interaction.NotifyIdle && priority <= 0))
                     {
@@ -240,7 +331,8 @@ namespace Simitone.Client.UI.Panels
         public void TweenToPosition(int pos)
         {
             Vector2 realPos;
-            if (pos == 0) realPos = new Vector2(73, 73);
+            if (UIInteraction.Classic) realPos = new Vector2(30 + pos * 49, 30); // SimsRedux: the original row of frames, top left
+            else if (pos == 0) realPos = new Vector2(73, 73);
             else realPos = new Vector2(37 + 68 + pos*60, 41.5f);
 
             GameFacade.Screens.Tween.To(UI, 0.5f, new Dictionary<string, float>() { { "X", realPos.X }, { "Y", realPos.Y } }, TweenQuad.EaseOut);

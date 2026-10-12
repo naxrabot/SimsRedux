@@ -199,13 +199,26 @@ namespace Simitone.Client.UI.Screens
             Content.Get().Neighborhood.AddMissingNeighbors();
             var nbd = (ushort)((mode == NeighSelectionMode.MoveInMagic) ? 7 : 4);
             TS1NeighPanel = new UINeighborhoodSelectionPanel(nbd);
-            var switcher = new UINeighbourhoodSwitcher(TS1NeighPanel, nbd, mode != NeighSelectionMode.Normal);
+            // SimsRedux: the classic top bar replaces the side buttons
+            var classicBar = UIClassicNeighborhoodBar.Enabled;
+            if (classicBar)
+            {
+                TS1NeighPanel.MoveInMode = mode != NeighSelectionMode.Normal;
+                TS1NeighPanel.PopulateScreen(nbd); // rebuild so the bar knows about move-in mode
+            }
+            UIElement switcher = classicBar ? null : new UINeighbourhoodSwitcher(TS1NeighPanel, nbd, mode != NeighSelectionMode.Normal);
             TS1NeighPanel.OnHouseSelect += (house) =>
             {
                 if (MoveInFamily != null)
                 {
                     //move them in first
                     //confirm it
+                    if (UIClassicNeighborhoodBar.Enabled)
+                    {
+                        UIClassicDialog.YesNo(GameFacade.Strings.GetString("132", "0"), GameFacade.Strings.GetString("132", "1"),
+                            () => MoveInAndPlay((short)house, MoveInFamily.Value, switcher));
+                        return;
+                    }
                     UIMobileAlert confirmDialog = null;
                     confirmDialog = new UIMobileAlert(new UIAlertOptions()
                     {
@@ -226,11 +239,18 @@ namespace Simitone.Client.UI.Screens
                 }
             };
             Add(TS1NeighPanel);
-            Add(switcher);
+            if (switcher != null) Add(switcher);
         }
 
         public void PlayHouse(short house, UIElement switcher)
         {
+            if (UIClassicNeighborhoodBar.Enabled && !ClassicLoading)
+            {
+                // SimsRedux: original loading screen first
+                ClassicLoading = true;
+                UIClassicLoadScreen.Run(house, false, () => { PlayHouse(house, switcher); ClassicLoading = false; });
+                return;
+            }
             ActiveFamily = Content.Get().Neighborhood.GetFamilyForHouse((short)house);
             InitializeLot(Content.Get().Neighborhood.GetHousePath(house), false);// "UserData/Houses/House21.iff"
             Remove(TS1NeighPanel);
@@ -269,6 +289,7 @@ namespace Simitone.Client.UI.Screens
         }
 
         private int SwitchLot = -1;
+        private bool ClassicLoading;
 
         public void ChangeSpeedTo(int speed)
         {
@@ -357,10 +378,8 @@ namespace Simitone.Client.UI.Screens
             }
             base.Update(state);
 
-            if (state.NewKeys.Contains(Microsoft.Xna.Framework.Input.Keys.F12) && GraphicsModeControl.Mode != GlobalGraphicsMode.Full2D)
-            {
-                GraphicsModeControl.ChangeMode((GraphicsModeControl.Mode == GlobalGraphicsMode.Full3D) ? GlobalGraphicsMode.Hybrid2D : GlobalGraphicsMode.Full3D);
-            }
+            // SimsRedux: F12 used to switch between 3D and 2D. The game is 2D only now.
+            if (GraphicsModeControl.Mode != GlobalGraphicsMode.Full2D) GraphicsModeControl.ChangeMode(GlobalGraphicsMode.Full2D);
 
             /*
             if (state.NewKeys.Contains(Keys.F12))
@@ -390,24 +409,37 @@ namespace Simitone.Client.UI.Screens
 
             if (SwitchLot > 0)
             {
-                if (!Downtown) SavedLot = vm.Save();
-                if (SwitchLot == ActiveFamily.HouseNumber && SavedLot != null)
-                {
-                    Downtown = false;
-                    InitializeLot(SavedLot);
-                    SavedLot = null;
-                }
-                else
-                {
-                    Downtown = true;
-                    InitializeLot(Content.Get().Neighborhood.GetHousePath(SwitchLot), false);
-                }
+                var target = SwitchLot;
                 SwitchLot = -1;
+                if (UIClassicNeighborhoodBar.Enabled)
+                {
+                    // SimsRedux: show the taxi / boat / limo / balloon picture, then travel
+                    var goingHome = ActiveFamily != null && target == ActiveFamily.HouseNumber;
+                    UIClassicLoadScreen.Run(target, goingHome, () => DoSwitchLot(target));
+                }
+                else DoSwitchLot(target);
             }
             //vm.Context.Clock.Hours = 12;
             if (vm != null) vm.Update();
 
             //SaveHouseButton_OnButtonClick(null);
+        }
+
+        private void DoSwitchLot(int target)
+        {
+            if (vm == null) return;
+            if (!Downtown) SavedLot = vm.Save();
+            if (target == ActiveFamily.HouseNumber && SavedLot != null)
+            {
+                Downtown = false;
+                InitializeLot(SavedLot);
+                SavedLot = null;
+            }
+            else
+            {
+                Downtown = true;
+                InitializeLot(Content.Get().Neighborhood.GetHousePath(target), false);
+            }
         }
 
         public override void PreDraw(UISpriteBatch batch)

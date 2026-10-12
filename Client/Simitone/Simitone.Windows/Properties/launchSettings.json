@@ -1,7 +1,8 @@
 {
   "profiles": {
     "Simitone.Windows": {
-      "commandName": "Project"
+      "commandName": "Project",
+      "commandLineArgs": "-classiccas"
     },
     "Simitone.Windows 3D": {
       "commandName": "Project",

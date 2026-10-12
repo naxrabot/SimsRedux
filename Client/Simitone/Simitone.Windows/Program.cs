@@ -1,4 +1,4 @@
-﻿using FSO.Client;
+using FSO.Client;
 using FSO.Common;
 using FSO.LotView;
 using Simitone.Client;
@@ -48,6 +48,7 @@ namespace Simitone.Windows
             var path = gameLocator.FindTheSims1();
 
 
+            // SimsRedux: The Sims Revamped always runs in 2D (the original Sims 1 look)
             FSOEnvironment.Enable3D = false;
             bool ide = false;
             bool aa = false;
@@ -75,7 +76,7 @@ namespace Simitone.Windows
                                 ide = true;
                                 break;
                             case "3d":
-                                FSOEnvironment.Enable3D = true;
+                                // SimsRedux: 2D only, -3d is ignored
                                 break;
                             case "aa":
                                 aa = true;
@@ -133,6 +134,7 @@ namespace Simitone.Windows
                 GlobalSettings.Default.AntiAlias = aa ? 1 : 0;
                 GlobalSettings.Default.ComplexShaders = true;
                 GlobalSettings.Default.EnableTransitions = true;
+                Simitone.Client.Utils.ReduxSettings.ApplyToGlobal(); // SimsRedux: the player's Graphics options
 
                 if (ide) new FSO.IDE.VolcanicStartProxy().InitVolcanic(args);
 
