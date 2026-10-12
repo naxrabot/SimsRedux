@@ -19,10 +19,16 @@ namespace Simitone.Web
             FSOEnvironment.NoThreads = true;      // browsers can't run the game's loading threads
             FSOEnvironment.DirectX = false;
             FSOEnvironment.Linux = false;
-            FSOEnvironment.SoftwareDepth = false;
+            // WebGL is like the phone (iOS) build: GL ES style shaders, depth done in software
+            FSOEnvironment.GLVer = 2;
+            FSOEnvironment.SoftwareDepth = true;
             FSOEnvironment.UseMRT = false;        // WebGL has limited multiple-render-target support
+            FSOEnvironment.TexCompress = false;
+            FSOEnvironment.TexCompressSupport = false;
+            FSOEnvironment.MSAASupport = false;
+            FSOEnvironment.EnableNPOTMip = true;
             FSOEnvironment.ContentDir = "Content/";
-            FSOEnvironment.GFXContentDir = "Content/OGL/";
+            FSOEnvironment.GFXContentDir = "Content"; // KNI puts the built shaders in wwwroot/Content/Effects
             FSOEnvironment.UserDir = "/userdata/";
             FSOEnvironment.Args = "-classic";
 
