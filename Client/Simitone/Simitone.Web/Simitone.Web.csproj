@@ -49,6 +49,8 @@
     <Compile Include="..\Simitone.Client\**\*.cs" />
     <!-- build output, and per-project assembly info (one assembly here) -->
     <Compile Remove="$(FSORoot)**\obj\**;$(FSORoot)**\bin\**;$(FSOLibs)**\obj\**;$(FSOLibs)**\bin\**;..\Simitone.Client\obj\**;..\Simitone.Client\bin\**" />
+    <!-- Windows-only: Discord rich presence (native DLL calls browsers can't make) -->
+    <Compile Remove="$(FSORoot)FSO.UI\Model\DiscordRpc.cs;$(FSORoot)FSO.UI\Model\DiscordRpcEngine.cs" />
     <Compile Remove="$(FSORoot)**\Properties\AssemblyInfo.cs;$(FSOLibs)**\Properties\AssemblyInfo.cs;..\Simitone.Client\Properties\AssemblyInfo.cs" />
   </ItemGroup>
 
