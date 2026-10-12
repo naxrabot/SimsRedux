@@ -28,7 +28,7 @@ namespace Simitone.Web
             FSOEnvironment.MSAASupport = false;
             FSOEnvironment.EnableNPOTMip = true;
             FSOEnvironment.ContentDir = "Content/";
-            FSOEnvironment.GFXContentDir = "Content"; // KNI puts the built shaders in wwwroot/Content/Effects
+            FSOEnvironment.GFXContentDir = "Content/Web"; // built shaders + OpenGL fonts/textures (wwwroot/Content/Web)
             FSOEnvironment.UserDir = "/userdata/";
             FSOEnvironment.Args = "-classic";
 

@@ -19,6 +19,8 @@
     <DefineConstants>$(DefineConstants);BLAZORGL;WEB</DefineConstants>
     <KniPlatform>BlazorGL</KniPlatform>
     <BlazorEnableTimeZoneSupport>false</BlazorEnableTimeZoneSupport>
+    <!-- the game finds a lot of its code by name (reflection), which trimming would cut out -->
+    <PublishTrimmed>false</PublishTrimmed>
     <!-- the game's libraries are old code; keep the warning list readable -->
     <NoWarn>$(NoWarn);CS0168;CS0169;CS0219;CS0414;CS0618;CS0649;CS0067;CS0162;CS0108;CS0114;CS8632;CS1998;CS4014;CA1416;SYSLIB0011;SYSLIB0014;NU1701</NoWarn>
     <FSORoot>..\..\..\FreeSO\TSOClient\</FSORoot>
@@ -44,7 +46,6 @@
     <Compile Include="$(FSORoot)tso.sound\**\*.cs" />
     <Compile Include="$(FSORoot)tso.simantics\**\*.cs" />
     <Compile Include="$(FSORoot)FSO.UI\**\*.cs" />
-    <Compile Include="$(FSOLibs)MSDFData\**\*.cs" />
     <Compile Include="$(FSOLibs)TargaImagePCL\**\*.cs" />
     <Compile Include="..\Simitone.Client\**\*.cs" />
     <!-- build output, and per-project assembly info (one assembly here) -->
@@ -54,7 +55,34 @@
     <Compile Remove="$(FSORoot)**\Properties\AssemblyInfo.cs;$(FSOLibs)**\Properties\AssemblyInfo.cs;..\Simitone.Client\Properties\AssemblyInfo.cs" />
   </ItemGroup>
 
-  <!-- the graphics effects: KNI builds every .mgcb in this folder (Content\WebContent.mgcb) for WebGL into wwwroot/Content -->
+  <!-- the graphics effects: KNI builds every .mgcb in this folder (Content\WebContent.mgcb) for WebGL into wwwroot/Content/Web -->
+
+  <!-- the vector fonts' reader, in its own MSDFData assembly so the font files can find it -->
+  <ItemGroup>
+    <ProjectReference Include="..\MSDFData.Web\MSDFData.Web.csproj" />
+  </ItemGroup>
+
+  <!--
+    The rest of the game's own content (fonts, textures, the UI script) goes next to the website:
+      wwwroot/Content/      = FreeSO's Content folder (what the Windows build ships)
+      wwwroot/Content/Web/  = the graphics folder for WebGL: built effects + the OpenGL fonts/textures
+  -->
+  <Target Name="CopyGameContentToSite" AfterTargets="Publish">
+    <PropertyGroup>
+      <FSOContent>$(FSORoot)tso.content\Content\</FSOContent>
+      <SiteContent>$(PublishDir)wwwroot\Content\</SiteContent>
+    </PropertyGroup>
+    <ItemGroup>
+      <GameContent Include="$(FSOContent)**\*" Exclude="$(FSOContent)DX\**;$(FSOContent)OGL\**;$(FSOContent)iOS\**;$(FSOContent)Effects\**" />
+      <GameGfxFonts Include="$(FSOContent)OGL\Fonts\**\*" />
+      <GameGfxTextures Include="$(FSOContent)OGL\Textures\**\*" />
+      <BuiltEffects Include="wwwroot\Content\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(GameContent)" DestinationFiles="@(GameContent->'$(SiteContent)%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(GameGfxFonts)" DestinationFiles="@(GameGfxFonts->'$(SiteContent)Web\Fonts\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(GameGfxTextures)" DestinationFiles="@(GameGfxTextures->'$(SiteContent)Web\Textures\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(BuiltEffects)" DestinationFiles="@(BuiltEffects->'$(SiteContent)%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
 
   <ItemGroup>
     <Reference Include="GOLDEngine">
