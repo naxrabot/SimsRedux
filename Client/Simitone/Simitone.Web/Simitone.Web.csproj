@@ -57,6 +57,10 @@
 
   <!-- the graphics effects: KNI builds every .mgcb in this folder (Content\WebContent.mgcb) for WebGL into wwwroot/Content/Web -->
 
+  <ItemGroup>
+    <KniContentReference Include="Content\WebContent.mgcb" />
+  </ItemGroup>
+
   <!-- the vector fonts' reader, in its own MSDFData assembly so the font files can find it -->
   <ItemGroup>
     <ProjectReference Include="..\MSDFData.Web\MSDFData.Web.csproj" />
