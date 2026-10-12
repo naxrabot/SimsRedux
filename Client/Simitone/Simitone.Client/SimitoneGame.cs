@@ -263,7 +263,9 @@ namespace Simitone.Client
             {
                 //MessageBox.Windows.Forms.MessageBox.Show("Content could not be loaded. Make sure that the FreeSO content has been compiled! (ContentSrc/TSOClientContent.mgcb)");
                 Console.WriteLine(e.ToString());
-                Exit();
+#if !WEB
+                Exit(); // browsers can't close the game's tab
+#endif
             }
 
             FSO.Vitaboy.Avatar.setVitaboyEffect(vitaboyEffect);
