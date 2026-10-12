@@ -30,6 +30,7 @@
     <Compile Include="Program.cs" />
     <Compile Include="Pages\Index.razor.cs" />
     <Compile Include="WebStartup.cs" />
+    <Compile Include="GlobalUsings.cs" />
   </ItemGroup>
 
   <!-- the game: same files as the Windows build -->
