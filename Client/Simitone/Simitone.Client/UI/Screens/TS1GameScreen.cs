@@ -879,6 +879,7 @@ namespace Simitone.Client.UI.Screens
 
                 var server = (VMServerDriver)Driver;
                 server.ConnectClient(myClient);
+                if (!Downtown && ActiveFamily != null) RemoveStrayFamilySims();
                 LoadSurrounding(short.Parse(lotName.Substring(lotName.Length - 6, 2)));
                 LotDebug("after load (" + Path.GetFileName(lotName) + ")");
                 GameThread.SetTimeout(() => LotDebug("3 seconds later"), 3000);
@@ -1007,6 +1008,38 @@ namespace Simitone.Client.UI.Screens
                 lotId = (uint)ActiveFamily.HouseNumber;
             }
             SwitchLot = (int)lotId;
+        }
+
+        /// <summary>
+        /// SimsRedux: a family's home lot can't hold a member of another household. An older bug
+        /// brought the last travelling Sim onto new families' lots, and some houses were saved
+        /// with that Sim still in them. Anyone like that is sent home (removed) when the lot loads.
+        /// </summary>
+        private void RemoveStrayFamilySims()
+        {
+            try
+            {
+                var neigh = Content.Get().Neighborhood;
+                var otherFamilies = new HashSet<uint>();
+                foreach (var fam in neigh.MainResource.List<FAMI>() ?? new List<FAMI>())
+                {
+                    if (fam == ActiveFamily || fam.FamilyGUIDs == null) continue;
+                    foreach (var g in fam.FamilyGUIDs) otherFamilies.Add(g);
+                }
+                var mine = new HashSet<uint>(ActiveFamily.FamilyGUIDs ?? new uint[0]);
+                foreach (var ava in vm.Context.ObjectQueries.Avatars.OfType<VMAvatar>().ToList())
+                {
+                    var guid = ava.Object.OBJ.GUID;
+                    if (mine.Contains(guid) || !otherFamilies.Contains(guid) || ava.Dead) continue;
+                    ReduxOnlineInfo.Log("Sent " + ava.Name + " home: another family's Sim was saved on this lot");
+                    if (ava.PersistID != 0) vm.Context.ObjectQueries.RemoveAvatarPersist(ava.PersistID);
+                    ava.Delete(true, vm.Context);
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("[SimsRedux] Couldn't check for stray Sims: " + e.Message);
+            }
         }
 
         /// <summary>
