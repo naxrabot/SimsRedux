@@ -19,6 +19,8 @@ namespace Simitone.Web
         {
             FSOFileSystem.Current = new BrowserFileSystem(); // the player's files live in the browser (js/simsfs.js)
             FSOEnvironment.NoThreads = true;      // browsers can't run the game's loading threads
+            FSOEnvironment.GameThread = System.Threading.Thread.CurrentThread; // the browser's one thread is the game thread
+            FSO.Common.Utils.GameThread.Game = System.Threading.Thread.CurrentThread;
             FSOEnvironment.DirectX = false;
             FSOEnvironment.Linux = false;
             // WebGL is like the phone (iOS) build: GL ES style shaders, depth done in software
