@@ -255,17 +255,25 @@
             console.warn('[SimsFS] no Content/files.txt', e);
             return;
         }
-        let n = 0;
-        await Promise.all(list.map(async rel => {
-            const name = 'Content/' + rel;
-            try {
-                const r = await fetch(name);
-                if (!r.ok) return;
-                const data = new Uint8Array(await r.arrayBuffer());
-                addFile(name, { size: data.length, data });
-            } catch (e) { console.warn('[SimsFS] could not load ' + name, e); }
-            n++;
-        }));
+        // a handful at a time: browsers refuse thousands of downloads at once
+        const queue = list.slice();
+        async function worker() {
+            while (queue.length) {
+                const name = 'Content/' + queue.shift();
+                for (let attempt = 0; attempt < 3; attempt++) {
+                    try {
+                        const r = await fetch(name);
+                        if (!r.ok) break;
+                        const data = new Uint8Array(await r.arrayBuffer());
+                        addFile(name, { size: data.length, data });
+                        break;
+                    } catch (e) {
+                        if (attempt === 2) console.warn('[SimsFS] could not load ' + name, e);
+                    }
+                }
+            }
+        }
+        await Promise.all(Array.from({ length: 8 }, worker));
     }
 
     function isLazy(k) { return LAZY.some(r => r.test(k)); }
