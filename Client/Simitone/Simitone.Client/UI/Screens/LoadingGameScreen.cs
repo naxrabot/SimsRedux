@@ -220,7 +220,7 @@ namespace Simitone.Client.UI.Screens
                     var path = System.IO.Path.Combine(FSO.Common.FSOEnvironment.ContentDir, "redux/loading_wallpaper.jpg");
                     if (FSOFile.Exists(path))
                         using (var stream = FSOFile.OpenRead(path))
-                            Wallpaper = Texture2D.FromStream(GameFacade.GraphicsDevice, stream);
+                            Wallpaper = FSO.Common.Utils.TextureLoad.FromStream(GameFacade.GraphicsDevice, stream);
                 }
                 catch (Exception e)
                 {

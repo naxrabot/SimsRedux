@@ -21,6 +21,8 @@ namespace Simitone.Web
             FSOEnvironment.NoThreads = true;      // browsers can't run the game's loading threads
             FSOEnvironment.GameThread = System.Threading.Thread.CurrentThread; // the browser's one thread is the game thread
             FSO.Common.Utils.GameThread.Game = System.Threading.Thread.CurrentThread;
+            FSO.Files.ImageLoaderHelpers.BitmapFunction = WebImageDecoder.Decode; // pictures are decoded in C# here
+            FSO.Common.Utils.TextureLoad.Decoder = WebImageDecoder.Decode;
             FSOEnvironment.DirectX = false;
             FSOEnvironment.Linux = false;
             // WebGL is like the phone (iOS) build: GL ES style shaders, depth done in software
