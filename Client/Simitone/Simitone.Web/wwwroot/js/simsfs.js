@@ -148,7 +148,7 @@
     <button class="choose">Choose your Sims folder</button>
     <input type="file" class="folder hidden" webkitdirectory directory multiple>
   </div>
-  <div class="progress hidden"><div class="bar"><div></div></div></div>
+  <div class="srx-progress hidden"><div class="bar"><div></div></div></div>
   <div class="status"></div>
   <div class="again hidden" style="margin-top:10px"><button class="link change">Use a different Sims folder</button></div>
 </div>`;
@@ -159,7 +159,7 @@
             pick: el.querySelector('.pick'),
             choose: el.querySelector('.choose'),
             input: el.querySelector('.folder'),
-            progress: el.querySelector('.progress'),
+            progress: el.querySelector('.srx-progress'),
             bar: el.querySelector('.bar div'),
             status: el.querySelector('.status'),
             again: el.querySelector('.again'),
@@ -274,6 +274,14 @@
         const records = await allRecords();
         const sims = records.filter(r => r.k.startsWith(SIMS_ROOT));
         if (!sims.some(r => r.k === '/sims/gamedata/uitext.iff')) return false;
+
+        // what's big in this Sims folder (shown in the console, F12)
+        const bySize = {};
+        for (const r of sims) {
+            const top = r.k.substring(SIMS_ROOT.length).split('/')[0];
+            bySize[top] = (bySize[top] || 0) + (r.v.blob ? r.v.blob.size : 0);
+        }
+        console.log('[SimsFS] folder sizes: ' + Object.entries(bySize).sort((a, b) => b[1] - a[1]).map(([n, b]) => n + ' ' + mb(b)).join(', '));
 
         const now = records.filter(r => !isLazy(r.k));
         const total = now.reduce((n, r) => n + (r.v.blob ? r.v.blob.size : 0), 0);
