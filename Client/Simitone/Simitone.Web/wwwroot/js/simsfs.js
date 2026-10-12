@@ -17,7 +17,7 @@
     const STORE = 'files';
     const SIMS_ROOT = '/sims/';
     // big files that aren't needed to start: loaded in the background after the game starts
-    const LAZY = [/^\/sims\/music\//];
+    const LAZY = [/^\/sims\/music\//, /\.(mp4|bik|avi|webm|mov|wmv|mpg|mpeg)$/];
     // never copied from the player's folder (installers, programs, manuals)
     const SKIP_EXT = /\.(exe|dll|ico|msi|cab|hdr|inx|chm|pdf|lnk|url|tmp)$/i;
     // written by the game but not worth keeping between visits
