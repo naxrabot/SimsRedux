@@ -1,0 +1,89 @@
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+
+  <!--
+    SimsRedux: the web browser version (tsr.mbrew.studio).
+    It compiles the very same game source as the Windows build (FreeSO libraries + Simitone.Client)
+    into one assembly, but on the KNI engine (a MonoGame-compatible engine that runs in browsers
+    through WebAssembly) instead of MonoGame. The Windows projects are untouched.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>Simitone.Web</RootNamespace>
+    <AssemblyName>SimsRedux.Web</AssemblyName>
+    <DefineConstants>$(DefineConstants);BLAZORGL;WEB</DefineConstants>
+    <KniPlatform>BlazorGL</KniPlatform>
+    <BlazorEnableTimeZoneSupport>false</BlazorEnableTimeZoneSupport>
+    <!-- the game's libraries are old code; keep the warning list readable -->
+    <NoWarn>$(NoWarn);CS0168;CS0169;CS0219;CS0414;CS0618;CS0649;CS0067;CS0162;CS0108;CS0114;CS8632;CS1998;CS4014;CA1416;SYSLIB0011;SYSLIB0014;NU1701</NoWarn>
+    <FSORoot>..\..\..\FreeSO\TSOClient\</FSORoot>
+    <FSOLibs>..\..\..\FreeSO\Other\libs\</FSOLibs>
+  </PropertyGroup>
+
+  <!-- the web project itself -->
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="Pages\Index.razor.cs" />
+    <Compile Include="WebStartup.cs" />
+  </ItemGroup>
+
+  <!-- the game: same files as the Windows build -->
+  <ItemGroup>
+    <Compile Include="$(FSORoot)tso.common\**\*.cs" />
+    <Compile Include="$(FSORoot)tso.files\**\*.cs" />
+    <Compile Include="$(FSORoot)tso.content\**\*.cs" />
+    <Compile Include="$(FSORoot)tso.vitaboy.model\**\*.cs" />
+    <Compile Include="$(FSORoot)tso.vitaboy.engine\**\*.cs" />
+    <Compile Include="$(FSORoot)tso.world\**\*.cs" />
+    <Compile Include="$(FSORoot)tso.sound\**\*.cs" />
+    <Compile Include="$(FSORoot)tso.simantics\**\*.cs" />
+    <Compile Include="$(FSORoot)FSO.UI\**\*.cs" />
+    <Compile Include="$(FSOLibs)MSDFData\**\*.cs" />
+    <Compile Include="$(FSOLibs)TargaImagePCL\**\*.cs" />
+    <Compile Include="..\Simitone.Client\**\*.cs" />
+    <!-- build output, and per-project assembly info (one assembly here) -->
+    <Compile Remove="$(FSORoot)**\obj\**;$(FSORoot)**\bin\**;$(FSOLibs)**\obj\**;$(FSOLibs)**\bin\**;..\Simitone.Client\obj\**;..\Simitone.Client\bin\**" />
+    <Compile Remove="$(FSORoot)**\Properties\AssemblyInfo.cs;$(FSOLibs)**\Properties\AssemblyInfo.cs;..\Simitone.Client\Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="GOLDEngine">
+      <HintPath>$(FSORoot)FSO.UI\Dependencies\GOLDEngine.dll</HintPath>
+    </Reference>
+    <Reference Include="Mario">
+      <HintPath>$(FSORoot)tso.world\Mario.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="nkast.Xna.Framework" Version="4.3.9001" />
+    <PackageReference Include="nkast.Xna.Framework.Content" Version="4.3.9001" />
+    <PackageReference Include="nkast.Xna.Framework.Graphics" Version="4.3.9001" />
+    <PackageReference Include="nkast.Xna.Framework.Audio" Version="4.3.9001" />
+    <PackageReference Include="nkast.Xna.Framework.Media" Version="4.3.9001" />
+    <PackageReference Include="nkast.Xna.Framework.Input" Version="4.3.9001" />
+    <PackageReference Include="nkast.Xna.Framework.Game" Version="4.3.9001" />
+    <PackageReference Include="nkast.Xna.Framework.Devices" Version="4.3.9001" />
+    <PackageReference Include="nkast.Xna.Framework.Storage" Version="4.3.9001" />
+    <PackageReference Include="nkast.Xna.Framework.XR" Version="4.3.9001" />
+    <PackageReference Include="nkast.Kni.Platform.Blazor.GL" Version="4.3.9001" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.10" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.10" PrivateAssets="all" />
+
+    <!-- the same helper libraries the Windows build uses -->
+    <PackageReference Include="Mina" Version="2.0.12" />
+    <PackageReference Include="MP3Sharp" Version="1.0.5" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <PackageReference Include="Ninject" Version="3.3.6" />
+    <PackageReference Include="DeltaQ" Version="2.1.0" />
+    <PackageReference Include="xxHashSharp" Version="1.0.0" />
+    <PackageReference Include="FreeSO.HandEvaluator" Version="1.2.0" />
+    <PackageReference Include="System.Resources.Extensions" Version="9.0.0" />
+  </ItemGroup>
+
+</Project>

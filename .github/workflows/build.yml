@@ -55,3 +55,52 @@ jobs:
         if: failure()
         shell: pwsh
         run: Get-Content errors.txt | Select-Object -Skip 30 -First 10 | ForEach-Object { "::error::$_" }
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get the code (with the FreeSO submodule)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build the web version
+        shell: bash
+        run: |
+          echo "::remove-matcher owner=csc::"
+          echo "::remove-matcher owner=msbuild::"
+          set +e
+          dotnet build Client/Simitone/Simitone.Web/Simitone.Web.csproj -c Release -v minimal -clp:NoSummary > build.log 2>&1
+          code=$?
+          grep -E ': error ' build.log | sed -E 's#^.*/(Client|FreeSO)/#\1/#' | sed -E 's# \[/home.*\]$##' | sort -u > errors.txt
+          echo "Errors: $(wc -l < errors.txt)"
+          grep -oE 'error [A-Z]+[0-9]+' errors.txt | sort | uniq -c | sort -rn | head -20
+          exit $code
+
+      - name: Errors 1-10
+        if: failure()
+        shell: bash
+        run: head -n 10 errors.txt | while read -r l; do echo "::error::$l"; done
+      - name: Errors 11-20
+        if: failure()
+        shell: bash
+        run: sed -n '11,20p' errors.txt | while read -r l; do echo "::error::$l"; done
+      - name: Errors 21-30
+        if: failure()
+        shell: bash
+        run: sed -n '21,30p' errors.txt | while read -r l; do echo "::error::$l"; done
+      - name: Errors 31-40
+        if: failure()
+        shell: bash
+        run: sed -n '31,40p' errors.txt | while read -r l; do echo "::error::$l"; done
+      - name: Error summary
+        if: failure()
+        shell: bash
+        run: |
+          echo "::warning::Total errors: $(wc -l < errors.txt)"
+          grep -oE 'error [A-Z]+[0-9]+' errors.txt | sort | uniq -c | sort -rn | head -8 | while read -r l; do echo "::warning::$l"; done

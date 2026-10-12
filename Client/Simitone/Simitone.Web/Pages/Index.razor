@@ -1,0 +1,10 @@
+@page "/"
+@page "/index.html"
+@inject IJSRuntime JsRuntime
+@using nkast.Wasm.Canvas
+
+<PageTitle>The Sims Redux</PageTitle>
+
+<div id="canvasHolder" style="background:#000; margin:0; position:fixed; top:0; right:0; bottom:0; left:0; width:100vw; height:100vh;">
+    <canvas id="theCanvas" style="touch-action:none;"></canvas>
+</div>
