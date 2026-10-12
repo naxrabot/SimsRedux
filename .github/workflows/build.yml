@@ -57,7 +57,7 @@ jobs:
         run: Get-Content errors.txt | Select-Object -Skip 30 -First 10 | ForEach-Object { "::error::$_" }
 
   web:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - name: Get the code (with the FreeSO submodule)
         uses: actions/checkout@v4

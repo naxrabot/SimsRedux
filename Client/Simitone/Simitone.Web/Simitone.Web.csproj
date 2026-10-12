@@ -52,6 +52,8 @@
     <Compile Remove="$(FSORoot)**\Properties\AssemblyInfo.cs;$(FSOLibs)**\Properties\AssemblyInfo.cs;..\Simitone.Client\Properties\AssemblyInfo.cs" />
   </ItemGroup>
 
+  <!-- the graphics effects: KNI builds every .mgcb in this folder (Content\WebContent.mgcb) for WebGL into wwwroot/Content -->
+
   <ItemGroup>
     <Reference Include="GOLDEngine">
       <HintPath>$(FSORoot)FSO.UI\Dependencies\GOLDEngine.dll</HintPath>
@@ -73,6 +75,7 @@
     <PackageReference Include="nkast.Xna.Framework.Storage" Version="4.3.9001" />
     <PackageReference Include="nkast.Xna.Framework.XR" Version="4.3.9001" />
     <PackageReference Include="nkast.Kni.Platform.Blazor.GL" Version="4.3.9001" />
+    <PackageReference Include="nkast.Xna.Framework.Content.Pipeline.Builder" Version="4.3.9001" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.10" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.10" PrivateAssets="all" />
 
