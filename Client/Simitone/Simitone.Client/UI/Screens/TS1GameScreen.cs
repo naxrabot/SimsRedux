@@ -1027,7 +1027,7 @@ namespace Simitone.Client.UI.Screens
                     + " active=" + string.Join(",", (fam.RuntimeSubset ?? new uint[0]).Select(x => x.ToString("X8")))));
                 lines.Add("  trip: family=" + (neigh.GameState.ActiveFamily?.ChunkID.ToString() ?? "none") + " sim=" + neigh.GameState.DowntownSimGUID.ToString("X8") + " transit=" + neigh.GameState.LotTransitInfo
                     + " selected(global3)=" + vm.GetGlobalValue(3) + " me=" + vm.MyUID);
-                foreach (var a in vm.Context.ObjectQueries.Avatars)
+                foreach (var a in vm.Context.ObjectQueries.Avatars.OfType<VMAvatar>())
                 {
                     lines.Add("  sim " + a.ObjectID + " " + a.Name + " guid=" + a.Object.OBJ.GUID.ToString("X8")
                         + " familyNo=" + a.GetPersonData(FSO.SimAntics.Model.VMPersonDataVariable.TS1FamilyNumber)
