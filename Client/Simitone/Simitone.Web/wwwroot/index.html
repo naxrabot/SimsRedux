@@ -80,6 +80,14 @@
             window.requestAnimationFrame(tickJS);
         }
 
+        window.simsReduxCrashed = (message) =>
+        {
+            var box = document.createElement('div');
+            box.style.cssText = 'position:fixed;left:16px;right:16px;bottom:16px;z-index:1001;background:#000052;color:#ffb0a0;border:2px solid #7878c8;padding:12px 16px;font:14px Segoe UI,sans-serif';
+            box.textContent = 'Something went wrong and the game stopped: ' + message + ' (details are in the browser console, F12).';
+            document.body.appendChild(box);
+        };
+
         window.initRenderJS = (instance) =>
         {
             window.theInstance = instance;

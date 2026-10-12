@@ -54,7 +54,7 @@ namespace Simitone.Web
             {
                 var data = new byte[size];
                 ReadAll(path, data);
-                stream.Write(data, 0, data.Length);
+                stream.Fill(data);
                 stream.Position = (mode == FileMode.Append) ? stream.Length : 0;
             }
             stream.Dirty = !exists || !keep; // a new or emptied file is saved even if nothing is written
@@ -112,7 +112,16 @@ namespace Simitone.Web
                 Writable = writable;
             }
 
-            public override bool CanWrite => !Closed && Writable;
+            private bool Filling;
+            public override bool CanWrite => !Closed && (Writable || Filling);
+
+            /// <summary>Puts the file's current contents in (even for a read-only stream).</summary>
+            public void Fill(byte[] data)
+            {
+                Filling = true;
+                base.Write(data, 0, data.Length);
+                Filling = false;
+            }
             public override void Write(byte[] buffer, int offset, int count) { base.Write(buffer, offset, count); Dirty = true; }
             public override void Write(ReadOnlySpan<byte> buffer) { base.Write(buffer); Dirty = true; }
             public override void WriteByte(byte value) { base.WriteByte(value); Dirty = true; }

@@ -17,15 +17,28 @@ namespace Simitone.Web.Pages
             }
         }
 
+        bool _crashed;
+
         [JSInvokable]
         public void TickDotNet()
         {
-            if (_game == null)
+            if (_crashed) return;
+            try
             {
-                _game = WebStartup.CreateGame();
-                _game.Run();
+                if (_game == null)
+                {
+                    _game = WebStartup.CreateGame();
+                    _game.Run();
+                }
+                _game.Tick();
             }
-            _game.Tick();
+            catch (Exception e)
+            {
+                // SimsRedux: stop on the first error and show the whole thing in the console
+                _crashed = true;
+                Console.WriteLine("[SimsRedux] The game stopped: " + e);
+                JsRuntime.InvokeVoidAsync("simsReduxCrashed", e.Message);
+            }
         }
     }
 }
