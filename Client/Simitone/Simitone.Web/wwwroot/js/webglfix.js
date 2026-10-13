@@ -267,9 +267,14 @@
             const depthFunc = proto.depthFunc;
             proto.depthFunc = function () { return depthFunc.call(this, gl2.ALWAYS); };
         }
-        if (dbg.indexOf('nostencil') >= 0) {
+        const skip = [];
+        if (dbg.indexOf('nostencil') >= 0) skip.push(gl2.STENCIL_TEST);
+        if (dbg.indexOf('nocull') >= 0) skip.push(gl2.CULL_FACE);
+        if (dbg.indexOf('nodepth') >= 0) skip.push(gl2.DEPTH_TEST);
+        if (dbg.indexOf('noscissor') >= 0) skip.push(gl2.SCISSOR_TEST);
+        if (skip.length) {
             const enable = proto.enable;
-            proto.enable = function (cap) { if (cap === gl2.STENCIL_TEST) return; return enable.call(this, cap); };
+            proto.enable = function (cap) { if (skip.indexOf(cap) >= 0) return; return enable.call(this, cap); };
         }
     }
 
