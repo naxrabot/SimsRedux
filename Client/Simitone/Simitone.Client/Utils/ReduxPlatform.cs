@@ -9,6 +9,9 @@ namespace Simitone.Client.Utils
     /// </summary>
     public static class ReduxPlatform
     {
+        /// <summary>Can this version host a lot for friends? (Browsers can't accept connections.)</summary>
+        public static bool CanHost = true;
+
         /// <summary>Forget the stored Sims files and ask for the Sims folder again (browser).</summary>
         public static Action ChangeGameFolder;
 

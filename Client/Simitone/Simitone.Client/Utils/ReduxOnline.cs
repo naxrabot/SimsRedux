@@ -82,6 +82,7 @@ namespace Simitone.Client.Utils
         public static void Log(string text)
         {
             Console.WriteLine("[SimsRedux Online] " + text);
+            if (OperatingSystem.IsBrowser()) return; // the browser console already has it
             try { FSOFile.AppendAllText(Path.Combine(FSOEnvironment.UserDir, "online_debug.log"), DateTime.Now.ToString("HH:mm:ss") + " " + text + "\r\n"); }
             catch { }
         }
@@ -835,7 +836,7 @@ namespace Simitone.Client.Utils
                 try
                 {
                     var ws = new ClientWebSocket();
-                    ws.Options.KeepAliveInterval = TimeSpan.FromSeconds(20);
+                    if (!OperatingSystem.IsBrowser()) ws.Options.KeepAliveInterval = TimeSpan.FromSeconds(20); // browsers manage this themselves
                     using (var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15)))
                         await ws.ConnectAsync(uri, timeout.Token);
                     var sock = new ReduxSocket(ws);

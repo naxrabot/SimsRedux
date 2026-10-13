@@ -15,6 +15,7 @@ namespace Simitone.Web
 
         public static void Install()
         {
+            ReduxPlatform.CanHost = false;      // browsers can't accept incoming connections
             ReduxPlatform.ChangeGameFolder = JsChangeFolder;
             ReduxPlatform.SetFullScreen = JsSetFullScreen;
             ReduxPlatform.IsFullScreen = JsIsFullScreen;

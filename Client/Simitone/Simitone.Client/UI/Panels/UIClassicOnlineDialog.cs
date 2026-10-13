@@ -109,7 +109,7 @@ namespace Simitone.Client.UI.Panels
             Add(close);
 
             FillSims();
-            SetPage(0);
+            SetPage(ReduxPlatform.CanHost ? 0 : 1); // the browser version can only join
         }
 
         private UITextBox TextBox(int x, int y, int w, string text)
@@ -187,7 +187,7 @@ namespace Simitone.Client.UI.Panels
         private void SetPage(int page)
         {
             Page = page;
-            foreach (var e in HostPage) e.Visible = page == 0;
+            foreach (var e in HostPage) e.Visible = page == 0 && ReduxPlatform.CanHost;
             foreach (var e in JoinPage) e.Visible = page == 1;
             FillSims();
         }
@@ -261,7 +261,14 @@ namespace Simitone.Client.UI.Panels
 
             DrawLocalTexture(batch, px, null, new Vector2(16, 98), new Vector2(W - 32, H - 160), new Color(0, 0, 50));
 
-            if (Page == 0)
+            if (Page == 0 && !ReduxPlatform.CanHost)
+            {
+                Line(batch, "Hosting", 108, Heading);
+                Line(batch, "The browser version can't host a lot - browsers can't let others connect in.", 132, Body);
+                Line(batch, "Host from the Windows version of The Sims Redux, then join it from here", 152, Body);
+                Line(batch, "on the Join page. (Later, everyone will join the game's own server.)", 172, Body);
+            }
+            else if (Page == 0)
             {
                 Line(batch, "Host a lot", 108, Heading);
                 Line(batch, "Click Host a House, then pick one of your houses and play it as normal.", 132, Body);
