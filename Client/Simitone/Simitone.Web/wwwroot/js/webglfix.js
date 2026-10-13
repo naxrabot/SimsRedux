@@ -60,6 +60,7 @@
             if (fb && target !== gl2.READ_FRAMEBUFFER) {
                 fb.__srxAttached = fb.__srxAttached || {};
                 fb.__srxAttached[attachment] = tex;
+                fb.__srxList = Object.values(fb.__srxAttached).filter(t => t);
             }
             return fbTex.call(this, target, attachment, textarget, tex, level);
         };
@@ -80,8 +81,8 @@
             proto[name] = function () {
                 const fb = this.__srxFB, units = this.__srxUnits;
                 let undo = null;
-                if (fb && fb.__srxAttached && units) {
-                    const attached = Object.values(fb.__srxAttached);
+                const attached = fb && fb.__srxList;
+                if (attached && attached.length && units) {
                     for (const u in units) {
                         const tex = units[u];
                         if (tex && attached.indexOf(tex) >= 0) {
@@ -177,14 +178,7 @@
             }
             return bufSub.apply(this, arguments);
         };
-        // texParameter with nothing bound only makes noise (and fills Firefox's 32-warning limit)
-        for (const name of ['texParameteri', 'texParameterf']) {
-            const orig = proto[name];
-            proto[name] = function (target, pname, value) {
-                if (target === gl2.TEXTURE_2D && !(this.__srxUnits && this.__srxUnits[this.__srxUnit || gl2.TEXTURE0])) return;
-                return orig.call(this, target, pname, value);
-            };
-        }
+
         const reported = new Set();
         let checks = 0;
         function describe(gl, name, args) {
@@ -256,6 +250,18 @@
         }
     }
 
+    // texParameter with nothing bound only makes noise (and fills Firefox's 32-warning limit)
+    function quietTexParameter(proto) {
+        const gl2 = WebGL2RenderingContext;
+        for (const name of ['texParameteri', 'texParameterf']) {
+            const orig = proto[name];
+            proto[name] = function (target, pname, value) {
+                if (target === gl2.TEXTURE_2D && !(this.__srxUnits && this.__srxUnits[this.__srxUnit || gl2.TEXTURE0])) return;
+                return orig.call(this, target, pname, value);
+            };
+        }
+    }
+
     // ---- test switches (?dbg=nodepth / ?dbg=nostencil) to find what hides moving things ----
     function debugSwitches(proto) {
         let dbg = '';
@@ -279,7 +285,17 @@
     }
 
     if (window.WebGL2RenderingContext) { debugSwitches(WebGL2RenderingContext.prototype); }
-    if (window.WebGL2RenderingContext) { patch(WebGL2RenderingContext.prototype); watch(WebGL2RenderingContext.prototype); inspectDraws(WebGL2RenderingContext.prototype); guardFeedback(WebGL2RenderingContext.prototype); }
+    // The error checks make the browser wait for the graphics card on every draw (slow), so they
+    // only run when asked for with ?dbg=gl. The shader fix and the feedback guard always run.
+    let glChecks = false;
+    try { glChecks = (new URLSearchParams(location.search).get('dbg') || '').toLowerCase().indexOf('gl') >= 0; } catch (e) { }
+    if (window.WebGL2RenderingContext) {
+        const p2 = WebGL2RenderingContext.prototype;
+        patch(p2);
+        if (glChecks) { watch(p2); inspectDraws(p2); }
+        guardFeedback(p2);
+        quietTexParameter(p2);
+    }
     if (window.WebGLRenderingContext) patch(WebGLRenderingContext.prototype);
     window.SimsReduxFixShader = fixShader;
 })();
