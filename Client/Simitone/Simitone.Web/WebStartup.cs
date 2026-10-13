@@ -42,6 +42,8 @@ namespace Simitone.Web
                 FSOEnvironment.SoftwareDepth = true;
                 FSOEnvironment.UseMRT = false;
             }
+            // Sims: the desktop Sim shader draws nothing in browsers, the phone one works (with real depth too)
+            FSO.LotView.WorldContent.SimpleAvatars = true;
             FSOEnvironment.TexCompress = false;
             FSOEnvironment.TexCompressSupport = false;
             FSOEnvironment.MSAASupport = false;

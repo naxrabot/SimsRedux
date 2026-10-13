@@ -256,7 +256,7 @@ namespace Simitone.Client
 
                 FSO.UI.Framework.MSDFFont.MSDFEffect = Content.Load<Effect>("Effects/MSDFFont");
 
-                vitaboyEffect = Content.Load<Effect>("Effects/Vitaboy"+((FSOEnvironment.SoftwareDepth)?"iOS":""));
+                vitaboyEffect = Content.Load<Effect>("Effects/Vitaboy"+((FSOEnvironment.SoftwareDepth || FSO.LotView.WorldContent.SimpleAvatars)?"iOS":""));
                 uiLayer = new UILayer(this);
             }
             catch (Exception e)

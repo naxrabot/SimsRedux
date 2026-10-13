@@ -245,6 +245,7 @@ namespace Simitone.Client.UI.Panels
         public void MouseUp(UpdateState state)
         {
             MouseIsDown = false;
+            if (Holding != null) FSO.SimAntics.NetPlay.VMNetDriver.Note("place click: clicked=" + Holding.Clicked + " canPlace=" + Holding.CanPlace + " bought=" + Holding.IsBought + " net=" + UseNet + " activeSim=" + (ParentControl?.ActiveEntity?.Name ?? "none"));
             if (Holding != null && Holding.Clicked)
             {
                 if (Holding.CanPlace == VMPlacementError.Success)
