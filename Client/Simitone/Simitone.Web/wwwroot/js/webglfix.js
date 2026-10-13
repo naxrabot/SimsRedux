@@ -140,20 +140,51 @@
     // ---- detailed report of a draw the browser refused (once per shader program) ----
     function inspectDraws(proto) {
         const gl2 = WebGL2RenderingContext;
-        const bufSizes = new WeakMap();
+        const bufSizes = new WeakMap();   // buffer -> bytes
+        const indexCopies = new WeakMap(); // index buffer -> copy of its bytes (to find the largest index)
         const bindBuf = proto.bindBuffer;
         proto.bindBuffer = function (target, buf) {
             if (target === gl2.ELEMENT_ARRAY_BUFFER) this.__srxEBO = buf;
+            if (target === gl2.ARRAY_BUFFER) this.__srxVBO = buf;
             return bindBuf.call(this, target, buf);
         };
+        function current(gl, target) { return target === gl2.ELEMENT_ARRAY_BUFFER ? gl.__srxEBO : target === gl2.ARRAY_BUFFER ? gl.__srxVBO : null; }
         const bufData = proto.bufferData;
-        proto.bufferData = function (target, data) {
-            if (target === gl2.ELEMENT_ARRAY_BUFFER && this.__srxEBO) {
-                const size = typeof data === 'number' ? data : (data && data.byteLength) || 0;
-                bufSizes.set(this.__srxEBO, size);
+        proto.bufferData = function (target, data, usage, srcOffset, length) {
+            const buf = current(this, target);
+            if (buf) {
+                let size = typeof data === 'number' ? data : (data && data.byteLength) || 0;
+                if (typeof data !== 'number' && data && length) size = length * (data.BYTES_PER_ELEMENT || 1);
+                bufSizes.set(buf, size);
+                if (target === gl2.ELEMENT_ARRAY_BUFFER) {
+                    const bytes = new Uint8Array(size);
+                    if (typeof data !== 'number' && data) bytes.set(new Uint8Array(data.buffer || data, (data.byteOffset || 0) + (srcOffset || 0) * (data.BYTES_PER_ELEMENT || 1), size));
+                    indexCopies.set(buf, bytes);
+                }
             }
             return bufData.apply(this, arguments);
         };
+        const bufSub = proto.bufferSubData;
+        proto.bufferSubData = function (target, dstOffset, data, srcOffset, length) {
+            const buf = current(this, target);
+            const copy = buf && target === gl2.ELEMENT_ARRAY_BUFFER && indexCopies.get(buf);
+            if (copy && data) {
+                try {
+                    const el = data.BYTES_PER_ELEMENT || 1;
+                    const n = length ? length * el : data.byteLength - (srcOffset || 0) * el;
+                    copy.set(new Uint8Array(data.buffer || data, (data.byteOffset || 0) + (srcOffset || 0) * el, Math.min(n, copy.length - dstOffset)), dstOffset);
+                } catch (e) { }
+            }
+            return bufSub.apply(this, arguments);
+        };
+        // texParameter with nothing bound only makes noise (and fills Firefox's 32-warning limit)
+        for (const name of ['texParameteri', 'texParameterf']) {
+            const orig = proto[name];
+            proto[name] = function (target, pname, value) {
+                if (target === gl2.TEXTURE_2D && !(this.__srxUnits && this.__srxUnits[this.__srxUnit || gl2.TEXTURE0])) return;
+                return orig.call(this, target, pname, value);
+            };
+        }
         const reported = new Set();
         let checks = 0;
         function describe(gl, name, args) {
@@ -163,14 +194,39 @@
             const info = { draw: name, count: args[1], indexType: args[2], offset: args[3] };
             const fb = gl.getParameter(gl.DRAW_FRAMEBUFFER_BINDING);
             info.framebuffer = fb ? ('complete=' + (gl.checkFramebufferStatus(gl.DRAW_FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE)) : 'screen';
-            if (name === 'drawElements' && gl.__srxEBO) info.indexBufferBytes = bufSizes.get(gl.__srxEBO);
+            if (name === 'drawElements' && gl.__srxEBO) {
+                info.indexBufferBytes = bufSizes.get(gl.__srxEBO);
+                const copy = indexCopies.get(gl.__srxEBO);
+                if (copy) {
+                    const wide = args[2] === gl.UNSIGNED_INT, step = wide ? 4 : 2;
+                    const view = new DataView(copy.buffer);
+                    let max = -1;
+                    for (let i = 0; i < args[1]; i++) {
+                        const at = args[3] + i * step;
+                        if (at + step > copy.length) { info.indexReadsPastEnd = true; break; }
+                        const v = wide ? view.getUint32(at, true) : view.getUint16(at, true);
+                        if (v > max) max = v;
+                    }
+                    info.largestIndex = max;
+                }
+            }
             info.attributes = [];
             const na = gl.getProgramParameter(prog, gl.ACTIVE_ATTRIBUTES);
             for (let i = 0; i < na; i++) {
                 const a = gl.getActiveAttrib(prog, i);
                 const loc = gl.getAttribLocation(prog, a.name);
                 const en = loc >= 0 && gl.getVertexAttrib(loc, gl.VERTEX_ATTRIB_ARRAY_ENABLED);
-                info.attributes.push(a.name + '@' + loc + ' shaderType=0x' + a.type.toString(16) + (en ? (' size=' + gl.getVertexAttrib(loc, gl.VERTEX_ATTRIB_ARRAY_SIZE) + ' type=0x' + gl.getVertexAttrib(loc, gl.VERTEX_ATTRIB_ARRAY_TYPE).toString(16) + ' int=' + gl.getVertexAttrib(loc, gl.VERTEX_ATTRIB_ARRAY_INTEGER) + ' buffer=' + !!gl.getVertexAttrib(loc, gl.VERTEX_ATTRIB_ARRAY_BUFFER_BINDING)) : ' (not enabled)'));
+                let extra = ' (not enabled)';
+                if (en) {
+                    const vb = gl.getVertexAttrib(loc, gl.VERTEX_ATTRIB_ARRAY_BUFFER_BINDING);
+                    const stride = gl.getVertexAttrib(loc, gl.VERTEX_ATTRIB_ARRAY_STRIDE);
+                    const off = gl.getVertexAttribOffset(loc, gl.VERTEX_ATTRIB_ARRAY_POINTER);
+                    const bytes = vb ? bufSizes.get(vb) : undefined;
+                    const verts = (bytes !== undefined && stride) ? Math.floor((bytes - off) / stride) : '?';
+                    extra = ' size=' + gl.getVertexAttrib(loc, gl.VERTEX_ATTRIB_ARRAY_SIZE) + ' type=0x' + gl.getVertexAttrib(loc, gl.VERTEX_ATTRIB_ARRAY_TYPE).toString(16) +
+                        ' stride=' + stride + ' offset=' + off + ' bufferBytes=' + bytes + ' vertsAvailable=' + verts + ' divisor=' + gl.getVertexAttrib(loc, gl.VERTEX_ATTRIB_ARRAY_DIVISOR);
+                }
+                info.attributes.push(a.name + '@' + loc + ' shaderType=0x' + a.type.toString(16) + extra);
             }
             info.samplers = [];
             const nu = gl.getProgramParameter(prog, gl.ACTIVE_UNIFORMS);
@@ -188,13 +244,13 @@
         for (const name of ['drawElements', 'drawArrays']) {
             const draw = proto[name];
             proto[name] = function () {
-                const r = draw.apply(this, arguments);
-                // check every draw for a while after start, then every 64th
-                if (checks < 200000 || (checks & 63) === 0) {
-                    const err = this.getError();
-                    if (err) describe(this, name, arguments);
-                }
+                // check every draw for a while after start, then every 64th.
+                // Earlier errors (from other calls) are cleared first so only this draw's own error counts.
+                const check = checks < 200000 || (checks & 63) === 0;
                 checks++;
+                if (check) { let n = 0; while (this.getError() && n++ < 8) { } }
+                const r = draw.apply(this, arguments);
+                if (check && this.getError()) describe(this, name, arguments);
                 return r;
             };
         }
