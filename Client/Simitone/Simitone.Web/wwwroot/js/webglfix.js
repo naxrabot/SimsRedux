@@ -105,6 +105,38 @@
         }
     }
 
+    // shows graphics reports in a small box on the page, with a Copy button (no need to open the console)
+    let pageBox = null, pageText = [];
+    function showOnPage(text) {
+        pageText.push(text);
+        if (!document.body) return;
+        if (!pageBox) {
+            pageBox = document.createElement('div');
+            pageBox.style.cssText = 'position:fixed;top:8px;right:8px;width:min(560px,90vw);max-height:40vh;overflow:auto;z-index:1002;' +
+                'background:#000052;color:#ffd27a;border:2px solid #7878c8;font:11px monospace;padding:8px;white-space:pre-wrap;word-break:break-all';
+            const bar = document.createElement('div');
+            bar.style.cssText = 'font:bold 12px Segoe UI,sans-serif;color:#fff;margin-bottom:6px;display:flex;gap:8px;align-items:center';
+            bar.innerHTML = '<span style="flex:1">Graphics report - please send this to Claude</span>';
+            const copy = document.createElement('button');
+            copy.textContent = 'Copy';
+            copy.onclick = () => {
+                const all = pageText.join('\n\n');
+                (navigator.clipboard ? navigator.clipboard.writeText(all) : Promise.reject()).then(
+                    () => { copy.textContent = 'Copied!'; setTimeout(() => copy.textContent = 'Copy', 1500); },
+                    () => { const r = document.createRange(); r.selectNodeContents(body); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); });
+            };
+            const close = document.createElement('button');
+            close.textContent = 'Hide';
+            close.onclick = () => { pageBox.style.display = 'none'; };
+            bar.appendChild(copy); bar.appendChild(close);
+            const body = document.createElement('div');
+            pageBox.appendChild(bar); pageBox.appendChild(body);
+            pageBox.__body = body;
+            document.body.appendChild(pageBox);
+        }
+        pageBox.__body.textContent = pageText.join('\n\n');
+    }
+
     // ---- detailed report of a draw the browser refused (once per shader program) ----
     function inspectDraws(proto) {
         const gl2 = WebGL2RenderingContext;
@@ -149,7 +181,9 @@
             }
             const shaders = gl.getAttachedShaders(prog) || [];
             info.shaderStart = shaders.map(s => (gl.getShaderSource(s) || '').split('\n').filter(l => /uniform|in |out |attribute/.test(l)).slice(0, 8).join(' | '));
-            console.warn('[SimsRedux] graphics: refused draw details ' + JSON.stringify(info));
+            const line = '[SimsRedux] graphics: refused draw details ' + JSON.stringify(info);
+            console.warn(line);
+            showOnPage(line);
         }
         for (const name of ['drawElements', 'drawArrays']) {
             const draw = proto[name];
