@@ -55,7 +55,69 @@
         }
     }
 
-    if (window.WebGL2RenderingContext) { patch(WebGL2RenderingContext.prototype); watch(WebGL2RenderingContext.prototype); }
+    // ---- feedback loops: drawing into a picture that is also being read from ----
+    // Desktop graphics quietly allow this; WebGL refuses the whole draw (things go invisible).
+    // Before each draw, any picture that is both the drawing target and bound for reading is
+    // unbound for that one draw (reading it there gives nothing useful anyway), then put back.
+    function guardFeedback(proto) {
+        const gl2 = WebGL2RenderingContext;
+        const bindFB = proto.bindFramebuffer;
+        proto.bindFramebuffer = function (target, fb) {
+            if (target === gl2.FRAMEBUFFER || target === gl2.DRAW_FRAMEBUFFER) this.__srxFB = fb;
+            return bindFB.call(this, target, fb);
+        };
+        const fbTex = proto.framebufferTexture2D;
+        proto.framebufferTexture2D = function (target, attachment, textarget, tex, level) {
+            const fb = this.__srxFB;
+            if (fb && target !== gl2.READ_FRAMEBUFFER) {
+                fb.__srxAttached = fb.__srxAttached || {};
+                fb.__srxAttached[attachment] = tex;
+            }
+            return fbTex.call(this, target, attachment, textarget, tex, level);
+        };
+        const active = proto.activeTexture;
+        proto.activeTexture = function (unit) { this.__srxUnit = unit; return active.call(this, unit); };
+        const bindTex = proto.bindTexture;
+        proto.bindTexture = function (target, tex) {
+            if (target === gl2.TEXTURE_2D) {
+                this.__srxUnits = this.__srxUnits || {};
+                this.__srxUnits[this.__srxUnit || gl2.TEXTURE0] = tex;
+            }
+            return bindTex.call(this, target, tex);
+        };
+        let told = false;
+        for (const name of ['drawElements', 'drawArrays', 'drawElementsInstanced', 'drawArraysInstanced', 'drawRangeElements']) {
+            const draw = proto[name];
+            if (!draw) continue;
+            proto[name] = function () {
+                const fb = this.__srxFB, units = this.__srxUnits;
+                let undo = null;
+                if (fb && fb.__srxAttached && units) {
+                    const attached = Object.values(fb.__srxAttached);
+                    for (const u in units) {
+                        const tex = units[u];
+                        if (tex && attached.indexOf(tex) >= 0) {
+                            active.call(this, +u);
+                            bindTex.call(this, gl2.TEXTURE_2D, null);
+                            (undo = undo || []).push([+u, tex]);
+                        }
+                    }
+                    if (undo) {
+                        active.call(this, this.__srxUnit || gl2.TEXTURE0);
+                        if (!told) { told = true; console.warn('[SimsRedux] graphics: fixed a picture being drawn into while also being read (feedback loop)'); }
+                    }
+                }
+                const r = draw.apply(this, arguments);
+                if (undo) {
+                    for (const [u, tex] of undo) { active.call(this, u); bindTex.call(this, gl2.TEXTURE_2D, tex); }
+                    active.call(this, this.__srxUnit || gl2.TEXTURE0);
+                }
+                return r;
+            };
+        }
+    }
+
+    if (window.WebGL2RenderingContext) { patch(WebGL2RenderingContext.prototype); watch(WebGL2RenderingContext.prototype); guardFeedback(WebGL2RenderingContext.prototype); }
     if (window.WebGLRenderingContext) patch(WebGLRenderingContext.prototype);
     window.SimsReduxFixShader = fixShader;
 })();

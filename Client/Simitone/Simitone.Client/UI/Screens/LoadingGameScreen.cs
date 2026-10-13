@@ -242,6 +242,10 @@ namespace Simitone.Client.UI.Screens
                 DrawLocalTexture(batch, Wallpaper, null, new Vector2(Wallpaper.Width, Wallpaper.Height) / -2 * wscale, new Vector2(wscale), Color.White * Opacity);
                 return;
             }
+            // SimsRedux: never Simitone's logo screen - plain Sims Redux blue if the wallpaper can't be shown
+            var blank = TextureGenerator.GetPxWhite(batch.GraphicsDevice);
+            DrawLocalTexture(batch, blank, null, new Vector2(-sw, -sh), new Vector2(sw * 2, sh * 2), WallpaperBlue * Opacity);
+            return;
             var scale = Math.Max(sw / 1136f, sh / 640f);
             DrawLocalTexture(batch, Bg, null, new Vector2(Bg.Width, Bg.Height) / -2 * scale, new Vector2(scale));
         }
