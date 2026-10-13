@@ -58,6 +58,7 @@ jobs:
 
   web:
     runs-on: windows-latest
+    timeout-minutes: 90
     permissions:
       contents: write
     steps:
@@ -84,26 +85,36 @@ jobs:
           grep -oE 'error [A-Z]+[0-9]+' errors.txt | sort | uniq -c | sort -rn | head -20
           exit $code
 
-      # the finished website goes to the web-build branch so it can be tested in a browser
-      # ahead-of-time compiled WebAssembly runs the game much faster than the interpreter
-      - name: Publish the web version
+      # The website is the fast (ahead-of-time compiled) version: much faster game code.
+      # It's published to the web-build branch, which GitHub Pages serves at tsr.mbrew.studio.
+      - name: Install the WebAssembly build tools
+        shell: bash
+        run: dotnet workload install wasm-tools > workload.log 2>&1 || { tail -20 workload.log; exit 1; }
+
+      - name: Publish the website (fast version)
         shell: bash
         run: |
           sed -i "s/__BUILD__/$(date -u +%m%d-%H%M)-${GITHUB_SHA::7}/" Client/Simitone/Simitone.Web/wwwroot/index.html
-          dotnet publish Client/Simitone/Simitone.Web/Simitone.Web.csproj -c Release -v minimal -clp:NoSummary -o publish > publish.log 2>&1 || { grep -E 'error ' publish.log | sort -u | head -20 | while read -r l; do echo "::error::$l"; done; exit 1; }
+          # AOT needs trimming; the game's own assemblies are rooted in the csproj so only .NET's libraries (and Common.Logging) get trimmed
+          dotnet publish Client/Simitone/Simitone.Web/Simitone.Web.csproj -c Release -v minimal -clp:NoSummary -o publish \
+            -p:RunAOTCompilation=true -p:PublishTrimmed=true -p:TrimMode=full -p:SuppressTrimAnalysisWarnings=true > publish.log 2>&1 \
+            || { grep -E 'error ' publish.log | sort -u | head -20 | while read -r l; do echo "::error::$l"; done; exit 1; }
           grep -i "SimsRedux:" publish.log | while read -r l; do echo "::warning::$l"; done
-          echo "::warning::site: $(ls publish/wwwroot | tr '\n' ' ')"
           echo "::warning::shaders: $(ls publish/wwwroot/Content/Web/Effects | wc -l), content files: $(find publish/wwwroot/Content -type f | wc -l)"
           cd publish/wwwroot
           touch .nojekyll
           rm -f .gitignore   # the project's own ignore list must not hide the content from this branch
+          echo "tsr.mbrew.studio" > CNAME   # GitHub Pages serves the branch at this address
+          # old /fast/ links go to the main site now
+          mkdir -p fast
+          printf '<!DOCTYPE html><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=../"><a href="../">The Sims Redux</a>\n' > fast/index.html
           git init -q -b web-build
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
           git add -A
           git commit -q -m "Web build of ${GITHUB_SHA}"
           git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" web-build
-          echo "Published $(du -sh . | cut -f1)"
+          echo "::warning::Published $(du -sh . | cut -f1)"
 
       - name: Errors 1-10
         if: failure()
@@ -128,12 +139,12 @@ jobs:
           echo "::warning::Total errors: $(wc -l < errors.txt)"
           grep -oE 'error [A-Z]+[0-9]+' errors.txt | sort | uniq -c | sort -rn | head -8 | while read -r l; do echo "::warning::$l"; done
 
-  # The same website compiled ahead of time (much faster game code, longer build), published to
-  # the /fast/ folder of the web-build branch after the normal version, so it never holds that up.
-  web-fast:
+  # The normal (not ahead-of-time compiled) version, kept at /classic/ as a backup in case the
+  # fast version ever breaks. Published after the main site so it never holds that up.
+  web-classic:
     needs: web
     runs-on: windows-latest
-    timeout-minutes: 90
+    timeout-minutes: 60
     permissions:
       contents: write
     steps:
@@ -147,30 +158,24 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Install the WebAssembly build tools
-        shell: bash
-        run: dotnet workload install wasm-tools > workload.log 2>&1 || { tail -20 workload.log; exit 1; }
-
-      - name: Publish the fast (ahead-of-time compiled) web version
+      - name: Publish the classic web version
         shell: bash
         run: |
-          sed -i "s/__BUILD__/fast-$(date -u +%m%d-%H%M)-${GITHUB_SHA::7}/" Client/Simitone/Simitone.Web/wwwroot/index.html
-          # AOT needs trimming; the game's own assemblies are rooted in the csproj so only .NET's libraries (and Common.Logging) get trimmed
-          dotnet publish Client/Simitone/Simitone.Web/Simitone.Web.csproj -c Release -v minimal -clp:NoSummary -o publish \
-            -p:RunAOTCompilation=true -p:PublishTrimmed=true -p:TrimMode=full -p:SuppressTrimAnalysisWarnings=true > publish.log 2>&1 \
+          sed -i "s/__BUILD__/classic-$(date -u +%m%d-%H%M)-${GITHUB_SHA::7}/" Client/Simitone/Simitone.Web/wwwroot/index.html
+          dotnet publish Client/Simitone/Simitone.Web/Simitone.Web.csproj -c Release -v minimal -clp:NoSummary -o publish > publish.log 2>&1 \
             || { grep -E 'error ' publish.log | sort -u | head -20 | while read -r l; do echo "::error::$l"; done; exit 1; }
-          echo "::warning::fast version: $(du -sh publish/wwwroot | cut -f1)"
+          echo "::warning::classic version: $(du -sh publish/wwwroot | cut -f1)"
 
-      - name: Add it to the website as /fast/
+      - name: Add it to the website as /classic/
         shell: bash
         run: |
           git clone -q --depth 1 -b web-build "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" site
-          rm -rf site/fast
-          cp -r publish/wwwroot site/fast
-          rm -f site/fast/.gitignore
+          rm -rf site/classic
+          cp -r publish/wwwroot site/classic
+          rm -f site/classic/.gitignore
           cd site
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
           git add -A
-          git commit -q -m "Fast web build of ${GITHUB_SHA}"
+          git commit -q -m "Classic web build of ${GITHUB_SHA}"
           git push -q origin web-build

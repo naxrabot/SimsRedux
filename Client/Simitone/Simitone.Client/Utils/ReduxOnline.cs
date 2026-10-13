@@ -25,7 +25,7 @@ namespace Simitone.Client.Utils
     /// SimsRedux online play: one player hosts the lot they're playing, friends join it with a
     /// Sim from their own game.
     ///
-    /// Everything travels over WebSockets, which pass through Cloudflare (tsr.mbrew.studio) and
+    /// Everything travels over WebSockets, which pass through Cloudflare (tsr-lot.mbrew.studio) and
     /// also work from a web browser later on. The game itself already keeps every player's copy of
     /// the lot in step (FreeSO's lockstep "server driver" / "client driver"); this file is the
     /// connection between them, plus the TS1 parts: while a friend is on your lot their game uses
@@ -51,16 +51,26 @@ namespace Simitone.Client.Utils
         public const uint HostID = 65537;
         public const uint FirstGuestID = 100001;
         public const int MaxMessage = 64 * 1024 * 1024;
-        public const string DefaultAddress = "tsr.mbrew.studio";
+        public const string DefaultAddress = "tsr-lot.mbrew.studio";
+        /// <summary>The lot server's old address (tsr.mbrew.studio is the game's website now).</summary>
+        public const string OldAddress = "tsr.mbrew.studio";
+
+        /// <summary>A saved or typed address that still says the old one gets the new one.</summary>
+        public static string Upgrade(string typed)
+        {
+            var t = (typed ?? "").Trim();
+            if (t == OldAddress || t == OldAddress + "/lot" || t == "wss://" + OldAddress + "/lot") return DefaultAddress;
+            return t;
+        }
 
         /// <summary>
         /// Turns what the player typed into a WebSocket address:
-        /// "tsr.mbrew.studio" -> wss://tsr.mbrew.studio/lot, "localhost" -> ws://localhost:37564/,
+        /// "tsr-lot.mbrew.studio" -> wss://tsr-lot.mbrew.studio/lot, "localhost" -> ws://localhost:37564/,
         /// "192.168.1.5" -> ws://192.168.1.5:37564/. Full ws:// or wss:// addresses are kept.
         /// </summary>
         public static Uri MakeAddress(string typed)
         {
-            typed = (typed ?? "").Trim();
+            typed = Upgrade(typed);
             if (typed.Length == 0) typed = DefaultAddress;
             if (typed.StartsWith("ws://") || typed.StartsWith("wss://")) return new Uri(typed);
             if (typed.StartsWith("http://")) return new Uri("ws://" + typed.Substring(7));

@@ -75,7 +75,7 @@ namespace Simitone.Client.UI.Panels
 
             // ---- join ----
             NameBox = TextBox(150, 108, 220, ReduxSettings.GetString("onlinename", GlobalSettings.Default.LastUser ?? "Player"));
-            AddressBox = TextBox(150, 140, 300, ReduxSettings.GetString("onlineaddress", ReduxOnlineInfo.DefaultAddress));
+            AddressBox = TextBox(150, 140, 300, ReduxOnlineInfo.Upgrade(ReduxSettings.GetString("onlineaddress", ReduxOnlineInfo.DefaultAddress)));
             JoinPage.Add(NameBox); JoinPage.Add(AddressBox);
 
             LoadSims();
