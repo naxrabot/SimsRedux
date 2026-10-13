@@ -54,6 +54,14 @@
             if (target === gl2.FRAMEBUFFER || target === gl2.DRAW_FRAMEBUFFER) this.__srxFB = fb;
             return bindFB.call(this, target, fb);
         };
+        // a framebuffer deleted while bound (the engine does this after reading a picture's pixels)
+        // means the screen is the target again; forgetting this blanked the last picture read
+        const delFB = proto.deleteFramebuffer;
+        proto.deleteFramebuffer = function (fb) {
+            if (fb) { fb.__srxAttached = null; fb.__srxList = null; }
+            if (fb && this.__srxFB === fb) this.__srxFB = null;
+            return delFB.call(this, fb);
+        };
         const fbTex = proto.framebufferTexture2D;
         proto.framebufferTexture2D = function (target, attachment, textarget, tex, level) {
             const fb = this.__srxFB;
