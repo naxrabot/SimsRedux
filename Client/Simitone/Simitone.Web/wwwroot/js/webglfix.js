@@ -262,6 +262,68 @@
         }
     }
 
+    // ---- sound: browsers keep audio paused until the player clicks or presses a key ----
+    (function () {
+        const Real = window.AudioContext || window.webkitAudioContext;
+        if (!Real) return;
+        const contexts = [];
+        function Tracked() { const ctx = new Real(...arguments); contexts.push(ctx); return ctx; }
+        Tracked.prototype = Real.prototype;
+        window.AudioContext = Tracked;
+        if (window.webkitAudioContext) window.webkitAudioContext = Tracked;
+        function wake() { for (const c of contexts) if (c.state === 'suspended') c.resume().catch(() => { }); }
+        for (const ev of ['pointerdown', 'keydown', 'touchstart']) window.addEventListener(ev, wake, true);
+    })();
+
+    // ---- turn on the extras the lighting needs (drawing into high-precision pictures) ----
+    (function () {
+        const getContext = HTMLCanvasElement.prototype.getContext;
+        HTMLCanvasElement.prototype.getContext = function (type) {
+            const ctx = getContext.apply(this, arguments);
+            if (ctx && type === 'webgl2' && !ctx.__srxExt) {
+                ctx.__srxExt = true;
+                for (const ext of ['EXT_color_buffer_float', 'EXT_color_buffer_half_float', 'OES_texture_float_linear', 'EXT_float_blend'])
+                    try { ctx.getExtension(ext); } catch (e) { }
+            }
+            return ctx;
+        };
+    })();
+
+    // ---- MAX / MIN blending (the lighting) ----
+    // The engine can't ask for WebGL's MAX/MIN blend equations, so the game marks those blends with
+    // the factor pair (CONSTANT_COLOR, ONE_MINUS_CONSTANT_COLOR) = MAX or the reverse = MIN
+    // (FSO.Common.Utils.BlendStates). Here the marker is swapped for the real equation; any other
+    // blend puts back the equation the engine last asked for.
+    function maxMinBlend(proto) {
+        const gl2 = WebGL2RenderingContext;
+        const eqSep = proto.blendEquationSeparate, eq = proto.blendEquation;
+        const funcSep = proto.blendFuncSeparate, func = proto.blendFunc;
+        function markerFor(src, dst) {
+            if (src === gl2.CONSTANT_COLOR && dst === gl2.ONE_MINUS_CONSTANT_COLOR) return gl2.MAX;
+            if (src === gl2.ONE_MINUS_CONSTANT_COLOR && dst === gl2.CONSTANT_COLOR) return gl2.MIN;
+            return 0;
+        }
+        function apply(gl) {
+            const m = gl.__srxBlendMarker;
+            if (m) eqSep.call(gl, m, m);
+            else eqSep.call(gl, gl.__srxEqRGB || gl2.FUNC_ADD, gl.__srxEqA || gl2.FUNC_ADD);
+        }
+        proto.blendEquationSeparate = function (rgb, a) { this.__srxEqRGB = rgb; this.__srxEqA = a; apply(this); };
+        proto.blendEquation = function (mode) { this.__srxEqRGB = mode; this.__srxEqA = mode; apply(this); };
+        proto.blendFuncSeparate = function (srcRGB, dstRGB, srcA, dstA) {
+            const marker = markerFor(srcRGB, dstRGB);
+            const r = funcSep.call(this, srcRGB, dstRGB, srcA, dstA);
+            if (marker !== (this.__srxBlendMarker || 0)) { this.__srxBlendMarker = marker; apply(this); }
+            return r;
+        };
+        proto.blendFunc = function (src, dst) {
+            const marker = markerFor(src, dst);
+            const r = func.call(this, src, dst);
+            if (marker !== (this.__srxBlendMarker || 0)) { this.__srxBlendMarker = marker; apply(this); }
+            return r;
+        };
+    }
+
     // ---- test switches (?dbg=nodepth / ?dbg=nostencil) to find what hides moving things ----
     function debugSwitches(proto) {
         let dbg = '';
@@ -294,6 +356,7 @@
         patch(p2);
         if (glChecks) { watch(p2); inspectDraws(p2); }
         guardFeedback(p2);
+        maxMinBlend(p2);
         quietTexParameter(p2);
     }
     if (window.WebGLRenderingContext) patch(WebGLRenderingContext.prototype);
