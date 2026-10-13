@@ -40,8 +40,9 @@ namespace Simitone.Client.UI.Panels
             var buttonTex = TS1UIGraphics.Get("cpanel/Buttons/ButtonTileDialog.bmp");
 
             // size the box to the message, like the original
+            bool column = buttons.Length > 3; // SimsRedux: menus with many choices stack them
             int gap = buttons.Length == 2 ? ButtonGap : 20;
-            int totalButtons = buttons.Length * ButtonWidth + Math.Max(0, buttons.Length - 1) * gap;
+            int totalButtons = column ? ButtonWidth : buttons.Length * ButtonWidth + Math.Max(0, buttons.Length - 1) * gap;
             int width = Math.Max(460, Math.Min(640, 120 + (message?.Length ?? 0) * 5));
             width = Math.Max(width, totalButtons + Padding * 2);
 
@@ -65,6 +66,7 @@ namespace Simitone.Client.UI.Panels
             {
                 var btn = new UITS1TileButton(buttonTex, b.Item1, ButtonWidth);
                 btn.Position = new Vector2(bx, buttonsY);
+                if (column) { buttonsY += 40; bx -= ButtonWidth + gap; }
                 var action = b.Item2;
                 btn.OnButtonClick += (e) => { Close(); action?.Invoke(); };
                 Add(btn);
@@ -72,6 +74,7 @@ namespace Simitone.Client.UI.Panels
                 bx += ButtonWidth + gap;
             }
 
+            if (column) buttonsY -= 40;
             BoxSize = new Vector2(width, buttonsY + 33 + 34);
             Recentre();
         }

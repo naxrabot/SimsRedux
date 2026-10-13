@@ -95,6 +95,7 @@ namespace Simitone.Client.UI.Panels
         {
             shouldHide = true;
             if (string.IsNullOrWhiteSpace(commandString)) return; // a blank textbox should close after hitting enter -- even if a command was never run.
+            if (Simitone.Client.Utils.ReduxDebug.TryCheat(commandString)) return; // SimsRedux debug menu on/off
 
             var cheat = new VMNetCheatCmd();
             var context = new VMCheatContext();

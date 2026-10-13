@@ -276,6 +276,7 @@ namespace Simitone.Client.Utils
             VMCommandType.InteractionResult,
             VMCommandType.Ping,
             VMCommandType.ResetSim,
+            VMCommandType.DebugSim,
         };
 
         public ReduxHost(VM vm, VMServerDriver driver)

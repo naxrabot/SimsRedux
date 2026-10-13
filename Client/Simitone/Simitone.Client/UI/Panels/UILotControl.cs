@@ -87,6 +87,7 @@ namespace Simitone.Client.UI.Panels
         private bool FoundMe; //if false and avatar changes, center. Should center on join lot.
 
         public bool RMBScroll;
+        private bool DebugRightHeld; // SimsRedux: right button is opening the debug menu, don't scroll
         /// <summary>SimsRedux: Sims 3 style camera controls (WASD, Q/E, Z/X, drag to move).</summary>
         public UIRevampedCamera RevampedCamera;
         /// <summary>SimsRedux: Sims 1 style cutaway (whole floor), not Simitone's cut around the mouse. -mousecutaway turns the old way back on.</summary>
@@ -1057,7 +1058,26 @@ namespace Simitone.Client.UI.Panels
 
                 World.State.Cameras.CameraFirstPerson.CaptureMouse = true;
 
-                if (UIRevampedCamera.Enabled)
+                // SimsRedux debug menu: Ctrl + Left Shift + right-click a Sim (after the "debugredux" cheat)
+                bool rightDown = state.MouseState.RightButton == ButtonState.Pressed;
+                if (!rightDown) DebugRightHeld = false;
+                else if (!DebugRightHeld && !RMBScroll && MouseIsOn && Simitone.Client.Utils.ReduxDebug.Enabled && LiveMode
+                    && state.CtrlDown && state.KeyboardState.IsKeyDown(Keys.LeftShift))
+                {
+                    DebugRightHeld = true;
+                    var dbgPt = ToWorldScreen(new Vector2(state.MouseState.X, state.MouseState.Y));
+                    var dbgId = World.GetObjectIDAtScreenPos((int)dbgPt.X, (int)dbgPt.Y, GameFacade.GraphicsDevice);
+                    if (dbgId > 0 && vm.GetObjectById(dbgId) is VMAvatar dbgSim)
+                        Simitone.Client.Utils.ReduxDebug.ShowMenu(vm, dbgSim);
+                    else
+                        HITVM.Get().PlaySoundEvent(UISounds.Error);
+                }
+
+                if (DebugRightHeld)
+                {
+                    RMBScroll = false;
+                }
+                else if (UIRevampedCamera.Enabled)
                 {
                     scrolled = RevampedCamera.Update(state, MouseIsOn);
                     RMBScroll = RevampedCamera.Dragging; // hides hover highlights while dragging, like before
