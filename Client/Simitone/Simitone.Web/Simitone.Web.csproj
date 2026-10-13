@@ -35,6 +35,7 @@
     <Compile Include="BrowserFileSystem.cs" />
     <Compile Include="WebImageDecoder.cs" />
     <Compile Include="WebDebug.cs" />
+    <Compile Include="WebPlatform.cs" />
     <Compile Include="GlobalUsings.cs" />
   </ItemGroup>
 

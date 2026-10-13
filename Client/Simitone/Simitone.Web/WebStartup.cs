@@ -17,6 +17,7 @@ namespace Simitone.Web
 
         public static SimitoneGame CreateGame(int width, int height, string gfxMode)
         {
+            WebPlatform.Install();                // browser-only options: change Sims folder, full screen
             FSOFileSystem.Current = new BrowserFileSystem(); // the player's files live in the browser (js/simsfs.js)
             FSOEnvironment.NoThreads = true;      // browsers can't run the game's loading threads
             FSOEnvironment.GameThread = System.Threading.Thread.CurrentThread; // the browser's one thread is the game thread

@@ -84,9 +84,19 @@ namespace Simitone.Client.UI.Panels.Desktop
                 () => g.SmoothZoom, (v) => { g.SmoothZoom = v; ReduxSettings.Set("smoothzoom", v); ApplyWorldConfig(); });
             AddCheck("Anti-Aliasing", "PopupOptAntiAlias",
                 () => g.AntiAlias > 0, (v) => { g.AntiAlias = v ? 1 : 0; ReduxSettings.Set("antialias", g.AntiAlias); ApplyWorldConfig(); });
-            AddChoices("Screen", "PopupOptTransUI", new[] { "Window", "Full Screen" },
-                () => g.Windowed ? 0 : 1, (v) => SetFullScreen(v == 1));
-            Note = "Screen changes start next time you open the game.";
+            if (ReduxPlatform.SetFullScreen != null)
+            {
+                // browser: the page's own full screen, straight away
+                AddChoices("Screen", "PopupOptTransUI", new[] { "Window", "Full Screen" },
+                    () => (ReduxPlatform.IsFullScreen?.Invoke() ?? false) ? 1 : 0, (v) => ReduxPlatform.SetFullScreen(v == 1));
+                Note = "Esc also leaves full screen.";
+            }
+            else
+            {
+                AddChoices("Screen", "PopupOptTransUI", new[] { "Window", "Full Screen" },
+                    () => g.Windowed ? 0 : 1, (v) => SetFullScreen(v == 1));
+                Note = "Screen changes start next time you open the game.";
+            }
         }
 
         private void BuildSound()
@@ -104,6 +114,15 @@ namespace Simitone.Client.UI.Panels.Desktop
                 () => ReduxSettings.ClassicCamera ? 1 : 0, (v) => ReduxSettings.ClassicCamera = v == 1);
             AddCheck("Edge Scrolling", "PopupOptEdgeScroll",
                 () => ReduxSettings.EdgeScroll, (v) => { ReduxSettings.EdgeScroll = v; GlobalSettings.Default.EdgeScroll = v; GlobalSettings.Default.Save(); });
+            if (ReduxPlatform.ChangeGameFolder != null)
+            {
+                // browser: choose a different Sims folder (the files are kept in the browser)
+                AddAction("Sims Folder", "PopupOptEdgeScroll", "Change...", () =>
+                    UIClassicDialog.YesNo("Change Sims Folder",
+                        "Choose a different Sims folder?\n\nThe Sims files stored in this browser are removed and the game restarts. "
+                        + "Homes and families saved in the game go with them.",
+                        () => ReduxPlatform.ChangeGameFolder()));
+            }
             Note = "Sims 3 camera: WASD / arrows move, Q E rotate, Z X zoom, right-drag grabs the ground.";
         }
 
@@ -202,6 +221,19 @@ namespace Simitone.Client.UI.Panels.Desktop
             t.Position = new Vector2(RowX + LabelW, row.Y);
             t.IsOn = get;
             t.OnClick = () => set(!get());
+            t.OnHover = () => HoverRow = row;
+            Add(t); Controls.Add(t);
+        }
+
+        /// <summary>A row with a single button-like choice that runs an action.</summary>
+        private void AddAction(string label, string popup, string text, Action action)
+        {
+            var row = NewRow(label, popup);
+            var art = TS1UIGraphics.Get("cpanel/Buttons/optradio.bmp");
+            var t = new UIClassicOptionToggle(art, text, Label);
+            t.Position = new Vector2(RowX + LabelW, row.Y);
+            t.IsOn = () => false;
+            t.OnClick = action;
             t.OnHover = () => HoverRow = row;
             Add(t); Controls.Add(t);
         }

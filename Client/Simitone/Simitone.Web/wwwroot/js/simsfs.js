@@ -451,5 +451,18 @@
         return out;
     }
 
-    window.SimsFS = { prepare, fileExists, dirExists, fileSize, read, write, deleteFile, createDir, deleteDir, moveFile, list, normalize };
+    // ---- called from the game's Options (Play > Sims Folder, Graphics > Screen) ----
+    async function changeFolder() {
+        try { await saveChain; await clearSims(); } catch (e) { console.warn('[SimsFS] could not clear', e); }
+        location.reload();
+    }
+    function setFullScreen(on) {
+        try {
+            if (on && !document.fullscreenElement) document.documentElement.requestFullscreen().catch(e => console.warn('[SimsRedux] full screen refused', e));
+            else if (!on && document.fullscreenElement) document.exitFullscreen();
+        } catch (e) { console.warn('[SimsRedux] full screen', e); }
+    }
+    function isFullScreen() { return !!document.fullscreenElement; }
+
+    window.SimsFS = { changeFolder, setFullScreen, isFullScreen, prepare, fileExists, dirExists, fileSize, read, write, deleteFile, createDir, deleteDir, moveFile, list, normalize };
 })();
