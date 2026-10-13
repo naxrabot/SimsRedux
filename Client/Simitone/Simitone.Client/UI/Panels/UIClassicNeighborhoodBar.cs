@@ -97,14 +97,16 @@ namespace Simitone.Client.UI.Panels
             var vacation = Btn("NghUI/Vacation.bmp", x, ButtonY); x += Spacing;
             var studio = Btn("NghUI/Studiotown.bmp", x, ButtonY); x += Spacing;
             var magic = Btn("NghUI/MagicLand.bmp", x, ButtonY); x += Spacing;
-            var exit = Btn("NghUI/Exit.bmp", x, ButtonY);
+            // SimsRedux: no Quit button in the browser (a web page can't quit; you just close the tab)
+            bool showExit = !System.OperatingSystem.IsBrowser();
+            var exit = showExit ? Btn("NghUI/Exit.bmp", x, ButtonY) : null;
 
             family.OnButtonClick += (b) => GoToCAS();
             downtown.OnButtonClick += (b) => Panel.ClassicGoTo(2);
             vacation.OnButtonClick += (b) => Panel.ClassicGoTo(3);
             studio.OnButtonClick += (b) => Panel.ClassicGoTo(5);
             magic.OnButtonClick += (b) => Panel.ClassicGoTo(7);
-            exit.OnButtonClick += (b) => ConfirmExit();
+            if (exit != null) exit.OnButtonClick += (b) => ConfirmExit();
 
             // SimsRedux: pick a tool, then click a lot
             NewHouseBtn = newHouse; BulldozeBtn = bulldoze; RezoneBtn = rezone;
@@ -117,7 +119,7 @@ namespace Simitone.Client.UI.Panels
             {
                 var online = new UITS1TileButton(TS1UIGraphics.Get("cpanel/Buttons/ButtonTileDialog.bmp"), "Online", 110);
                 online.TextSize = 15;
-                online.Position = new Vector2(x + Spacing + 6, 9);
+                online.Position = new Vector2((showExit ? x + Spacing : x) + 6, 9); // takes the Quit button's place in the browser
                 online.OnButtonClick += (b) => UIClassicOnlineDialog.Show();
                 Add(online);
             }
