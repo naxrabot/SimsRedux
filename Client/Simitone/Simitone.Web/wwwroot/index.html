@@ -88,6 +88,33 @@
             return (new URLSearchParams(location.search).get('gfx') || 'nomrt').toLowerCase();
         };
 
+        // ?dbg=vm: a live status box for the lot (who's there, where, whether their body loaded)
+        (function ()
+        {
+            var dbg = (new URLSearchParams(location.search).get('dbg') || '').toLowerCase();
+            if (dbg.indexOf('vm') < 0) return;
+            var box = null, last = '';
+            setInterval(function ()
+            {
+                if (!window.DotNet || !window.theInstance) return;
+                var text;
+                try { text = DotNet.invokeMethod('SimsRedux.Web', 'VMStatus'); } catch (e) { text = 'status unavailable: ' + e.message; }
+                if (!box)
+                {
+                    box = document.createElement('div');
+                    box.style.cssText = 'position:fixed;left:8px;top:8px;width:min(720px,94vw);max-height:45vh;overflow:auto;z-index:1003;background:rgba(0,0,82,.92);color:#bfffbf;border:2px solid #7878c8;font:11px monospace;padding:8px;white-space:pre-wrap';
+                    var copy = document.createElement('button');
+                    copy.textContent = 'Copy'; copy.style.cssText = 'float:right';
+                    copy.onclick = function () { navigator.clipboard && navigator.clipboard.writeText(last).then(function () { copy.textContent = 'Copied!'; setTimeout(function () { copy.textContent = 'Copy'; }, 1500); }); };
+                    box.appendChild(copy);
+                    box.appendChild(document.createElement('pre')).style.margin = '0';
+                    document.body.appendChild(box);
+                }
+                last = 'Lot status (SimsRedux)\n' + text;
+                box.lastChild.textContent = last;
+            }, 1000);
+        })();
+
         window.simsReduxCanvasSize = () =>
         {
             var holder = document.getElementById('canvasHolder');
