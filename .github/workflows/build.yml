@@ -155,9 +155,9 @@ jobs:
         shell: bash
         run: |
           sed -i "s/__BUILD__/fast-$(date -u +%m%d-%H%M)-${GITHUB_SHA::7}/" Client/Simitone/Simitone.Web/wwwroot/index.html
-          # AOT needs trimming; "partial" only trims .NET's own libraries, never the game's code
+          # AOT needs trimming; the game's own assemblies are rooted in the csproj so only .NET's libraries (and Common.Logging) get trimmed
           dotnet publish Client/Simitone/Simitone.Web/Simitone.Web.csproj -c Release -v minimal -clp:NoSummary -o publish \
-            -p:RunAOTCompilation=true -p:PublishTrimmed=true -p:TrimMode=partial -p:SuppressTrimAnalysisWarnings=true > publish.log 2>&1 \
+            -p:RunAOTCompilation=true -p:PublishTrimmed=true -p:TrimMode=full -p:SuppressTrimAnalysisWarnings=true > publish.log 2>&1 \
             || { grep -E 'error ' publish.log | sort -u | head -20 | while read -r l; do echo "::error::$l"; done; exit 1; }
           echo "::warning::fast version: $(du -sh publish/wwwroot | cut -f1)"
 

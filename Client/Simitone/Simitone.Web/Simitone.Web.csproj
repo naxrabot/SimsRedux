@@ -65,8 +65,9 @@
     <KniContentReference Include="Content\WebContent.mgcb" />
   </ItemGroup>
 
-  <!-- Only used by the fast (ahead-of-time compiled) build, which has to trim: everything except
-       .NET's own libraries is kept whole, because the game finds lots of its code by name. -->
+  <!-- Only used by the fast (ahead-of-time compiled) build, which has to trim: the game's own code
+       and its libraries are kept whole (it finds lots of its code by name). Common.Logging is left to
+       the trimmer on purpose: it has a desktop-only config reader the ahead-of-time compiler can't build. -->
   <ItemGroup Condition="'$(PublishTrimmed)' == 'true'">
     <TrimmerRootAssembly Include="SimsRedux.Web" />
     <TrimmerRootAssembly Include="MSDFData" />
@@ -98,8 +99,6 @@
     <TrimmerRootAssembly Include="HandEvaluator" />
     <TrimmerRootAssembly Include="ICSharpCode.SharpZipLib" />
     <TrimmerRootAssembly Include="CommunityToolkit.HighPerformance" />
-    <TrimmerRootAssembly Include="Common.Logging" />
-    <TrimmerRootAssembly Include="Common.Logging.Core" />
     <TrimmerRootAssembly Include="DeltaQ" />
     <TrimmerRootAssembly Include="DeltaQ.BsDiff" />
   </ItemGroup>
