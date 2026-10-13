@@ -200,6 +200,24 @@
         }
     }
 
+    // ---- test switches (?dbg=nodepth / ?dbg=nostencil) to find what hides moving things ----
+    function debugSwitches(proto) {
+        let dbg = '';
+        try { dbg = (new URLSearchParams(location.search).get('dbg') || '').toLowerCase(); } catch (e) { }
+        if (!dbg) return;
+        console.warn('[SimsRedux] graphics test switch: ' + dbg);
+        const gl2 = WebGL2RenderingContext;
+        if (dbg.indexOf('nodepth') >= 0) {
+            const depthFunc = proto.depthFunc;
+            proto.depthFunc = function () { return depthFunc.call(this, gl2.ALWAYS); };
+        }
+        if (dbg.indexOf('nostencil') >= 0) {
+            const enable = proto.enable;
+            proto.enable = function (cap) { if (cap === gl2.STENCIL_TEST) return; return enable.call(this, cap); };
+        }
+    }
+
+    if (window.WebGL2RenderingContext) { debugSwitches(WebGL2RenderingContext.prototype); }
     if (window.WebGL2RenderingContext) { patch(WebGL2RenderingContext.prototype); watch(WebGL2RenderingContext.prototype); inspectDraws(WebGL2RenderingContext.prototype); guardFeedback(WebGL2RenderingContext.prototype); }
     if (window.WebGLRenderingContext) patch(WebGLRenderingContext.prototype);
     window.SimsReduxFixShader = fixShader;
