@@ -47,6 +47,11 @@ namespace Simitone.Web
                     if (thread != null) sb.Append(" actions " + thread.Queue.Count + " stack " + thread.Stack.Count);
                     sb.AppendLine();
                 }
+                lock (FSO.SimAntics.NetPlay.VMNetDriver.DebugLog)
+                {
+                    sb.AppendLine("last commands:");
+                    foreach (var line in FSO.SimAntics.NetPlay.VMNetDriver.DebugLog) sb.AppendLine("  " + line);
+                }
                 return sb.ToString();
             }
             catch (System.Exception e)
