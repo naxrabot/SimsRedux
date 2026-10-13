@@ -86,22 +86,11 @@ jobs:
 
       # the finished website goes to the web-build branch so it can be tested in a browser
       # ahead-of-time compiled WebAssembly runs the game much faster than the interpreter
-      - name: Install the WebAssembly build tools (for ahead-of-time compiling)
-        shell: bash
-        run: dotnet workload install wasm-tools > workload.log 2>&1 || { tail -5 workload.log; echo "::warning::wasm-tools install failed - publishing without ahead-of-time compiling"; }
-
       - name: Publish the web version
         shell: bash
         run: |
           sed -i "s/__BUILD__/$(date -u +%m%d-%H%M)-${GITHUB_SHA::7}/" Client/Simitone/Simitone.Web/wwwroot/index.html
-          if dotnet publish Client/Simitone/Simitone.Web/Simitone.Web.csproj -c Release -v minimal -clp:NoSummary -o publish -p:RunAOTCompilation=true > publish.log 2>&1; then
-            echo "::warning::Published with ahead-of-time compiling (fast)"
-          else
-            grep -E 'error ' publish.log | sort -u | head -8 | while read -r l; do echo "::warning::AOT: $l"; done
-            echo "::warning::Ahead-of-time compiling failed - publishing the normal way"
-            rm -rf publish
-            dotnet publish Client/Simitone/Simitone.Web/Simitone.Web.csproj -c Release -v minimal -clp:NoSummary -o publish > publish.log 2>&1 || { grep -E 'error ' publish.log | sort -u | head -20 | while read -r l; do echo "::error::$l"; done; exit 1; }
-          fi
+          dotnet publish Client/Simitone/Simitone.Web/Simitone.Web.csproj -c Release -v minimal -clp:NoSummary -o publish > publish.log 2>&1 || { grep -E 'error ' publish.log | sort -u | head -20 | while read -r l; do echo "::error::$l"; done; exit 1; }
           grep -i "SimsRedux:" publish.log | while read -r l; do echo "::warning::$l"; done
           echo "::warning::site: $(ls publish/wwwroot | tr '\n' ' ')"
           echo "::warning::shaders: $(ls publish/wwwroot/Content/Web/Effects | wc -l), content files: $(find publish/wwwroot/Content -type f | wc -l)"
@@ -138,3 +127,50 @@ jobs:
         run: |
           echo "::warning::Total errors: $(wc -l < errors.txt)"
           grep -oE 'error [A-Z]+[0-9]+' errors.txt | sort | uniq -c | sort -rn | head -8 | while read -r l; do echo "::warning::$l"; done
+
+  # The same website compiled ahead of time (much faster game code, longer build), published to
+  # the /fast/ folder of the web-build branch after the normal version, so it never holds that up.
+  web-fast:
+    needs: web
+    runs-on: windows-latest
+    timeout-minutes: 90
+    permissions:
+      contents: write
+    steps:
+      - name: Get the code (with the FreeSO submodule)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install the WebAssembly build tools
+        shell: bash
+        run: dotnet workload install wasm-tools > workload.log 2>&1 || { tail -20 workload.log; exit 1; }
+
+      - name: Publish the fast (ahead-of-time compiled) web version
+        shell: bash
+        run: |
+          sed -i "s/__BUILD__/fast-$(date -u +%m%d-%H%M)-${GITHUB_SHA::7}/" Client/Simitone/Simitone.Web/wwwroot/index.html
+          # AOT needs trimming; "partial" only trims .NET's own libraries, never the game's code
+          dotnet publish Client/Simitone/Simitone.Web/Simitone.Web.csproj -c Release -v minimal -clp:NoSummary -o publish \
+            -p:RunAOTCompilation=true -p:PublishTrimmed=true -p:TrimMode=partial -p:SuppressTrimAnalysisWarnings=true > publish.log 2>&1 \
+            || { grep -E 'error ' publish.log | sort -u | head -20 | while read -r l; do echo "::error::$l"; done; exit 1; }
+          echo "::warning::fast version: $(du -sh publish/wwwroot | cut -f1)"
+
+      - name: Add it to the website as /fast/
+        shell: bash
+        run: |
+          git clone -q --depth 1 -b web-build "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" site
+          rm -rf site/fast
+          cp -r publish/wwwroot site/fast
+          rm -f site/fast/.gitignore
+          cd site
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Fast web build of ${GITHUB_SHA}"
+          git push -q origin web-build

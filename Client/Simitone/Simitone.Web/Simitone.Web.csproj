@@ -64,6 +64,45 @@
     <KniContentReference Include="Content\WebContent.mgcb" />
   </ItemGroup>
 
+  <!-- Only used by the fast (ahead-of-time compiled) build, which has to trim: everything except
+       .NET's own libraries is kept whole, because the game finds lots of its code by name. -->
+  <ItemGroup Condition="'$(PublishTrimmed)' == 'true'">
+    <TrimmerRootAssembly Include="SimsRedux.Web" />
+    <TrimmerRootAssembly Include="MSDFData" />
+    <TrimmerRootAssembly Include="Kni.Platform" />
+    <TrimmerRootAssembly Include="Xna.Framework" />
+    <TrimmerRootAssembly Include="Xna.Framework.Audio" />
+    <TrimmerRootAssembly Include="Xna.Framework.Content" />
+    <TrimmerRootAssembly Include="Xna.Framework.Devices" />
+    <TrimmerRootAssembly Include="Xna.Framework.Game" />
+    <TrimmerRootAssembly Include="Xna.Framework.Graphics" />
+    <TrimmerRootAssembly Include="Xna.Framework.Input" />
+    <TrimmerRootAssembly Include="Xna.Framework.Media" />
+    <TrimmerRootAssembly Include="Xna.Framework.Storage" />
+    <TrimmerRootAssembly Include="Xna.Framework.XR" />
+    <TrimmerRootAssembly Include="nkast.Wasm.Audio" />
+    <TrimmerRootAssembly Include="nkast.Wasm.Canvas" />
+    <TrimmerRootAssembly Include="nkast.Wasm.Dom" />
+    <TrimmerRootAssembly Include="nkast.Wasm.JSInterop" />
+    <TrimmerRootAssembly Include="nkast.Wasm.XHR" />
+    <TrimmerRootAssembly Include="nkast.Wasm.XR" />
+    <TrimmerRootAssembly Include="GOLDEngine" />
+    <TrimmerRootAssembly Include="Mario" />
+    <TrimmerRootAssembly Include="Mina.NET" />
+    <TrimmerRootAssembly Include="MP3Sharp" />
+    <TrimmerRootAssembly Include="Newtonsoft.Json" />
+    <TrimmerRootAssembly Include="Ninject" />
+    <TrimmerRootAssembly Include="StbImageSharp" />
+    <TrimmerRootAssembly Include="xxHashSharp" />
+    <TrimmerRootAssembly Include="HandEvaluator" />
+    <TrimmerRootAssembly Include="ICSharpCode.SharpZipLib" />
+    <TrimmerRootAssembly Include="CommunityToolkit.HighPerformance" />
+    <TrimmerRootAssembly Include="Common.Logging" />
+    <TrimmerRootAssembly Include="Common.Logging.Core" />
+    <TrimmerRootAssembly Include="DeltaQ" />
+    <TrimmerRootAssembly Include="DeltaQ.BsDiff" />
+  </ItemGroup>
+
   <!-- the vector fonts' reader, in its own MSDFData assembly so the font files can find it -->
   <ItemGroup>
     <ProjectReference Include="..\MSDFData.Web\MSDFData.Web.csproj" />
