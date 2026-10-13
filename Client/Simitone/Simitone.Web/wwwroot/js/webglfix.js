@@ -271,7 +271,11 @@
         Tracked.prototype = Real.prototype;
         window.AudioContext = Tracked;
         if (window.webkitAudioContext) window.webkitAudioContext = Tracked;
-        function wake() { for (const c of contexts) if (c.state === 'suspended') c.resume().catch(() => { }); }
+        let told = false;
+        function wake() {
+            for (const c of contexts) if (c.state === 'suspended')
+                c.resume().then(() => { if (!told) { told = true; console.log('[SimsRedux] sound unlocked (' + contexts.length + ' audio context' + (contexts.length == 1 ? '' : 's') + ')'); } }).catch(e => console.warn('[SimsRedux] sound could not start', e));
+        }
         for (const ev of ['pointerdown', 'keydown', 'touchstart']) window.addEventListener(ev, wake, true);
     })();
 

@@ -60,8 +60,11 @@ namespace Simitone.Client.UI.Panels.WorldUI
                 0, Vector2.Zero, new Vector2(0.8f, 0.8f), SpriteEffects.None, 0);
             Style.Color.A = (byte)(opacity*255);
 
+            // SimsRedux: the classic interface uses the original Sims 1 (bitmap) font, so there may be no vector font
+            if (Style.VFont == null && Style.SpriteFont != null)
+                batch.DrawString(Style.SpriteFont, Text, new Vector2(5, Headline.Duration / 2 - 2), Style.Color, 0, Vector2.Zero, Style.Scale, SpriteEffects.None, 0);
             batch.End();
-            Style.VFont.Draw(GD, Text, new Vector2(5, Headline.Duration / 2 - 2), Style.Color, new Vector2(Style.Scale), null);
+            Style.VFont?.Draw(GD, Text, new Vector2(5, Headline.Duration / 2 - 2), Style.Color, new Vector2(Style.Scale), null);
             
             GD.SetRenderTarget(null);
         }
