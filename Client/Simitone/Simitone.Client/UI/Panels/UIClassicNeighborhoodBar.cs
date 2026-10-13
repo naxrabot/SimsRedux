@@ -235,6 +235,12 @@ namespace Simitone.Client.UI.Panels
 
         private void ConfirmExit()
         {
+            if (System.OperatingSystem.IsBrowser())
+            {
+                // a web page can't close itself: just tell the player how to leave
+                UIClassicDialog.Ok("Quit The Sims?", "To quit, just close this browser tab.\n\nYour neighbourhood is kept in this browser, so it'll be here next time.");
+                return;
+            }
             UIClassicDialog.YesNo("Quit The Sims?", "Are you sure you want to quit?", () => { Simitone.Client.UI.Screens.TS1GameScreen.ExitConfirmed = true; GameFacade.Game.Exit(); });
         }
 

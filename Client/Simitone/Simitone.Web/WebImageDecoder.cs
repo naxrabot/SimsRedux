@@ -25,11 +25,48 @@ namespace Simitone.Web
             if (data.Length > 2 && data[0] == 'B' && data[1] == 'M')
             {
                 var bmp = DecodeBmp(data);
-                if (bmp != null) return bmp;
+                if (bmp != null && !AllBlack(bmp.Item1)) return bmp;
+                // all black usually means a BMP layout this reader gets wrong: let StbImageSharp try,
+                // and say what kind of BMP it was so it can be fixed properly
+                try
+                {
+                    var alt = ImageResult.FromMemory(data, ColorComponents.RedGreenBlueAlpha);
+                    if (!AllBlack(alt.Data))
+                    {
+                        Console.WriteLine("[SimsRedux] image: BMP read by fallback (" + BmpInfo(data) + ")");
+                        return new Tuple<byte[], int, int>(alt.Data, alt.Width, alt.Height);
+                    }
+                }
+                catch (Exception) { }
+                if (bmp != null)
+                {
+                    Console.WriteLine("[SimsRedux] image: BMP came out all black (" + BmpInfo(data) + ")");
+                    return bmp;
+                }
             }
 
             var img = ImageResult.FromMemory(data, ColorComponents.RedGreenBlueAlpha);
             return new Tuple<byte[], int, int>(img.Data, img.Width, img.Height);
+        }
+
+        private static bool AllBlack(byte[] rgba)
+        {
+            for (int i = 0; i + 3 < rgba.Length; i += 4)
+                if (rgba[i] != 0 || rgba[i + 1] != 0 || rgba[i + 2] != 0) return false;
+            return true;
+        }
+
+        private static string BmpInfo(byte[] d)
+        {
+            try
+            {
+                int headerSize = BitConverter.ToInt32(d, 14);
+                if (headerSize == 12) return "OS/2 header, " + BitConverter.ToInt16(d, 24) + " bit";
+                return "header " + headerSize + ", " + BitConverter.ToInt32(d, 18) + "x" + BitConverter.ToInt32(d, 22)
+                    + ", " + BitConverter.ToInt16(d, 28) + " bit, compression " + BitConverter.ToInt32(d, 30)
+                    + ", colours " + BitConverter.ToInt32(d, 46) + ", data at " + BitConverter.ToInt32(d, 10) + ", size " + d.Length;
+            }
+            catch (Exception) { return "unreadable header"; }
         }
 
         private static Tuple<byte[], int, int> DecodeBmp(byte[] d)
