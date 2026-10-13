@@ -28,7 +28,7 @@ namespace Simitone.Web
             // Graphics mode (choose with ?gfx=... in the address while we find the best one):
             //   mobile  - like the phone (iOS) build: simple shaders, depth worked out in software
             //   desktop - like the PC build: real depth, two outputs at once (WebGL 2 can do this)
-            //   nomrt   - like the PC build but drawing depth in a separate pass
+            //   nomrt   - like the PC build but drawing depth in a separate pass (the default: looks right)
             Console.WriteLine("[SimsRedux] graphics mode: " + gfxMode);
             if (gfxMode == "desktop" || gfxMode == "nomrt")
             {
