@@ -1191,37 +1191,60 @@ namespace Simitone.Client.UI.Panels
             CustomControl = new UITerrainRaiser(vm, World, this, new List<int>());
         }
 
-        // SimsRedux: doors only show with walls up or roofs; in cutaway and walls down they're hidden
+        // SimsRedux: doors. Walls up, roof and cutaway: every door shows. Walls down: only doors
+        // that lead outside show (inside doors would stand up like walls in the middle of rooms).
         private HashSet<VMEntity> HiddenDoors = new HashSet<VMEntity>();
         private int DoorCheckTimer;
+        private int LastDoorWallsMode = -1;
         private void UpdateDoorHiding()
         {
             if (vm?.Context == null) return;
-            if (WallsMode <= 1) // 0 = walls down, 1 = cutaway
+            if (LastDoorWallsMode == WallsMode && DoorCheckTimer-- > 0) return;
+            DoorCheckTimer = 30; // about twice a second: catches doors that were just placed
+            LastDoorWallsMode = WallsMode;
+
+            foreach (var ent in vm.Entities)
             {
-                if (DoorCheckTimer-- > 0) return;
-                DoorCheckTimer = 30; // about twice a second: catches doors that were just placed
-                foreach (var ent in vm.Entities)
+                if (!(ent is VMGameObject) || ent.Dead) continue;
+                var flags2 = (VMEntityFlags2)ent.GetValue(FSO.SimAntics.Model.VMStackObjectVariable.FlagField2);
+                if ((flags2 & VMEntityFlags2.ArchitectualDoor) == 0) continue;
+                var comp = ent.WorldUI as ObjectComponent;
+                if (comp == null) continue;
+                bool hide = WallsMode == 0 && !DoorLeadsOutside(ent);
+                if (hide)
                 {
-                    if (!(ent is VMGameObject) || ent.Dead) continue;
-                    var flags2 = (VMEntityFlags2)ent.GetValue(FSO.SimAntics.Model.VMStackObjectVariable.FlagField2);
-                    if ((flags2 & VMEntityFlags2.ArchitectualDoor) == 0) continue;
-                    var comp = ent.WorldUI as ObjectComponent;
-                    if (comp == null) continue;
                     if (comp.Visible) comp.Visible = false;
                     HiddenDoors.Add(ent);
                 }
-            }
-            else if (HiddenDoors.Count > 0)
-            {
-                foreach (var ent in HiddenDoors)
+                else if (HiddenDoors.Remove(ent))
                 {
-                    var comp = ent.WorldUI as ObjectComponent;
-                    if (comp != null && !ent.Dead) comp.Visible = ent.GetValue(FSO.SimAntics.Model.VMStackObjectVariable.Hidden) == 0;
+                    comp.Visible = ent.GetValue(FSO.SimAntics.Model.VMStackObjectVariable.Hidden) == 0;
                 }
-                HiddenDoors.Clear();
-                DoorCheckTimer = 0;
             }
+        }
+
+        /// <summary>Is there outdoors on either side of this door?</summary>
+        private bool DoorLeadsOutside(VMEntity door)
+        {
+            var pos = door.Position;
+            if (pos == LotTilePos.OUT_OF_WORLD) return false;
+            int dx = 0, dy = 0;
+            switch (door.Direction)
+            {
+                case Direction.NORTH: dy = -1; break;
+                case Direction.SOUTH: dy = 1; break;
+                case Direction.EAST: dx = 1; break;
+                case Direction.WEST: dx = -1; break;
+            }
+            foreach (var step in new[] { 0, 1, -1 })
+            {
+                var x = pos.TileX + dx * step;
+                var y = pos.TileY + dy * step;
+                if (x < 0 || y < 0 || x >= vm.Context.Architecture.Width || y >= vm.Context.Architecture.Height) return true;
+                var room = vm.Context.GetRoomAt(LotTilePos.FromBigTile((short)x, (short)y, pos.Level));
+                if (room < vm.Context.RoomInfo.Length && vm.Context.RoomInfo[room].Room.IsOutside) return true;
+            }
+            return false;
         }
 
         private void UpdateCutaway(UpdateState state)
