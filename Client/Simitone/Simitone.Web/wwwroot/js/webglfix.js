@@ -41,18 +41,6 @@
         };
         const del = proto.deleteTexture;
         proto.deleteTexture = function (tex) { if (tex) tex.__srxDeleted = true; return del.call(this, tex); };
-        let frames = 0;
-        for (const name of ['drawElements', 'drawArrays']) {
-            const draw = proto[name];
-            proto[name] = function () {
-                const r = draw.apply(this, arguments);
-                if ((++frames & 1023) === 0) {
-                    const err = this.getError();
-                    if (err) report(this, name + ' failed with WebGL error ' + err + ' (0x' + err.toString(16) + ')');
-                }
-                return r;
-            };
-        }
     }
 
     // ---- feedback loops: drawing into a picture that is also being read from ----
@@ -117,7 +105,68 @@
         }
     }
 
-    if (window.WebGL2RenderingContext) { patch(WebGL2RenderingContext.prototype); watch(WebGL2RenderingContext.prototype); guardFeedback(WebGL2RenderingContext.prototype); }
+    // ---- detailed report of a draw the browser refused (once per shader program) ----
+    function inspectDraws(proto) {
+        const gl2 = WebGL2RenderingContext;
+        const bufSizes = new WeakMap();
+        const bindBuf = proto.bindBuffer;
+        proto.bindBuffer = function (target, buf) {
+            if (target === gl2.ELEMENT_ARRAY_BUFFER) this.__srxEBO = buf;
+            return bindBuf.call(this, target, buf);
+        };
+        const bufData = proto.bufferData;
+        proto.bufferData = function (target, data) {
+            if (target === gl2.ELEMENT_ARRAY_BUFFER && this.__srxEBO) {
+                const size = typeof data === 'number' ? data : (data && data.byteLength) || 0;
+                bufSizes.set(this.__srxEBO, size);
+            }
+            return bufData.apply(this, arguments);
+        };
+        const reported = new Set();
+        let checks = 0;
+        function describe(gl, name, args) {
+            const prog = gl.getParameter(gl.CURRENT_PROGRAM);
+            if (!prog || reported.has(prog) || reported.size >= 6) return;
+            reported.add(prog);
+            const info = { draw: name, count: args[1], indexType: args[2], offset: args[3] };
+            const fb = gl.getParameter(gl.DRAW_FRAMEBUFFER_BINDING);
+            info.framebuffer = fb ? ('complete=' + (gl.checkFramebufferStatus(gl.DRAW_FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE)) : 'screen';
+            if (name === 'drawElements' && gl.__srxEBO) info.indexBufferBytes = bufSizes.get(gl.__srxEBO);
+            info.attributes = [];
+            const na = gl.getProgramParameter(prog, gl.ACTIVE_ATTRIBUTES);
+            for (let i = 0; i < na; i++) {
+                const a = gl.getActiveAttrib(prog, i);
+                const loc = gl.getAttribLocation(prog, a.name);
+                const en = loc >= 0 && gl.getVertexAttrib(loc, gl.VERTEX_ATTRIB_ARRAY_ENABLED);
+                info.attributes.push(a.name + '@' + loc + ' shaderType=0x' + a.type.toString(16) + (en ? (' size=' + gl.getVertexAttrib(loc, gl.VERTEX_ATTRIB_ARRAY_SIZE) + ' type=0x' + gl.getVertexAttrib(loc, gl.VERTEX_ATTRIB_ARRAY_TYPE).toString(16) + ' int=' + gl.getVertexAttrib(loc, gl.VERTEX_ATTRIB_ARRAY_INTEGER) + ' buffer=' + !!gl.getVertexAttrib(loc, gl.VERTEX_ATTRIB_ARRAY_BUFFER_BINDING)) : ' (not enabled)'));
+            }
+            info.samplers = [];
+            const nu = gl.getProgramParameter(prog, gl.ACTIVE_UNIFORMS);
+            for (let i = 0; i < nu; i++) {
+                const u = gl.getActiveUniform(prog, i);
+                if (u.type === gl.SAMPLER_2D || u.type === gl.SAMPLER_CUBE || u.type === gl.SAMPLER_3D)
+                    info.samplers.push(u.name + ' unit=' + gl.getUniform(prog, gl.getUniformLocation(prog, u.name)));
+            }
+            const shaders = gl.getAttachedShaders(prog) || [];
+            info.shaderStart = shaders.map(s => (gl.getShaderSource(s) || '').split('\n').filter(l => /uniform|in |out |attribute/.test(l)).slice(0, 8).join(' | '));
+            console.warn('[SimsRedux] graphics: refused draw details ' + JSON.stringify(info));
+        }
+        for (const name of ['drawElements', 'drawArrays']) {
+            const draw = proto[name];
+            proto[name] = function () {
+                const r = draw.apply(this, arguments);
+                // check every draw for a while after start, then every 64th
+                if (checks < 200000 || (checks & 63) === 0) {
+                    const err = this.getError();
+                    if (err) describe(this, name, arguments);
+                }
+                checks++;
+                return r;
+            };
+        }
+    }
+
+    if (window.WebGL2RenderingContext) { patch(WebGL2RenderingContext.prototype); watch(WebGL2RenderingContext.prototype); inspectDraws(WebGL2RenderingContext.prototype); guardFeedback(WebGL2RenderingContext.prototype); }
     if (window.WebGLRenderingContext) patch(WebGLRenderingContext.prototype);
     window.SimsReduxFixShader = fixShader;
 })();
