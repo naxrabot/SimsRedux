@@ -12,15 +12,13 @@ namespace Simitone.Client.Utils
     /// </summary>
     public static class ReduxVersion
     {
-        public const string Number = "1.0";
+        public const string Number = "1.1";
         public const string Stage = "Beta";
 
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
-            "The game's own families are now background families: click their house to Take Over (they join your families) or Just Watch them live their lives.",
-            "Only your own families get the green plumbob.",
-            "Starting the neighborhood fresh has moved to Options > Play > Neighborhood.",
+            "Online: you only control your own Sim. Questions about other Sims (the family living there, NPCs) are answered by the lot, not by visitors.",
         };
 
         public static string Text { get { return "v" + Number; } }

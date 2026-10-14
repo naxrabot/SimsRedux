@@ -297,6 +297,11 @@ namespace Simitone.Client.UI.Panels
             }
             if (info == null) return; //return if we're just clearing a dialog.
 
+            // SimsRedux online: a visiting player only sees questions about their own Sim; the lot
+            // answers the others (the family living there, NPCs)
+            var game = FSO.Client.UI.Framework.UIScreen.Current as Simitone.Client.UI.Screens.TS1GameScreen;
+            if (game != null && game.IsGuest && info.Caller is VMAvatar && info.Caller.PersistID != vm.MyUID) return;
+
             if (!ShowSimanticsExceptions && info.Title == "SimAntics Exception!")
                 return;
 
