@@ -56,7 +56,16 @@ namespace Simitone.Client.UI.Screens
 
         //for TS1 hybrid mode
         public UINeighborhoodSelectionPanel TS1NeighPanel;
-        public FAMI ActiveFamily;
+        private FAMI _activeFamily;
+        /// <summary>
+        /// The family being played. SimsRedux online: at home on your own family's lot (where the
+        /// server runs the lot), it's the family the lot says lives there - money, friends and all.
+        /// </summary>
+        public FAMI ActiveFamily
+        {
+            get { return (_activeFamily == null && Guest != null && Guest.IsOwner) ? vm?.TS1State?.CurrentFamily : _activeFamily; }
+            set { _activeFamily = value; }
+        }
 
         public bool InLot
         {

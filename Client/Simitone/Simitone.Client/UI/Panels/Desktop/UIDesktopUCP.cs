@@ -419,7 +419,7 @@ namespace Simitone.Client.UI.Panels.Desktop
         private void UpdateMoneyDisplay()
         {
             MoneyLabel.Caption = "§" + LastMoney.ToString("##,#0");
-            MoneyLabel.Visible = Game.vm.GetGlobalValue(32) == 0;
+            MoneyLabel.Visible = Game.vm.GetGlobalValue(32) == 0 && !Game.IsVisitor; // (a visitor's own money isn't on this lot)
         }
 
         private int GetMoney()

@@ -1016,7 +1016,13 @@ namespace Simitone.Client.UI.Screens
 
         public void SaveFamily()
         {
-            SimitoneNeighbourGenerator.CreateFamily(FamilyPanel.SecondName.CurrentText, WIPFamily.Count, WIPFamily.Select(CASToNeighGen).ToArray());
+            var fam = SimitoneNeighbourGenerator.CreateFamily(FamilyPanel.SecondName.CurrentText, WIPFamily.Count, WIPFamily.Select(CASToNeighGen).ToArray());
+            // SimsRedux online: a family made for the online town starts with the town's money
+            if (Simitone.Client.Utils.ReduxTown.Active && fam != null)
+            {
+                fam.Budget = Simitone.Client.Utils.ReduxFamilyPackage.OnlineStartingMoney;
+                Content.Get().Neighborhood.SaveNeighbourhood(true);
+            }
             SetFamilies();
             ClearFamily();
         }
