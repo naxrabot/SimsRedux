@@ -185,6 +185,9 @@ namespace SimsRedux.Server
             }
         }
 
+        private static readonly Account Dummy = MakeDummy();
+        private static Account MakeDummy() { var a = new Account { Name = "dummy" }; SetPasswordOn(a, Guid.NewGuid().ToString()); return a; }
+
         private static void SetPasswordOn(Account a, string password)
         {
             var salt = RandomNumberGenerator.GetBytes(16);
@@ -210,8 +213,9 @@ namespace SimsRedux.Server
         {
             error = null;
             account = Find(name);
-            // the same answer whether the name or the password is wrong
-            if (account == null || !PasswordMatches(account, password)) { account = null; error = "Wrong name or password."; return null; }
+            // the same answer, and the same time taken, whether the name or the password is wrong
+            if (account == null) { PasswordMatches(Dummy, password); error = "Wrong name or password."; return null; }
+            if (!PasswordMatches(account, password)) { account = null; error = "Wrong name or password."; return null; }
             if (account.Suspended) { error = "This account is suspended."; account = null; return null; }
             var token = Base64Url(RandomNumberGenerator.GetBytes(32));
             lock (Lock)

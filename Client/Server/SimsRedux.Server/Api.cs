@@ -68,7 +68,9 @@ namespace SimsRedux.Server
         {
             var cors = Cors(req);
 
-            if (!Everything.Allow(req.From))
+            // (game-file downloads are thousands of requests, but only for logged-in Admins and Testers)
+            bool fileRequest = req.Path == "/api/file" || req.Path == "/api/files";
+            if (!fileRequest && !Everything.Allow(req.From))
             {
                 await HttpServer.SendJson(stream, 429, new { error = "Too many requests - slow down a little." }, cors);
                 return;
