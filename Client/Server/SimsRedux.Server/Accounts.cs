@@ -26,6 +26,8 @@ namespace SimsRedux.Server
         public DateTime Created { get; set; }
         public DateTime LastLogin { get; set; }
         public bool Suspended { get; set; }
+        /// <summary>Made on the website and waiting for the server owner to approve it (can't log in until then).</summary>
+        public bool Pending { get; set; }
 
         [JsonIgnore] public string Key => Accounts.KeyOf(Name);
     }
@@ -109,7 +111,7 @@ namespace SimsRedux.Server
             return null;
         }
 
-        public Account Create(string name, string password, string role, string email, out string error)
+        public Account Create(string name, string password, string role, string email, out string error, bool pending = false)
         {
             error = CheckName(name) ?? CheckPassword(password);
             if (error != null) return null;
@@ -118,7 +120,7 @@ namespace SimsRedux.Server
             lock (Lock)
             {
                 if (ByKey.ContainsKey(KeyOf(name))) { error = "That name is taken."; return null; }
-                var a = new Account { Name = name, Role = role, Email = (email ?? "").Trim(), Created = DateTime.UtcNow };
+                var a = new Account { Name = name, Role = role, Email = (email ?? "").Trim(), Created = DateTime.UtcNow, Pending = pending };
                 SetPasswordOn(a, password);
                 ByKey[a.Key] = a;
                 SaveAccounts();
@@ -171,6 +173,23 @@ namespace SimsRedux.Server
             }
         }
 
+        /// <summary>Approve an account made on the website (or put it back to waiting).</summary>
+        public bool SetPending(string name, bool pending, out string error)
+        {
+            error = null;
+            lock (Lock)
+            {
+                var a = Find(name);
+                if (a == null) { error = "No account called " + name; return false; }
+                a.Pending = pending;
+                if (pending) LogoutAll(a.Key);
+                SaveAccounts();
+                return true;
+            }
+        }
+
+        public List<Account> Waiting() { lock (Lock) return ByKey.Values.Where(a => a.Pending).OrderBy(a => a.Created).ToList(); }
+
         public bool Delete(string name, out string error)
         {
             error = null;
@@ -217,6 +236,7 @@ namespace SimsRedux.Server
             if (account == null) { PasswordMatches(Dummy, password); error = "Wrong name or password."; return null; }
             if (!PasswordMatches(account, password)) { account = null; error = "Wrong name or password."; return null; }
             if (account.Suspended) { error = "This account is suspended."; account = null; return null; }
+            if (account.Pending) { error = "Please wait for admin approval."; account = null; return null; }
             var token = Base64Url(RandomNumberGenerator.GetBytes(32));
             lock (Lock)
             {
@@ -245,7 +265,7 @@ namespace SimsRedux.Server
                 if (!Sessions.TryGetValue(h, out var s)) return null;
                 var now = DateTime.UtcNow;
                 if (s.Expires < now) { Sessions.Remove(h); SessionsDirty = true; return null; }
-                if (!ByKey.TryGetValue(s.Account, out var a) || a.Suspended) return null;
+                if (!ByKey.TryGetValue(s.Account, out var a) || a.Suspended || a.Pending) return null;
                 // using it keeps it alive (saved every so often, not on every request)
                 if ((now - s.LastSeen).TotalMinutes >= 1)
                 {

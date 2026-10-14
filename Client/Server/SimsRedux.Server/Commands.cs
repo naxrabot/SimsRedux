@@ -28,6 +28,8 @@ namespace SimsRedux.Server
             new[] { "/accounts", "every account with its role" },
             new[] { "/account add <name> <password> [role]", "make an account (role: admin, tester or player)" },
             new[] { "/role <name> <admin|tester|player>", "change an account's role (Admins and Testers get the game files)" },
+            new[] { "/approve <name>", "let a new account in (accounts made on the website wait for this)" },
+            new[] { "/pending", "accounts waiting for approval" },
             new[] { "/resetpw <name> <password>", "set a new password for someone who forgot theirs" },
             new[] { "/suspend <name>", "lock an account out" },
             new[] { "/unsuspend <name>", "let them back in" },
@@ -97,6 +99,7 @@ namespace SimsRedux.Server
                     foreach (var a in all)
                         lines.Append("  ").Append(a.Name.PadRight(22)).Append(a.Role.PadRight(8))
                              .Append(a.Suspended ? " SUSPENDED" : "")
+                             .Append(a.Pending ? " WAITING FOR APPROVAL" : "")
                              .Append("  last login ").Append(a.LastLogin == default ? "never" : a.LastLogin.ToLocalTime().ToString("yyyy-MM-dd HH:mm"))
                              .Append('\n');
                     Log.Reply(lines.ToString().TrimEnd());
@@ -131,6 +134,21 @@ namespace SimsRedux.Server
                     {
                         var name = string.Join(' ', parts.Skip(1).Take(parts.Length - 2));
                         Log.Reply(Accounts.SetPassword(name, parts[^1], out error) ? "new password set for " + name + " (they're logged out everywhere)" : error);
+                    }
+                    break;
+
+                case "/approve":
+                case "/unapprove":
+                    if (Arg(1) == null) { Log.Reply("usage: " + cmd + " <name>"); break; }
+                    Log.Reply(Accounts.SetPending(Rest(1), cmd == "/unapprove", out error)
+                        ? (cmd == "/approve" ? Rest(1) + " is approved and can log in" : Rest(1) + " is waiting for approval again") : error);
+                    break;
+
+                case "/pending":
+                    {
+                        var waiting = Accounts.Waiting();
+                        Log.Reply(waiting.Count == 0 ? "nobody is waiting for approval"
+                            : waiting.Count + " waiting for approval: " + string.Join(", ", waiting.Select(w => w.Name)) + "\napprove with  /approve <name>");
                     }
                     break;
 

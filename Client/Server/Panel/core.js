@@ -99,9 +99,10 @@ function readAccounts(dataDir) {
     name: String(a.name || ""),
     role: String(a.role || "player"),
     suspended: !!a.suspended,
+    pending: !!a.pending,
     created: a.created || "",
     lastLogin: a.lastLogin || ""
-  })).sort((x, y) => x.name.localeCompare(y.name, undefined, { sensitivity: "base" }));
+  })).sort((x, y) => (y.pending - x.pending) || x.name.localeCompare(y.name, undefined, { sensitivity: "base" }));
 }
 function readServerConfig(dataDir) { return readJSON(dataPaths(dataDir).config) || {}; }
 
@@ -180,6 +181,9 @@ const COMMANDS = [
     ["/account add <name> <password> [role]", "make an account — role is admin, tester or player"],
     ["/role <name> <admin|tester|player>", "change a role — Admins and Testers can download the game files"],
     ["/resetpw <name> <password>", "set a new password for someone who forgot theirs"],
+    ["/approve <name>", "let in an account made on the website"],
+    ["/unapprove <name>", "put an account back to waiting"],
+    ["/pending", "accounts waiting for approval"],
     ["/suspend <name>", "lock an account out"],
     ["/unsuspend <name>", "let them back in"],
     ["/delete <name>", "remove an account for good"],

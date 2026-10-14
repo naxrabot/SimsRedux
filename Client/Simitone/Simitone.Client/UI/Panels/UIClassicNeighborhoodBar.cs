@@ -151,7 +151,7 @@ namespace Simitone.Client.UI.Panels
                 online.Position = new Vector2((showExit ? x + Spacing : x) + 6, 9); // takes the Quit button's place in the browser
                 if (town) online.OnButtonClick += (b) => UIClassicDialog.YesNo("Leave the Town?", "Go back to your own neighborhood?",
                     () => (UIScreen.Current as Simitone.Client.UI.Screens.TS1GameScreen)?.LeaveTown());
-                else online.OnButtonClick += (b) => UIClassicOnlineDialog.Show();
+                else online.OnButtonClick += (b) => UIClassicOnlineDialog.AskToConnect();
                 Add(online);
             }
 

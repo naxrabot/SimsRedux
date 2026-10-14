@@ -167,15 +167,15 @@ namespace SimsRedux.Server
                 return;
             }
             var body = req.JsonBody();
-            var a = Accounts.Create(Str(body, "name"), Str(body, "password"), Roles.Player, Str(body, "email"), out var error);
+            // new accounts wait for the server owner to approve them in the panel
+            var a = Accounts.Create(Str(body, "name"), Str(body, "password"), Roles.Player, Str(body, "email"), out var error, pending: true);
             if (a == null)
             {
                 await HttpServer.SendJson(stream, 400, new { error }, cors);
                 return;
             }
-            Log.Info("new account: " + a.Name + " (from " + req.From + ")");
-            var token = Accounts.Login(a.Name, Str(body, "password"), req.From, out a, out error);
-            await HttpServer.SendJson(stream, 200, new { ok = true, token, name = a?.Name, role = a?.Role, files = Roles.GetsGameFiles(a?.Role) && Files.Ready }, cors);
+            Log.Warn("new account " + a.Name + " is waiting for your approval (from " + req.From + ") - approve it in Accounts, or type  /approve " + a.Name);
+            await HttpServer.SendJson(stream, 200, new { ok = true, pending = true, name = a.Name, message = "Please wait for admin approval before connecting." }, cors);
         }
 
         private async Task Login(Request req, Stream stream, Dictionary<string, string> cors)

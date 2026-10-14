@@ -116,6 +116,8 @@ async function pollLocal(ch) {
   const h = C.readHealth(r, running(ch));
   if (SV[ch].portBusy) h.foreign = true;
   h.channel = ch;
+  // accounts made on the website that are waiting for approval (read from the server's own file)
+  try { h.waiting = C.readAccounts(p.dataDir).filter(a => a.pending).length; } catch (e) { h.waiting = 0; }
   send("status:local", h);
 }
 async function pollPublic(ch) {
@@ -263,6 +265,8 @@ ipcMain.handle("panel:account", (e, c, action, name, a, b) => {
     case "add": return sendCommand(c, "/account add " + name + " " + a + " " + (b || "player"));
     case "role": return sendCommand(c, "/role " + name + " " + a);
     case "resetpw": return sendCommand(c, "/resetpw " + name + " " + a);
+    case "approve": return sendCommand(c, "/approve " + name);
+    case "unapprove": return sendCommand(c, "/unapprove " + name);
     case "suspend": return sendCommand(c, "/suspend " + name);
     case "unsuspend": return sendCommand(c, "/unsuspend " + name);
     case "delete": return sendCommand(c, "/delete " + name);

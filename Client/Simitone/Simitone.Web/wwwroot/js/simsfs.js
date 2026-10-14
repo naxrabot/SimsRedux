@@ -289,6 +289,12 @@
             const r = await call(register ? '/api/register' : '/api/login', { name, password });
             if (!r.ok) { msg(r.error, true); return; }
             root.querySelector('.apw').value = '';
+            // new accounts wait for the server owner to approve them
+            if (r.pending) {
+                msg('Account made. Please wait for admin approval.');
+                alert(r.message || 'Please wait for admin approval before connecting.');
+                return;
+            }
             store({ token: r.token, name: r.name, role: r.role, files: !!r.files });
             msg(register ? 'Account made. Welcome, ' + r.name + '!' : (r.motd || ''));
             if (choose) { const c = choose; choose = null; c('account'); }

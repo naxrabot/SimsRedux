@@ -86,6 +86,7 @@ function chips(){
   if (L.state === "up") {
     add("lots open", L.lots|0);
     add("accounts", L.accounts|0);
+    if (L.waiting) add("waiting for approval", L.waiting|0);
     add("files", L.files && L.files.ready ? (L.files.mb|0) + " MB" : "not set");
     add("sign-ups", L.registration ? "open" : "closed");
     add("up", dur(L.uptime));
@@ -231,7 +232,8 @@ async function loadAccounts(){
   body.appendChild(head);
   for (const a of list) {
     const row = document.createElement("div"); row.className = "arow";
-    const n = document.createElement("span"); n.className = "an" + (a.suspended ? " sus" : ""); n.textContent = a.name + (a.suspended ? " (suspended)" : "");
+    const n = document.createElement("span"); n.className = "an" + (a.suspended ? " sus" : "") + (a.pending ? " pend" : "");
+    n.textContent = a.name + (a.suspended ? " (suspended)" : "") + (a.pending ? " (waiting for approval)" : "");
     const role = document.createElement("select");
     for (const r of ["admin", "tester", "player"]) { const o = document.createElement("option"); o.value = r; o.textContent = r[0].toUpperCase() + r.slice(1); role.appendChild(o); }
     role.value = a.role; role.className = "role-" + a.role; role.disabled = !d.running;
@@ -239,6 +241,7 @@ async function loadAccounts(){
     const l = document.createElement("span"); l.className = "al"; l.textContent = fmtDate(a.lastLogin);
     const acts = document.createElement("span"); acts.className = "aa";
     const btn = (text, fn, cls) => { const b = document.createElement("button"); b.textContent = text; if (cls) b.className = cls; b.disabled = !d.running; b.addEventListener("click", fn); acts.appendChild(b); return b; };
+    if (a.pending) btn("Approve", () => act("approve", a.name), "go");
     btn("New password", () => {
       /* an input right in the row, rather than a popup */
       acts.innerHTML = "";

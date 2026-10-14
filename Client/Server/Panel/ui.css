@@ -217,6 +217,7 @@ select{font:inherit;font-size:12px;color:var(--text);background:#090c1c;border:1
   padding:7px 6px;border-bottom:1px solid rgba(255,255,255,.04)}
 .arow .an{font-size:13px}
 .arow .an.sus{color:var(--bad);text-decoration:line-through}
+.arow .an.pend{color:var(--warn, #f0b84a)}
 .arow .al{color:var(--dim);font-size:11px}
 .arow .aa{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
 .arow .aa button{font-size:10.5px;padding:3px 7px}

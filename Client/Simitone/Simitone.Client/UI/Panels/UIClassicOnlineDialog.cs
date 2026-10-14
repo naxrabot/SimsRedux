@@ -156,8 +156,9 @@ namespace Simitone.Client.UI.Panels
         }
 
         /// <summary>Every Sim in a family that lives in a house, from the player's own neighbourhood.</summary>
-        private void LoadSims()
+        public static List<Tuple<uint, string>> ListSims()
         {
+            var sims = new List<Tuple<uint, string>>();
             try
             {
                 var neigh = Content.Get().Neighborhood;
@@ -173,7 +174,7 @@ namespace Simitone.Client.UI.Panels
                         string name = null;
                         try { name = obj.Resource.Get<CTSS>(obj.OBJ.CatalogStringsID)?.GetString(0); } catch { }
                         if (string.IsNullOrWhiteSpace(name)) name = obj.OBJ.ChunkLabel;
-                        Sims.Add(Tuple.Create(guid, name + (famName.Length > 0 ? " " + famName : "")));
+                        sims.Add(Tuple.Create(guid, name + (famName.Length > 0 ? " " + famName : "")));
                     }
                 }
             }
@@ -181,8 +182,34 @@ namespace Simitone.Client.UI.Panels
             {
                 ReduxOnlineInfo.Log("Couldn't list your Sims: " + e.Message);
             }
+            return sims;
+        }
+
+        private void LoadSims()
+        {
+            Sims = ListSims();
             var last = (uint)ReduxSettings.GetInt("onlinesim", 0);
             if (Sims.Any(s => s.Item1 == last)) PickedSim = last;
+        }
+
+        /// <summary>
+        /// The Online button: "Connect to the online neighborhood?" - Yes goes straight to the town
+        /// when logged in with a Sim picked before; otherwise this window opens to log in or pick one.
+        /// </summary>
+        public static void AskToConnect()
+        {
+            UIClassicDialog.YesNo("Online", "Connect to the online neighborhood?", () =>
+            {
+                var screen = UIScreen.Current as TS1GameScreen;
+                if (screen == null) return;
+                var last = (uint)ReduxSettings.GetInt("onlinesim", 0);
+                if (ReduxTown.LoggedIn && last != 0 && ListSims().Any(x => x.Item1 == last))
+                {
+                    screen.HostAfterLoad = false;
+                    screen.EnterTown(last);
+                }
+                else Show();
+            });
         }
 
         private void FillSims()
@@ -241,7 +268,7 @@ namespace Simitone.Client.UI.Panels
             {
                 Busy = false;
                 TownPasswordBox.CurrentText = "";
-                if (error != null) { UIClassicDialog.Ok("Couldn't Log In", error); return; }
+                if (error != null) { UIClassicDialog.Ok(error.Contains("approval") ? "Waiting for Approval" : "Couldn't Log In", error); return; }
                 SetPage(TownTab);
             });
         }
