@@ -763,7 +763,7 @@ namespace Simitone.Client.Utils
             sock.LastControlTry = DateTime.UtcNow;
             var id = sock.Client.PersistID;
             if (vm.GetAvatarByPersist(id) != null) return;
-            var sim = vm.Context.ObjectQueries.Avatars.FirstOrDefault(x => !x.Dead && !x.IsPet
+            var sim = vm.Context.ObjectQueries.Avatars.OfType<VMAvatar>().FirstOrDefault(x => !x.Dead && !x.IsPet
                 && x.GetPersonData(VMPersonDataVariable.TS1FamilyNumber) == sock.OwnerFamily
                 && x.PersistID < ReduxOnlineInfo.FirstGuestID
                 && x.Position != FSO.LotView.Model.LotTilePos.OUT_OF_WORLD
