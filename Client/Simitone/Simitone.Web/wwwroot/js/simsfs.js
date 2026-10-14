@@ -342,6 +342,15 @@
         Account.show(false);
         await clearSims();
         try { if (navigator.storage && navigator.storage.persist) await navigator.storage.persist(); } catch (e) { }
+        // phones (iPhones especially) only let a website keep so much: say so up front
+        try {
+            const est = navigator.storage && navigator.storage.estimate ? await navigator.storage.estimate() : null;
+            if (est && est.quota && est.quota - (est.usage || 0) < total * 1.05)
+                throw new Error('this browser only lets the website keep about ' + mb(est.quota - (est.usage || 0)) +
+                    ', and the game files are ' + mb(total) + '. (Private/incognito tabs get much less - try a normal tab.)');
+        } catch (e) { if (e && /lets the website keep/.test(e.message)) throw e; }
+        // if the page dies part-way (the browser ran out of memory and reloaded it), say so next time
+        try { sessionStorage.setItem('srx-downloading', String(Date.now())); } catch (e) { }
 
         let done = 0, count = 0, failed = null;
         const queue = files.slice();
@@ -361,15 +370,23 @@
                     }
                 }
                 const name = SIMS_ROOT + f.p;
-                const tx = db.transaction(STORE, 'readwrite');
-                tx.objectStore(STORE).put({ name: normalize(name), blob }, key(name));
-                await txDone(tx);
+                try {
+                    const tx = db.transaction(STORE, 'readwrite');
+                    tx.objectStore(STORE).put({ name: normalize(name), blob }, key(name));
+                    await txDone(tx);
+                } catch (e) {
+                    failed = (e && e.name === 'QuotaExceededError')
+                        ? 'this browser ran out of storage space after ' + mb(done) + ' (it needs ' + mb(total) + ')'
+                        : "couldn't save " + f.p + ' (' + ((e && (e.name + ': ' + e.message)) || e) + ')';
+                    return;
+                }
                 done += blob.size; count++;
                 setProgress(done, total);
                 status(`${count} of ${files.length} files (${mb(done)} of ${mb(total)})`);
             }
         }
         await Promise.all(Array.from({ length: 6 }, worker));
+        try { sessionStorage.removeItem('srx-downloading'); } catch (e) { }
         if (failed) { await clearSims(); throw new Error(failed); }
         return true;
     }
@@ -482,6 +499,10 @@
         const total = now.reduce((n, r) => n + (r.v.blob ? r.v.blob.size : 0), 0);
         show('Loading your Sims files', { progress: true, again: true });
         Account.show(false);
+        try {
+            if (sessionStorage.getItem('srx-loading')) status('Last time, loading stopped suddenly - this device may not have enough memory for the game.', true);
+            sessionStorage.setItem('srx-loading', '1');
+        } catch (e) { }
         let done = 0, count = 0;
         // a few at a time keeps the browser responsive
         const queue = now.slice();
@@ -498,6 +519,7 @@
             }
         }
         await Promise.all([worker(), worker(), worker(), worker()]);
+        try { sessionStorage.removeItem('srx-loading'); } catch (e) { }
         // music etc: known now, loaded in the background once the game is running
         for (const r of records.filter(r => isLazy(r.k)))
             addFile(r.v.name, { size: r.v.blob.size, data: null, blob: r.v.blob });
@@ -545,6 +567,14 @@
         catch (e) { console.warn('[SimsFS] stored files could not be read', e); }
 
         let problem = '';
+        try {
+            if (sessionStorage.getItem('srx-downloading')) {
+                sessionStorage.removeItem('srx-downloading');
+                problem = 'The last download stopped suddenly - the browser most likely ran out of memory and reloaded the page. ' +
+                    'Phones (iPhones especially) may not have enough room for The Sims in a browser.';
+                await clearSims();
+            }
+        } catch (e) { }
         while (!loaded) {
             show('Welcome!', { pick: true });
             Account.show(true);
