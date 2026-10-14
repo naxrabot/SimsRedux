@@ -42,7 +42,7 @@ namespace SimsRedux.Server
             new[] { "/lots", "lots that are open right now, with who's on them" },
             new[] { "/lots open <house>", "open a lot (players can also just travel there)" },
             new[] { "/lots close <house|all>", "save and close a lot" },
-            new[] { "/lots game <path>", "the game program that runs lots (Simitone.Windows.exe)" },
+            new[] { "/lots game <path>", "the game program that runs lots (Simitone.exe, or its folder)" },
             new[] { "/name <text>", "the server's name" },
             new[] { "/save", "save everything now" },
             new[] { "/backup", "save and keep a dated copy in backups/" },
@@ -191,7 +191,7 @@ namespace SimsRedux.Server
                             break;
                         case "game":
                             if (Arg(2) != null) { Config.GameExe = Rest(2).Trim('"'); Config.Save(); }
-                            Log.Reply("game program: " + (Lots.GameExe() ?? "NOT FOUND - /lots game <path to Simitone.Windows.exe>"));
+                            Log.Reply("game program: " + (Lots.GameExe() ?? "NOT FOUND - /lots game <path to Simitone.exe>"));
                             break;
                         default:
                             var running = Lots.Running();

@@ -55,14 +55,22 @@ namespace SimsRedux.Server
 
         public string GameExe()
         {
-            if (!string.IsNullOrEmpty(Config.GameExe) && File.Exists(Config.GameExe)) return Config.GameExe;
+            // the game builds as Simitone.exe; a folder holding it is fine too
+            string InFolder(string dir)
+            {
+                foreach (var name in new[] { "Simitone.exe", "Simitone.Windows.exe" })
+                    if (File.Exists(Path.Combine(dir, name))) return Path.Combine(dir, name);
+                return null;
+            }
+            if (!string.IsNullOrEmpty(Config.GameExe))
+            {
+                if (File.Exists(Config.GameExe)) return Config.GameExe;
+                if (Directory.Exists(Config.GameExe) && InFolder(Config.GameExe) is string inSet) return inSet;
+            }
             // where Visual Studio builds the game, next to this server (Client\Server\bin -> Client\Simitone\...)
             var simitone = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "Simitone", "Simitone.Windows", "bin"));
             foreach (var cfg in new[] { "Release", "Debug" })
-            {
-                var exe = Path.Combine(simitone, cfg, "net9.0-windows", "Simitone.Windows.exe");
-                if (File.Exists(exe)) return exe;
-            }
+                if (InFolder(Path.Combine(simitone, cfg, "net9.0-windows")) is string exe) return exe;
             return null;
         }
 
@@ -76,7 +84,7 @@ namespace SimsRedux.Server
                 if (!TownReady) { error = "the town hasn't been set up yet (/town import)"; return null; }
                 if (!Houses().Contains(house)) { error = "there's no house " + house + " in the town"; return null; }
                 var exe = GameExe();
-                if (exe == null) { error = "the game program wasn't found - build the solution, or set it with /lots game <path to Simitone.Windows.exe>"; return null; }
+                if (exe == null) { error = "the game program wasn't found - build the solution, or set it with /lots game <path to Simitone.exe>"; return null; }
                 if (string.IsNullOrEmpty(Config.GameFolder)) { error = "the Sims 1 game folder isn't set (Game files... in the panel)"; return null; }
                 int port = FreePort();
                 if (port == 0) { error = "too many lots are open"; return null; }

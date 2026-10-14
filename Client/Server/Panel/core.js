@@ -191,7 +191,7 @@ const COMMANDS = [
     ["/lots", "lots open right now, with who's on them"],
     ["/lots open <house>", "open a lot (players can also just travel there)"],
     ["/lots close <house|all>", "save and close a lot"],
-    ["/lots game <path>", "the game program that runs lots (Simitone.Windows.exe)"]
+    ["/lots game <path>", "the game program that runs lots (Simitone.exe, or its folder)"]
   ]],
   ["Players", [
     ["/who", "accounts active in the last 5 minutes"],
