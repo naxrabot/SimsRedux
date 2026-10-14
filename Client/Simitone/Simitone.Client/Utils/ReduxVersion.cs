@@ -12,15 +12,14 @@ namespace Simitone.Client.Utils
     /// </summary>
     public static class ReduxVersion
     {
-        public const string Number = "0.7";
+        public const string Number = "0.8";
         public const string Stage = "Beta";
 
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
-            "Your own neighborhood can start fresh with the original families (the Goths, Newbies, Pleasants and the rest). Your old one is kept as a backup.",
-            "New games start with the original families too.",
-            "Server: /town sources lists every neighborhood it can find and how many families live in each.",
+            "If the game's starting families (the Goths and the Pleasants) no longer live in your neighborhood, the game offers to start it fresh. Your old one is kept as a backup.",
+            "The cheat freshneighborhood also works on a lot: you're asked when you get back to the neighborhood.",
         };
 
         public static string Text { get { return "v" + Number; } }

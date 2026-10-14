@@ -24,17 +24,46 @@ namespace Simitone.Client.Utils
 
         private static string LocalFolder { get { return Path.Combine(FSOEnvironment.UserDir, "UserData/"); } }
 
-        /// <summary>On the neighbourhood screen: offer a fresh start if this neighbourhood is empty.</summary>
+        private static bool PendingAsk;
+
+        /// <summary>The house numbers that have a family living in them, in a neighbourhood folder.</summary>
+        private static System.Collections.Generic.HashSet<int> HousedHouses(string folder)
+        {
+            var set = new System.Collections.Generic.HashSet<int>();
+            try
+            {
+                var nbhd = Path.Combine(folder, "Neighborhood.iff");
+                if (!FSOFile.Exists(nbhd)) return set;
+                var iff = new FSO.Files.Formats.IFF.IffFile(nbhd);
+                foreach (var f in iff.List<FSO.Files.Formats.IFF.Chunks.FAMI>() ?? new System.Collections.Generic.List<FSO.Files.Formats.IFF.Chunks.FAMI>())
+                    if (f.HouseNumber > 0) set.Add((int)f.HouseNumber);
+            }
+            catch { }
+            return set;
+        }
+
+        /// <summary>
+        /// On the neighbourhood screen: offer a fresh start (once) if none of the game's starting
+        /// families live here any more - or if it was asked for with the cheat while on a lot.
+        /// </summary>
         public static void OfferIfEmpty()
         {
-            if (AskedThisRun || ReduxWorker.Active || ReduxTown.Active) return;
+            if (ReduxWorker.Active || ReduxTown.Active) return;
+            if (PendingAsk)
+            {
+                PendingAsk = false;
+                FSO.Common.Utils.GameThread.NextUpdate((s) => Ask(false));
+                return;
+            }
+            if (AskedThisRun) return;
             AskedThisRun = true;
             try
             {
                 if (ReduxSettings.GetBool("freshhoodoffered", false)) return;
-                if (TS1NeighborhoodProvider.HasFamiliesInHouses(LocalFolder)) return;
-                var source = Content.Get().Neighborhood.FreshSource();
-                if (!TS1NeighborhoodProvider.HasFamiliesInHouses(source)) return; // nothing better to offer
+                var originals = HousedHouses(Content.Get().Neighborhood.FreshSource());
+                if (originals.Count == 0) return; // nothing better to offer
+                var mine = HousedHouses(LocalFolder);
+                if (mine.Overlaps(originals)) return; // the starting families are still here
             }
             catch (Exception e)
             {
@@ -51,7 +80,8 @@ namespace Simitone.Client.Utils
             if (screen == null) return;
             if (screen.vm != null)
             {
-                UIClassicDialog.Ok("Fresh Neighborhood", "Go back to the neighborhood first, then type it again.");
+                PendingAsk = true;
+                UIClassicDialog.Ok("Fresh Neighborhood", "Go back to the neighborhood and you'll be asked whether to start it fresh.");
                 return;
             }
             if (ReduxTown.Active)
@@ -59,7 +89,7 @@ namespace Simitone.Client.Utils
                 UIClassicDialog.Ok("Fresh Neighborhood", "This only changes your own neighborhood. Leave the online town first.");
                 return;
             }
-            var message = (first ? "Your neighborhood has nobody living in it.\n\n" : "")
+            var message = (first ? "None of the game's starting families live in your neighborhood.\n\n" : "")
                 + "Start a fresh neighborhood with the original families (the Goths, Newbies, Pleasants and the rest)?\n\n"
                 + "Your current neighborhood, with any families and houses you made, is kept as a backup.";
             UIClassicDialog.Show("Fresh Neighborhood", message,
