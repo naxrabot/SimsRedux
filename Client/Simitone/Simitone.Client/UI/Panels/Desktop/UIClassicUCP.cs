@@ -85,8 +85,8 @@ namespace Simitone.Client.UI.Panels.Desktop
 
             // (already in Live mode: nothing to do; Simitone would open its touch-style Sim picker)
             LiveButton.OnButtonClick += (b) => { if (SelectedMode() != UIMainPanelMode.LIVE) OnModeClick?.Invoke(UIMainPanelMode.LIVE); };
-            BuyButton.OnButtonClick += (b) => OnModeClick?.Invoke(UIMainPanelMode.BUY);
-            BuildButton.OnButtonClick += (b) => OnModeClick?.Invoke(UIMainPanelMode.BUILD);
+            BuyButton.OnButtonClick += (b) => { if (!WatchBlocked()) OnModeClick?.Invoke(UIMainPanelMode.BUY); };
+            BuildButton.OnButtonClick += (b) => { if (!WatchBlocked()) OnModeClick?.Invoke(UIMainPanelMode.BUILD); };
             OptionsButton.OnButtonClick += (b) => OnModeClick?.Invoke(UIMainPanelMode.OPTIONS);
             CameraBtn.Disabled = true; // camera mode: coming later
 
@@ -341,5 +341,13 @@ namespace Simitone.Client.UI.Panels.Desktop
                 default: return 0;
             }
         }
-    }
+    
+        /// <summary>SimsRedux: no buying or building while just watching a background family.</summary>
+        private bool WatchBlocked()
+        {
+            if ((FSO.Client.UI.Framework.UIScreen.Current as Simitone.Client.UI.Screens.TS1GameScreen)?.Watching != true) return false;
+            UIClassicDialog.Ok("Just Watching", "This isn't your family's home. Take the family over from the neighborhood to buy and build here.");
+            return true;
+        }
+}
 }

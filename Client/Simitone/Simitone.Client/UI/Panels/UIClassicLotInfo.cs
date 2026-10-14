@@ -254,6 +254,22 @@ namespace Simitone.Client.UI.Panels
                 return;
             }
 
+            // SimsRedux: the game's own families are background families until you take one over
+            if (info.Occupied && !moveIn)
+            {
+                var fam = Content.Get().Neighborhood.GetFamilyForHouse((short)houseID);
+                if (fam != null && !Simitone.Client.Utils.ReduxRoster.IsPlayers(fam))
+                {
+                    var famName = Content.Get().Neighborhood.MainResource.Get<FAMs>(fam.ChunkID)?.GetString(0) ?? "this";
+                    UIClassicDialog.Show(title, message + "\n\nThe " + famName + " family isn't one of yours. Do you want to take over this family? "
+                        + "They'll join your families and you'll play them.\n\nOr just watch: they'll carry on living their own lives while you look around.",
+                        Tuple.Create("Take Over", (Action)(() => { Simitone.Client.Utils.ReduxRoster.TakeOver(fam); TS1GameScreen.WatchNext = false; select(houseID); })),
+                        Tuple.Create("Just Watch", (Action)(() => { TS1GameScreen.WatchNext = true; select(houseID); })),
+                        Tuple.Create("Cancel", (Action)null));
+                    return;
+                }
+            }
+
             var action = moveIn ? "Move In" : (info.Occupied ? "Play" : "Visit Lot");
             if (info.Occupied && !moveIn)
             {

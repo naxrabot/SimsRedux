@@ -123,6 +123,11 @@ namespace Simitone.Client.UI.Panels.Desktop
                         + "Homes and families saved in the game go with them.",
                         () => ReduxPlatform.ChangeGameFolder()));
             }
+            if (!ReduxTown.Active && !Game.IsGuest)
+            {
+                // start the single-player neighbourhood over (asked again on the neighbourhood screen)
+                AddAction("Neighborhood", "PopupOptEdgeScroll", "Start Fresh...", () => ReduxFreshHood.Ask(false));
+            }
             Note = "Sims 3 camera: WASD / arrows move, Q E rotate, Z X zoom, right-drag grabs the ground.";
         }
 

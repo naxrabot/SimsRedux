@@ -69,21 +69,14 @@ namespace Simitone.Client.Utils
                         Populate();
                         var screen = UIScreen.Current as TS1GameScreen;
                         FSO.Common.Utils.GameThread.NextUpdate((s2) => screen?.RefreshNeighbourhoodScreen());
-                        return;
                     }
                 }
-                if (ReduxSettings.GetBool("freshhoodoffered", false)) return;
-                var originals = HousedHouses(Content.Get().Neighborhood.FreshSource());
-                if (originals.Count == 0) return; // nothing better to offer
-                var mine = HousedHouses(LocalFolder);
-                if (mine.Overlaps(originals)) return; // the starting families are still here
             }
             catch (Exception e)
             {
                 Console.WriteLine("[SimsRedux] fresh neighbourhood check: " + e.Message);
-                return;
             }
-            FSO.Common.Utils.GameThread.NextUpdate((s) => Ask(true));
+            // starting over is never offered by itself: it's in Options > Play ("Start Fresh...")
         }
 
         /// <summary>Asks, then starts over on Yes. "first" = the automatic offer (remembered if declined).</summary>
@@ -94,7 +87,7 @@ namespace Simitone.Client.Utils
             if (screen.vm != null)
             {
                 PendingAsk = true;
-                UIClassicDialog.Ok("Fresh Neighborhood", "Go back to the neighborhood and you'll be asked whether to start it fresh.");
+                UIClassicDialog.Ok("Fresh Neighborhood", "Go back to the neighborhood and you'll be asked there whether to start it fresh.");
                 return;
             }
             if (ReduxTown.Active)
@@ -102,8 +95,7 @@ namespace Simitone.Client.Utils
                 UIClassicDialog.Ok("Fresh Neighborhood", "This only changes your own neighborhood. Leave the online town first.");
                 return;
             }
-            var message = (first ? "None of the game's starting families live in your neighborhood.\n\n" : "")
-                + "Start a fresh neighborhood with the original families (the Goths, Newbies, Pleasants and the rest)?\n\n"
+            var message = "Start a fresh neighborhood with the game's own families living in it?\n\n"
                 + "Your current neighborhood, with any families and houses you made, is kept as a backup.";
             UIClassicDialog.Show("Fresh Neighborhood", message,
                 Tuple.Create<string, Action>("Start Fresh", () => Reset(screen)),
@@ -124,6 +116,7 @@ namespace Simitone.Client.Utils
                     FSODirectory.Delete(local, true);
                 }
                 Content.Get().Neighborhood.InitSpecific(0); // copies the game's starting neighbourhood in
+                ReduxRoster.Reset();
                 Populate();
                 Console.WriteLine("[SimsRedux] started a fresh neighbourhood" + (backup != null ? " (the old one is in " + backup + ")" : ""));
             }

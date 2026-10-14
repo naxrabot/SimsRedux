@@ -270,6 +270,9 @@ namespace Simitone.Client.UI.Screens
                 UIClassicLoadScreen.Run(house, false, () => { PlayHouse(house, switcher); ClassicLoading = false; });
                 return;
             }
+            // SimsRedux: "Just Watch" a background family (nothing can be done to or with them)
+            Watching = WatchNext;
+            WatchNext = false;
             ActiveFamily = Content.Get().Neighborhood.GetFamilyForHouse((short)house);
             // SimsRedux: starting from the neighbourhood is never a trip. Forget the last trip
             // (Downtown etc.) so its travelling Sim can't turn up on this family's lot.
@@ -285,7 +288,18 @@ namespace Simitone.Client.UI.Screens
                 HostAfterLoad = false;
                 GameThread.NextUpdate((s) => StartHosting());
             }
+            if (Watching)
+            {
+                var famName = (ActiveFamily == null) ? "" : (Content.Get().Neighborhood.MainResource.Get<FAMs>(ActiveFamily.ChunkID)?.GetString(0) ?? "");
+                GameThread.NextUpdate((s) => UIClassicDialog.Ok("Just Watching", "The " + famName + " family is living their own life - they'll do their own thing while you look around."
+                    + "\n\nTo play them, go back to the neighborhood, click their house and choose Take Over."));
+            }
         }
+
+        /// <summary>SimsRedux: the next lot opened is only watched (a background family, not taken over).</summary>
+        public static bool WatchNext;
+        /// <summary>SimsRedux: watching a background family: no commands, no buying or building.</summary>
+        public bool Watching;
 
         public void MoveInAndPlay(short house, int family, UIElement switcher)
         {
@@ -1325,6 +1339,7 @@ namespace Simitone.Client.UI.Screens
             CleanupLastWorld();
             Downtown = false;
             SavedLot = null;
+            Watching = false;
             if (wasGuest && ReduxTown.Active)
             {
                 // SimsRedux: back to the online town (fetching it again if a lot changed it)

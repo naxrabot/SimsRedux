@@ -12,14 +12,15 @@ namespace Simitone.Client.Utils
     /// </summary>
     public static class ReduxVersion
     {
-        public const string Number = "0.9";
+        public const string Number = "1.0";
         public const string Stage = "Beta";
 
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
-            "A fresh single-player neighborhood now has 4 families living in it, and houses on most empty lots (3 lots stay empty to build on).",
-            "The online town keeps 2 families and its empty lots as they are.",
+            "The game's own families are now background families: click their house to Take Over (they join your families) or Just Watch them live their lives.",
+            "Only your own families get the green plumbob.",
+            "Starting the neighborhood fresh has moved to Options > Play > Neighborhood.",
         };
 
         public static string Text { get { return "v" + Number; } }
@@ -35,13 +36,13 @@ namespace Simitone.Client.Utils
             try { seen = ReduxSettings.GetString("seen_version", ""); }
             catch { seen = ""; }
             if (seen == Number) return;
-            try { ReduxSettings.Set("seen_version", Number); } catch { }
 
             var msg = "The Sims Redux has been updated to " + Stage + " " + Text + ".";
             if (WhatsNew.Length > 0) msg += "\n\nWhat's new:\n- " + string.Join("\n- ", WhatsNew);
             GameThread.NextUpdate((s) =>
             {
-                try { UIClassicDialog.Ok("Updated to " + Text, msg); }
+                // only counts as seen once OK is pressed (if it got covered up, it shows again next time)
+                try { UIClassicDialog.Ok("Updated to " + Text, msg, () => { try { ReduxSettings.Set("seen_version", Number); } catch { } }); }
                 catch (Exception e) { Console.WriteLine("[SimsRedux] Couldn't show the update popup: " + e.Message); }
             });
         }

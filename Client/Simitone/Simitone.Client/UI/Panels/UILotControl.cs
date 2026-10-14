@@ -568,6 +568,8 @@ namespace Simitone.Client.UI.Panels
 
         public void ShowPieMenu(Point pt, UpdateState state)
         {
+            // SimsRedux: just watching a background family - they do their own thing
+            if ((FSO.Client.UI.Framework.UIScreen.Current as Simitone.Client.UI.Screens.TS1GameScreen)?.Watching == true) return;
             if (!LiveMode)
             {
                 /*
