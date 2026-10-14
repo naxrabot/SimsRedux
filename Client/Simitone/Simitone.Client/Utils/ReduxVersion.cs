@@ -12,15 +12,15 @@ namespace Simitone.Client.Utils
     /// </summary>
     public static class ReduxVersion
     {
-        public const string Number = "0.1";
+        public const string Number = "0.2";
         public const string Stage = "Beta";
 
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
-            "The version number is now shown next to The Sims logo.",
-            "Joining a lot shows the Sims Redux wallpaper, where you're going, and a progress bar.",
-            "Coming back to a lot that's closing waits for it and opens it again.",
+            "The online town: Online > Town, log in, pick your Sim, and Go to the Town.",
+            "The town is the server's neighborhood, shared by everyone. Click a house to travel there.",
+            "Leaving a lot brings you back to the town. Leave Town goes back to your own neighborhood.",
         };
 
         public static string Text { get { return "v" + Number; } }

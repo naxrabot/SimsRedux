@@ -15,7 +15,10 @@ namespace SimsRedux.Server
     ///   POST /api/password         change password          { old, new }
     ///   GET  /api/files            the game-file list       (Admin/Tester only)
     ///   GET  /api/file?p=...       one game file            (Admin/Tester only)
-    ///   GET  /lot                  an online lot (WebSocket) - passed to the game hosting it, for now
+    ///   GET  /api/town/info        the town's stamp and open lots (logged in)
+    ///   GET  /api/town             the town's files, for the neighbourhood screen (logged in)
+    ///   GET  /lot                  an online lot (WebSocket) - passed to the game hosting it
+    ///   GET  /lot/12?t=token       a house in the town (WebSocket) - opened on this server if needed
     /// </summary>
     public class Api
     {
@@ -113,6 +116,8 @@ namespace SimsRedux.Server
                 case "/api/password": if (req.Method == "POST") { await ChangePassword(req, stream, cors); return; } break;
                 case "/api/files": if (req.Method == "GET") { await FileList(req, stream, cors); return; } break;
                 case "/api/file": if (req.Method == "GET") { await FileGet(req, stream, cors); return; } break;
+                case "/api/town/info": if (req.Method == "GET") { await TownInfo(req, stream, cors); return; } break;
+                case "/api/town": if (req.Method == "GET") { await TownGet(req, stream, cors); return; } break;
             }
             await HttpServer.SendJson(stream, 404, new { error = "Not found" }, cors);
         }
@@ -264,6 +269,45 @@ namespace SimsRedux.Server
             await HttpServer.SendFile(stream, entry.FullPath, size, cors);
         }
 
+        // ---------- the town ----------
+
+        private async Task TownInfo(Request req, Stream stream, Dictionary<string, string> cors)
+        {
+            var a = Accounts.Check(req.BearerToken());
+            if (a == null) { await HttpServer.SendJson(stream, 401, new { error = "Log in first." }, cors); return; }
+            if (!Lots.TownReady) { await HttpServer.SendJson(stream, 503, new { error = "The server's town isn't set up yet (/town import)." }, cors); return; }
+            await HttpServer.SendJson(stream, 200, new
+            {
+                ok = true,
+                name = a.Name,
+                stamp = Town.Stamp(),
+                lots = (Lots?.Running() ?? new List<Lots.Worker>()).Select(w => new { house = w.House, players = w.Players, open = w.Ready }),
+            }, cors);
+        }
+
+        private readonly HashSet<string> TownAnnounced = new HashSet<string>();
+
+        private async Task TownGet(Request req, Stream stream, Dictionary<string, string> cors)
+        {
+            var a = Accounts.Check(req.BearerToken());
+            if (a == null) { await HttpServer.SendJson(stream, 401, new { error = "Log in first." }, cors); return; }
+            if (!Lots.TownReady) { await HttpServer.SendJson(stream, 503, new { error = "The server's town isn't set up yet (/town import)." }, cors); return; }
+            byte[] bundle;
+            string stamp;
+            try { bundle = Town.Bundle(out stamp); }
+            catch (Exception e)
+            {
+                Log.Warn("town: couldn't pack the town for " + a.Name + ": " + e.Message);
+                await HttpServer.SendJson(stream, 500, new { error = "The town couldn't be read right now - try again." }, cors);
+                return;
+            }
+            lock (TownAnnounced)
+            {
+                if (TownAnnounced.Add(a.Key + stamp)) Log.Info(a.Name + " is getting the town (" + (bundle.Length / 1024) + " KB)");
+            }
+            await HttpServer.Send(stream, 200, "application/octet-stream", bundle, cors);
+        }
+
         // ---------- online lots ----------
 
         /// <summary>
@@ -277,6 +321,8 @@ namespace SimsRedux.Server
                 await HttpServer.Send(stream, 404, "text/plain; charset=utf-8", Encoding.UTF8.GetBytes("No such lot."));
                 return;
             }
+            var who = Accounts.Check(req.QueryValue("t"));
+            if (who != null) Log.Info("online: " + who.Name + " is travelling to house " + house);
             // two tries: if the lot was just closing (everyone had left), wait for it to finish and open it again
             for (int attempt = 0; attempt < 2; attempt++)
             {

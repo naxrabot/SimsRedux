@@ -18,5 +18,8 @@ namespace Simitone.Client.Utils
         /// <summary>Switch the browser's full screen on or off (browser).</summary>
         public static Action<bool> SetFullScreen;
         public static Func<bool> IsFullScreen;
+
+        /// <summary>The account the website is logged in with (browser): server address, token, name. Empty when none.</summary>
+        public static Func<string> AccountServer, AccountToken, AccountName;
     }
 }

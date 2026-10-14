@@ -708,5 +708,9 @@
     function isFullScreen() { return !!document.fullscreenElement; }
 
     window.SimsAccount = { get server() { return Account.SERVER; }, get session() { return Account.session; }, refresh: () => Account.refresh() };
-    window.SimsFS = { changeFolder, setFullScreen, isFullScreen, prepare, fileExists, dirExists, fileSize, read, write, deleteFile, createDir, deleteDir, moveFile, list, normalize };
+    // the game's online town reads who's logged in here (WebPlatform.cs)
+    const accountServer = () => Account.SERVER;
+    const accountToken = () => (Account.session && Account.session.token) || '';
+    const accountName = () => (Account.session && Account.session.name) || '';
+    window.SimsFS = { accountServer, accountToken, accountName, changeFolder, setFullScreen, isFullScreen, prepare, fileExists, dirExists, fileSize, read, write, deleteFile, createDir, deleteDir, moveFile, list, normalize };
 })();

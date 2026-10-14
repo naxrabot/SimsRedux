@@ -12,6 +12,9 @@ namespace Simitone.Web
         [JSImport("globalThis.SimsFS.changeFolder")] internal static partial void JsChangeFolder();
         [JSImport("globalThis.SimsFS.setFullScreen")] internal static partial void JsSetFullScreen(bool on);
         [JSImport("globalThis.SimsFS.isFullScreen")] internal static partial bool JsIsFullScreen();
+        [JSImport("globalThis.SimsFS.accountServer")] internal static partial string JsAccountServer();
+        [JSImport("globalThis.SimsFS.accountToken")] internal static partial string JsAccountToken();
+        [JSImport("globalThis.SimsFS.accountName")] internal static partial string JsAccountName();
 
         public static void Install()
         {
@@ -19,6 +22,9 @@ namespace Simitone.Web
             ReduxPlatform.ChangeGameFolder = JsChangeFolder;
             ReduxPlatform.SetFullScreen = JsSetFullScreen;
             ReduxPlatform.IsFullScreen = JsIsFullScreen;
+            ReduxPlatform.AccountServer = JsAccountServer;
+            ReduxPlatform.AccountToken = JsAccountToken;
+            ReduxPlatform.AccountName = JsAccountName;
         }
     }
 }

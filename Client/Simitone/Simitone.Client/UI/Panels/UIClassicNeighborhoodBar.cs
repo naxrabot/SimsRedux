@@ -107,6 +107,16 @@ namespace Simitone.Client.UI.Panels
 
             ReduxVersion.ShowUpdatePopupOnce();
 
+            // SimsRedux: in the online town, "Online Town" sits where the neighbourhood arrows are
+            bool town = ReduxTown.Active;
+            if (town)
+            {
+                prev.Visible = next.Visible = NeighNumber.Visible = false;
+                int tw = nextX + nextW - prevX;
+                AddVersionLine("Online", 11, new Color(120, 255, 140), prevX - 6, bandMid - 13, tw + 12, 13);
+                AddVersionLine("Town", 11, new Color(120, 255, 140), prevX - 6, bandMid, tw + 12, 13);
+            }
+
             int x = MainFirstX;
             var family = Btn("NghUI/MoveIn.bmp", x, ButtonY); x += Spacing;
             var newHouse = Btn("NghUI/Import.bmp", x, ButtonY); x += Spacing;
@@ -133,14 +143,24 @@ namespace Simitone.Client.UI.Panels
             bulldoze.OnButtonClick += (b) => PickTool(UINeighborhoodSelectionPanel.NeighTool.Bulldoze);
             rezone.OnButtonClick += (b) => PickTool(UINeighborhoodSelectionPanel.NeighTool.Rezone);
 
-            // SimsRedux: play online (host a house, or visit a friend)
+            // SimsRedux: play online (go to the town, host a house, or visit a friend)
             if (!moveIn)
             {
-                var online = new UITS1TileButton(TS1UIGraphics.Get("cpanel/Buttons/ButtonTileDialog.bmp"), "Online", 110);
-                online.TextSize = 15;
+                var online = new UITS1TileButton(TS1UIGraphics.Get("cpanel/Buttons/ButtonTileDialog.bmp"), town ? "Leave Town" : "Online", 110);
+                online.TextSize = town ? 13 : 15;
                 online.Position = new Vector2((showExit ? x + Spacing : x) + 6, 9); // takes the Quit button's place in the browser
-                online.OnButtonClick += (b) => UIClassicOnlineDialog.Show();
+                if (town) online.OnButtonClick += (b) => UIClassicDialog.YesNo("Leave the Town?", "Go back to your own neighborhood?",
+                    () => (UIScreen.Current as Simitone.Client.UI.Screens.TS1GameScreen)?.LeaveTown());
+                else online.OnButtonClick += (b) => UIClassicOnlineDialog.Show();
                 Add(online);
+            }
+
+            // the town is for travelling for now: families, building and the other neighbourhoods come later
+            if (town)
+            {
+                family.Disabled = true;
+                downtown.Disabled = vacation.Disabled = studio.Disabled = magic.Disabled = true;
+                newHouse.Disabled = bulldoze.Disabled = rezone.Disabled = true;
             }
 
             // while moving a family in, you can only pick a house here

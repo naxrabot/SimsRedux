@@ -247,6 +247,10 @@ namespace Simitone.Client.UI.Screens
                     });
                     UIScreen.GlobalShowDialog(confirmDialog, true);
                 }
+                else if (ReduxTown.Active)
+                {
+                    TravelToTownHouse((short)house); // SimsRedux: a house in the online town
+                }
                 else
                 {
                     PlayHouse((short)house, switcher);
@@ -347,6 +351,13 @@ namespace Simitone.Client.UI.Screens
                 UIClassicDialog.Ok("Couldn't Join", error);
                 return;
             }
+            JoinOnline(address, join);
+        }
+
+        /// <summary>Visit a lot with a "here's me and my Sim" packet made earlier.</summary>
+        public void JoinOnline(string address, byte[] join)
+        {
+            if (vm != null || join == null) return;
 
             CleanupLastWorld();
             World = new FSO.LotView.World(GameFacade.GraphicsDevice);
@@ -367,7 +378,7 @@ namespace Simitone.Client.UI.Screens
 
             if (TS1NeighPanel != null) Remove(TS1NeighPanel);
             // a house in the online town (".../lot/12") or a friend's lot
-            var townHouse = System.Text.RegularExpressions.Regex.Match(address ?? "", @"/lot/(\d+)\s*$");
+            var townHouse = System.Text.RegularExpressions.Regex.Match(address ?? "", @"/lot/(\d+)\s*(\?.*)?$");
             JoinScreen = UIClassicLoadScreen.ShowWaiting(townHouse.Success ? "Travelling to House " + townHouse.Groups[1].Value : "Visiting a Friend", "Connecting to the server...", true);
             JoinStarted = DateTime.UtcNow;
 
@@ -1311,6 +1322,14 @@ namespace Simitone.Client.UI.Screens
             if (OnlineStatus != null) { Remove(OnlineStatus); OnlineStatus = null; }
             if (JoinScreen != null) { JoinScreen.Close(); JoinScreen = null; }
             CleanupLastWorld();
+            Downtown = false;
+            SavedLot = null;
+            if (wasGuest && ReduxTown.Active)
+            {
+                // SimsRedux: back to the online town (fetching it again if a lot changed it)
+                ShowTown("Back to the Town");
+                return;
+            }
             if (wasGuest)
             {
                 // back to the player's own neighbourhood
@@ -1318,8 +1337,91 @@ namespace Simitone.Client.UI.Screens
                 catch (Exception e) { ReduxOnlineInfo.Log("Couldn't reload your neighbourhood: " + e.Message); }
             }
             NeighSelection(NeighSelectionMode.Normal);
-            Downtown = false;
-            SavedLot = null;
+        }
+
+        // ================= SimsRedux: the online town (drop 2B) =================
+
+        private bool TownBusy;
+
+        /// <summary>
+        /// Go to the server's town with one of your own Sims: the Sim is packed up from your own
+        /// neighbourhood first, then the town is downloaded (if it changed) and shown.
+        /// </summary>
+        public void EnterTown(uint simGUID)
+        {
+            if (vm != null || TownBusy) return;
+            string error;
+            var join = ReduxGuest.MakeJoinPacket(ReduxTown.Name, simGUID, out error);
+            if (join == null)
+            {
+                UIClassicDialog.Ok("Couldn't Go to the Town", error);
+                return;
+            }
+            ReduxTown.JoinPacket = join;
+            ReduxTown.TravelSim = simGUID;
+            ShowTown("Going to the Town");
+        }
+
+        /// <summary>Fetch the town if needed, then put it on the neighbourhood screen.</summary>
+        private void ShowTown(string title)
+        {
+            TownBusy = true;
+            if (TS1NeighPanel != null) { Remove(TS1NeighPanel); TS1NeighPanel = null; }
+            var wait = UIClassicLoadScreen.ShowWaiting(title, "Connecting to the server...", true);
+            ReduxTown.Sync((text, p) => wait?.SetWaiting(text, p), (error) =>
+            {
+                wait?.Close();
+                TownBusy = false;
+                if (error == null)
+                {
+                    try
+                    {
+                        Content.Get().Neighborhood.LoadFolder(ReduxTown.Folder);
+                        ReduxTown.Active = true;
+                    }
+                    catch (Exception e)
+                    {
+                        error = "The town couldn't be opened: " + e.Message;
+                        ReduxOnlineInfo.Log("[town] " + e);
+                    }
+                }
+                if (error != null)
+                {
+                    LeaveTownNow();
+                    UIClassicDialog.Ok("The Town", error);
+                    return;
+                }
+                NeighSelection(NeighSelectionMode.Normal);
+            });
+        }
+
+        /// <summary>Back to your own neighbourhood from the town.</summary>
+        public void LeaveTown()
+        {
+            if (vm != null || TownBusy) return;
+            if (TS1NeighPanel != null) { Remove(TS1NeighPanel); TS1NeighPanel = null; }
+            LeaveTownNow();
+        }
+
+        private void LeaveTownNow()
+        {
+            ReduxTown.Active = false;
+            try { Content.Get().Neighborhood.InitSpecific(0); }
+            catch (Exception e) { ReduxOnlineInfo.Log("Couldn't reload your neighbourhood: " + e.Message); }
+            NeighSelection(NeighSelectionMode.Normal);
+        }
+
+        /// <summary>A house in the town was picked: travel to its lot on the server.</summary>
+        public void TravelToTownHouse(short house)
+        {
+            if (vm != null || !ReduxTown.Active) return;
+            if (ReduxTown.JoinPacket == null)
+            {
+                UIClassicDialog.Ok("Travel", "Pick the Sim you're bringing first: leave the town and go back in from the Online window.");
+                return;
+            }
+            HostAfterLoad = false;
+            JoinOnline(ReduxTown.LotAddress(house), ReduxTown.JoinPacket);
         }
     }
 

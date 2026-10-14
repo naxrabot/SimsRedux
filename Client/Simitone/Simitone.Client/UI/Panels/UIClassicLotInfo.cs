@@ -238,6 +238,22 @@ namespace Simitone.Client.UI.Panels
                 return;
             }
 
+            // SimsRedux: in the online town you travel to a lot on the server (nobody evicts anyone)
+            if (Simitone.Client.Utils.ReduxTown.Active)
+            {
+                bool lived = info.Occupied, community = false;
+                try { community = GetHover(houseID).Community; } catch { }
+                if (!lived && !community)
+                {
+                    UIClassicDialog.Ok(title, (message.Length > 0 ? message + "\n\n" : "") + "Nobody lives here yet, so there's nothing to visit. (Moving in and building in the town come later.)");
+                    return;
+                }
+                UIClassicDialog.Show(title, message,
+                    Tuple.Create("Travel Here", (Action)(() => select(houseID))),
+                    Tuple.Create("Cancel", (Action)null));
+                return;
+            }
+
             var action = moveIn ? "Move In" : (info.Occupied ? "Play" : "Visit Lot");
             if (info.Occupied && !moveIn)
             {

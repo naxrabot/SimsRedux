@@ -16,6 +16,7 @@ namespace Simitone.Client.UI.Panels
 {
     /// <summary>
     /// SimsRedux: the "Online" window on the neighbourhood screen.
+    ///   Town: log in, pick the Sim you'll bring, and go to the server's town (click a house to travel there).
     ///   Host: pick it, then click one of your houses. Friends can join you on that lot.
     ///   Join: type your name and the host's address, pick one of your Sims, Join.
     /// </summary>
@@ -26,7 +27,13 @@ namespace Simitone.Client.UI.Panels
         private static readonly Color TextColor = new Color(215, 215, 245);
 
         private TextStyle Body, Heading, TitleStyle, SmallStyle;
-        private int Page; // 0 host, 1 join
+        private int Page; // 0 town, 1 host, 2 join
+        private const int TownTab = 0, HostTab = 1, JoinTab = 2;
+        private List<UIElement> TownLogin = new List<UIElement>();
+        private List<UIElement> TownIn = new List<UIElement>();
+        private UITextBox TownNameBox, TownPasswordBox;
+        private UITS1TileButton LogoutBtn;
+        private bool Busy;
         private List<UITS1TileButton> Tabs = new List<UITS1TileButton>();
         private List<UIElement> HostPage = new List<UIElement>();
         private List<UIElement> JoinPage = new List<UIElement>();
@@ -54,7 +61,7 @@ namespace Simitone.Client.UI.Panels
 
             var tile = TS1UIGraphics.Get("cpanel/Buttons/ButtonTileDialog.bmp");
             int x = 16;
-            foreach (var name in new[] { "Host", "Join" })
+            foreach (var name in new[] { "Town", "Host", "Join" })
             {
                 var index = Tabs.Count;
                 var btn = new UITS1TileButton(tile, name, 110);
@@ -65,6 +72,29 @@ namespace Simitone.Client.UI.Panels
                 Tabs.Add(btn);
                 x += 116;
             }
+
+            // ---- town ----
+            TownNameBox = TextBox(150, 108, 220, ReduxSettings.GetString("townname", ""));
+            TownPasswordBox = TextBox(150, 140, 220, "");
+            TownPasswordBox.Password = true;
+            var login = new UITS1TileButton(tile, "Log In", 130);
+            login.TextSize = 14;
+            login.Position = new Vector2(150, 180);
+            login.OnButtonClick += (b) => TownLogin_Click();
+            Add(login);
+            TownLogin.Add(TownNameBox); TownLogin.Add(TownPasswordBox); TownLogin.Add(login);
+
+            LogoutBtn = new UITS1TileButton(tile, "Log Out", 110);
+            LogoutBtn.TextSize = 13;
+            LogoutBtn.Position = new Vector2(W - 140, 104);
+            LogoutBtn.OnButtonClick += (b) => { ReduxTown.Logout(); SetPage(TownTab); };
+            Add(LogoutBtn);
+            var goTown = new UITS1TileButton(tile, "Go to the Town", 170);
+            goTown.TextSize = 15;
+            goTown.Position = new Vector2(W - 330, H - 52);
+            goTown.OnButtonClick += (b) => StartTown();
+            Add(goTown);
+            TownIn.Add(LogoutBtn); TownIn.Add(goTown);
 
             // ---- host ----
             var host = new UITS1TileButton(tile, "Host a House", 200);
@@ -109,7 +139,7 @@ namespace Simitone.Client.UI.Panels
             Add(close);
 
             FillSims();
-            SetPage(ReduxPlatform.CanHost ? 0 : 1); // the browser version can only join
+            SetPage(TownTab);
         }
 
         private UITextBox TextBox(int x, int y, int w, string text)
@@ -165,7 +195,7 @@ namespace Simitone.Client.UI.Panels
                 {
                     SimButtons[i] = Tuple.Create(btn, Sims[index].Item1);
                     btn.Caption = Sims[index].Item2;
-                    btn.Visible = Page == 1;
+                    btn.Visible = SimsShowing;
                     btn.Selected = Sims[index].Item1 == PickedSim;
                 }
                 else
@@ -175,7 +205,7 @@ namespace Simitone.Client.UI.Panels
                 }
             }
             bool many = Sims.Count > SimsPerPage;
-            PrevSims.Visible = NextSims.Visible = many && Page == 1;
+            PrevSims.Visible = NextSims.Visible = many && SimsShowing;
         }
 
         private void PickSim(int slot)
@@ -184,12 +214,47 @@ namespace Simitone.Client.UI.Panels
             FillSims();
         }
 
+        /// <summary>The Sim buttons show on the Join page, and on the Town page once logged in.</summary>
+        private bool SimsShowing { get { return Page == JoinTab || (Page == TownTab && ReduxTown.LoggedIn); } }
+
         private void SetPage(int page)
         {
             Page = page;
-            foreach (var e in HostPage) e.Visible = page == 0 && ReduxPlatform.CanHost;
-            foreach (var e in JoinPage) e.Visible = page == 1;
+            foreach (var e in HostPage) e.Visible = page == HostTab && ReduxPlatform.CanHost;
+            foreach (var e in JoinPage) e.Visible = page == JoinTab;
+            bool loggedIn = ReduxTown.LoggedIn;
+            foreach (var e in TownLogin) e.Visible = page == TownTab && !loggedIn;
+            foreach (var e in TownIn) e.Visible = page == TownTab && loggedIn;
+            // a website login is ended from the website
+            LogoutBtn.Visible = page == TownTab && loggedIn && ReduxSettings.GetString("towntoken", "").Length > 0;
             FillSims();
+        }
+
+        private void TownLogin_Click()
+        {
+            if (Busy) return;
+            var name = (TownNameBox.CurrentText ?? "").Trim();
+            var password = TownPasswordBox.CurrentText ?? "";
+            if (name.Length == 0 || password.Length == 0) { UIClassicDialog.Ok("Log In", "Type your account name and password."); return; }
+            Busy = true;
+            ReduxTown.Login(name, password, (error) =>
+            {
+                Busy = false;
+                TownPasswordBox.CurrentText = "";
+                if (error != null) { UIClassicDialog.Ok("Couldn't Log In", error); return; }
+                SetPage(TownTab);
+            });
+        }
+
+        private void StartTown()
+        {
+            var screen = UIScreen.Current as TS1GameScreen;
+            if (screen == null) return;
+            if (PickedSim == 0) { UIClassicDialog.Ok("The Town", "Pick the Sim you'll bring when you visit houses in the town."); return; }
+            ReduxSettings.Set("onlinesim", (int)PickedSim);
+            Close();
+            screen.HostAfterLoad = false;
+            screen.EnterTown(PickedSim);
         }
 
         private void StartHost()
@@ -261,14 +326,30 @@ namespace Simitone.Client.UI.Panels
 
             DrawLocalTexture(batch, px, null, new Vector2(16, 98), new Vector2(W - 32, H - 160), new Color(0, 0, 50));
 
-            if (Page == 0 && !ReduxPlatform.CanHost)
+            if (Page == TownTab && !ReduxTown.LoggedIn)
+            {
+                Line(batch, "Account", 110, Heading);
+                Line(batch, "Password", 142, Heading);
+                DrawLocalString(batch, "Your Sims Redux account (the one you made on the website).", new Vector2(30, 230), Body, new Rectangle(0, 0, W - 60, 20), TextAlignment.Left | TextAlignment.Middle);
+                DrawLocalString(batch, "Server: " + ReduxTown.Server, new Vector2(30, 252), SmallStyle, new Rectangle(0, 0, W - 60, 20), TextAlignment.Left | TextAlignment.Middle);
+                DrawLocalTexture(batch, px, null, new Vector2(146, 106), new Vector2(228, 28), new Color(0, 0, 30));
+                DrawLocalTexture(batch, px, null, new Vector2(146, 138), new Vector2(228, 28), new Color(0, 0, 30));
+            }
+            else if (Page == TownTab)
+            {
+                Line(batch, "Logged in as " + ReduxTown.Name, 110, Heading);
+                Line(batch, "The town is shared by everyone on the server. Click a house there to travel to it.", 136, Body);
+                Line(batch, "Your own neighborhood stays as it is. Leave Town brings you back.", 156, Body);
+                Line(batch, Sims.Count == 0 ? "You need a family living in a house first." : "Pick the Sim you'll bring", 182, Heading);
+            }
+            else if (Page == HostTab && !ReduxPlatform.CanHost)
             {
                 Line(batch, "Hosting", 108, Heading);
                 Line(batch, "The browser version can't host a lot - browsers can't let others connect in.", 132, Body);
                 Line(batch, "Host from the Windows version of The Sims Redux, then join it from here", 152, Body);
                 Line(batch, "on the Join page. (Later, everyone will join the game's own server.)", 172, Body);
             }
-            else if (Page == 0)
+            else if (Page == HostTab)
             {
                 Line(batch, "Host a lot", 108, Heading);
                 Line(batch, "Click Host a House, then pick one of your houses and play it as normal.", 132, Body);
