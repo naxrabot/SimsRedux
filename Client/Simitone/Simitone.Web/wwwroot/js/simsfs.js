@@ -160,7 +160,8 @@
       <div class="row"><input class="aname" type="text" autocomplete="username" placeholder="Name" maxlength="20" spellcheck="false">
         <input class="apw" type="password" autocomplete="current-password" placeholder="Password"></div>
       <button class="login">Log in</button> <button class="second register">Create account</button>
-      <div class="small">An account keeps your homes and families yours online. You can also play without one.</div>
+      <button class="link offline" style="margin-left:10px">Play offline</button>
+      <div class="small">An account keeps your homes and families yours online. Offline, you play on your own.</div>
     </div>
     <div class="in hidden">
       <div class="who">Logged in as <b class="aname2"></b> <span class="arole"></span></div>
@@ -183,7 +184,8 @@
   </div>
   <div class="srx-progress hidden"><div class="bar"><div></div></div></div>
   <div class="status"></div>
-  <div class="again hidden" style="margin-top:10px"><button class="link change">Use a different Sims folder</button></div>
+  <div class="again hidden" style="margin-top:10px"><button class="link change">Use a different Sims folder</button>
+    <button class="link signout" style="margin-left:16px">Log out / switch account</button></div>
   <div style="margin-top:14px;font-size:11px;color:#7878b8">build ${(document.querySelector('meta[name="srx-build"]') || {}).content || 'dev'}</div>
 </div>`;
         document.body.appendChild(el);
@@ -289,6 +291,7 @@
             root.querySelector('.apw').value = '';
             store({ token: r.token, name: r.name, role: r.role, files: !!r.files });
             msg(register ? 'Account made. Welcome, ' + r.name + '!' : (r.motd || ''));
+            if (choose) { const c = choose; choose = null; c('account'); }
         }
         async function logout() {
             if (session) call('/api/logout', {}).catch(() => { });
@@ -303,8 +306,16 @@
             else if (r.status === 401) { store(null); msg('Please log in again.'); }
             else paint(); // server offline: keep the remembered login
         }
+        // The first step on every visit: resolves once the player is logged in or chose to play offline.
+        let choose = null;
+        async function step() {
+            await refresh();
+            if (session && session.token) return 'account';
+            return new Promise(ok => { choose = ok; });
+        }
         function attach(el) {
             root = el.querySelector('.acct');
+            root.querySelector('.offline').onclick = () => { msg(''); if (choose) { const c = choose; choose = null; c('offline'); } };
             root.querySelector('.login').onclick = () => login(false);
             root.querySelector('.register').onclick = () => login(true);
             root.querySelector('.logout').onclick = logout;
@@ -312,7 +323,7 @@
             load(); paint();
         }
         return {
-            SERVER, attach, refresh, call,
+            SERVER, attach, refresh, call, step,
             get session() { return session; },
             set onChange(fn) { onChange = fn; },
             show(on) { if (root) root.classList.toggle('hidden', !on); },
@@ -509,6 +520,11 @@
         const build = (document.querySelector('meta[name="srx-build"]') || {}).content || 'dev';
         console.log('[SimsRedux] web build ' + build);
         await openDb();
+        screen().root.querySelector('.signout').onclick = async () => {
+            try { await Account.call('/api/logout', {}); } catch (e) { }
+            try { localStorage.removeItem('srx-account'); } catch (e) { }
+            location.reload();
+        };
         screen().change.onclick = async () => {
             if (!confirm('Choose a different Sims folder? Your current Sims files will be removed from this browser (homes saved in the game go with them).')) return;
             await clearSims();
@@ -516,6 +532,14 @@
         };
 
         const contentReady = loadSiteContent();
+
+        // 1. log in, make an account, or play offline (skipped when a login is remembered)
+        show('Welcome!', {});
+        Account.show(true);
+        const how = await Account.step();
+        console.log('[SimsRedux] ' + (how === 'offline' ? 'playing offline' : 'logged in as ' + Account.session.name));
+
+        // 2. the game files: already in this browser, or picked / downloaded now
         let loaded = false;
         try { loaded = await loadStored(); }
         catch (e) { console.warn('[SimsFS] stored files could not be read', e); }
