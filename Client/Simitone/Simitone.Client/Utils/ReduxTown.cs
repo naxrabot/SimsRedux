@@ -172,6 +172,22 @@ namespace Simitone.Client.Utils
             }, done);
         }
 
+        /// <summary>Your family leaves the online town for good (the house goes up for sale).</summary>
+        public static void MoveOut(Action<string> done)
+        {
+            Run(async () =>
+            {
+                using (var resp = await Send(HttpMethod.Post, "/api/town/moveout"))
+                {
+                    var json = Parse(await resp.Content.ReadAsStringAsync());
+                    if (!resp.IsSuccessStatusCode) return Error(json, "The server said no (" + (int)resp.StatusCode + ").");
+                    MyHouse = 0; MyFamily = -1; MyFamilyName = "";
+                    ReduxSettings.Set("townstamp", "");
+                    return null;
+                }
+            }, done);
+        }
+
         // ---- the town's files ----
 
         /// <summary>

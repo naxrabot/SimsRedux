@@ -23,6 +23,8 @@ namespace SimsRedux.Server
             public string Problem;
             /// <summary>Set when a family moved in on this lot (its family number in the town).</summary>
             public int MovedInFamily = -1;
+            /// <summary>Set when a player's family was taken out of the town on this lot.</summary>
+            public volatile bool MovedOut;
         }
 
         private readonly ServerConfig Config;
@@ -104,6 +106,7 @@ namespace SimsRedux.Server
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     CreateNoWindow = true,
+                    WindowStyle = ProcessWindowStyle.Hidden, // the lot's game window is never shown on the server PC
                 };
                 foreach (var a in new[] { "-path" + Config.GameFolder.TrimEnd('\\', '/'), "-worker", "-house" + house, "-port" + port, "-town" + TownDir })
                     psi.ArgumentList.Add(a);
@@ -158,6 +161,7 @@ namespace SimsRedux.Server
                 return;
             }
             if (text.StartsWith("error")) { w.Problem = text; Log.Warn("lot " + w.House + ": " + text); return; }
+            if (text == "movedout") { w.MovedOut = true; Log.Info("lot " + w.House + ": the family moved out"); return; }
             if (text.StartsWith("movedin ") && int.TryParse(text.Substring(8).Trim(), out var fam)) { w.MovedInFamily = fam; Log.Info("lot " + w.House + ": a family moved in (family " + fam + ")"); return; }
             if (text.StartsWith("closing")) w.Closing = true; // new arrivals wait for it to finish, then it reopens
             if (text == "saved") return; // every few minutes - not worth a line each time

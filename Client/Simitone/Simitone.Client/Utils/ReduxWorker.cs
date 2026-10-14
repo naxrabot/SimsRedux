@@ -29,6 +29,8 @@ namespace Simitone.Client.Utils
         public static string Town;
         /// <summary>2C: a family moving in here (their package file) and the account they belong to.</summary>
         public static string MoveInFile, MoveInOwner;
+        /// <summary>A player's family leaving the town (their family number), or -1.</summary>
+        public static int MoveOutFamily = -1;
 
         /// <summary>How long an empty lot stays open (for someone coming back) before it saves and closes.</summary>
         private static readonly TimeSpan EmptyGrace = TimeSpan.FromMinutes(2);
@@ -53,6 +55,7 @@ namespace Simitone.Client.Utils
                 else if (s.StartsWith("house") && short.TryParse(s.Substring(5), out var h)) House = h;
                 else if (s.StartsWith("port") && int.TryParse(s.Substring(4), out var p)) Port = p;
                 else if (s.StartsWith("town")) Town = s.Substring(4).Trim('"').Replace('\\', '/').TrimEnd('/') + "/";
+                else if (s.StartsWith("moveout") && int.TryParse(s.Substring(7), out var mo)) MoveOutFamily = mo;
                 else if (s.StartsWith("movein")) MoveInFile = s.Substring(6).Trim('"');
                 else if (s.StartsWith("owner")) MoveInOwner = s.Substring(5).Trim('"');
             }
@@ -136,6 +139,21 @@ namespace Simitone.Client.Utils
                     Environment.Exit(3);
                 }
                 HideWindow();
+                if (MoveOutFamily >= 0)
+                {
+                    // a player's family leaves the town: the house goes up for sale, the lot doesn't open
+                    try
+                    {
+                        var fam = hood.GetFamilyForHouse(House);
+                        if (fam == null || fam.ChunkID != MoveOutFamily) { Say("error that family doesn't live in house " + House); Environment.Exit(6); }
+                        hood.MoveOut(House);
+                        fam.Unknown = 0; // not waiting in the family bin either: gone from the town
+                        hood.SaveNeighbourhood(true);
+                        Say("movedout");
+                    }
+                    catch (Exception e) { Say("error moveout " + e.Message); Environment.Exit(6); }
+                    Environment.Exit(0);
+                }
                 if (!string.IsNullOrEmpty(MoveInFile))
                 {
                     // 2C: a player's family moves in here first (bought with their own money)
@@ -144,6 +162,7 @@ namespace Simitone.Client.Utils
                         var pack = ReduxFamilyPackage.FromBytes(File.ReadAllBytes(MoveInFile));
                         var fam = pack.MoveInto(House);
                         Say("movedin " + fam.ChunkID);
+                        Say("family " + fam.ChunkID + " has §" + fam.Budget + " after buying the lot");
                     }
                     catch (Exception e)
                     {
@@ -181,6 +200,8 @@ namespace Simitone.Client.Utils
             if (LastCount < 0)
             {
                 Say("hosting port " + Port);
+                var lotFam = Screen.vm?.TS1State?.CurrentFamily;
+                if (lotFam != null) Say("family " + lotFam.ChunkID + " lives here with §" + lotFam.Budget);
                 LastSave = now;
                 EmptySince = now;
                 LastCount = 0;

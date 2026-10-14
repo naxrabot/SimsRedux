@@ -18,7 +18,11 @@ namespace Simitone.Client.Utils
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
-            "Online: a Leave Multiplayer button next to the online tag takes you straight back to your own neighborhood (Leave Town is now Leave Multiplayer too).",
+            "Walls: diagonal walls stay visible when walls are cut away, and doors in cut walls hide with them.",
+            "Online: Leave Multiplayer (on lots in the town and on the town bar) takes you straight back to your own neighborhood.",
+            "Online: click your house and choose Move Out to delete your online family, then make a new one or bring another.",
+            "Online: your family's money shows at home, and the town's plumbob sits just above your roof.",
+            "Server: opening a lot no longer flashes a grey game window on the server PC.",
         };
 
         public static string Text { get { return "v" + Number; } }

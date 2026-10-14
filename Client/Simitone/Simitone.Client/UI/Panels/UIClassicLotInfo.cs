@@ -248,6 +248,7 @@ namespace Simitone.Client.UI.Panels
                 {
                     UIClassicDialog.Show(title, (message.Length > 0 ? message + "\n\n" : "") + "This is your family's home.",
                         Tuple.Create("Go Home", (Action)(() => select(houseID))),
+                        Tuple.Create("Move Out", (Action)(() => screen?.MoveOutOfTown())),
                         Tuple.Create("Cancel", (Action)null));
                     return;
                 }

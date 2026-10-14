@@ -120,6 +120,7 @@ namespace SimsRedux.Server
                 case "/api/town": if (req.Method == "GET") { await TownGet(req, stream, cors); return; } break;
                 case "/api/town/fresh": if (req.Method == "POST") { await TownFresh(req, stream, cors); return; } break;
                 case "/api/town/movein": if (req.Method == "POST") { await TownMoveIn(req, stream, cors); return; } break;
+                case "/api/town/moveout": if (req.Method == "POST") { await TownMoveOut(req, stream, cors); return; } break;
             }
             await HttpServer.SendJson(stream, 404, new { error = "Not found" }, cors);
         }
@@ -353,6 +354,41 @@ namespace SimsRedux.Server
             Owners.Set(a.Key, new Owners.Owner { Account = a.Name, Family = w.MovedInFamily, House = house, Name = name });
             Log.Info(a.Name + "'s family (" + name + ") now lives in house " + house);
             await HttpServer.SendJson(stream, 200, new { ok = true, family = w.MovedInFamily, house }, cors);
+        }
+
+        /// <summary>
+        /// Your family leaves the online town for good (so you can make a new one): the lot is opened
+        /// without anyone on it, the family moves out (the house goes up for sale) and you no longer own it.
+        /// </summary>
+        private async Task TownMoveOut(Request req, Stream stream, Dictionary<string, string> cors)
+        {
+            var a = Accounts.Check(req.BearerToken());
+            if (a == null) { await HttpServer.SendJson(stream, 401, new { error = "Log in first." }, cors); return; }
+            var mine = Owners.Of(a.Key);
+            if (mine == null) { await HttpServer.SendJson(stream, 409, new { error = "You don't have a family in the town." }, cors); return; }
+            var house = (short)mine.House;
+
+            // the lot closes first if it's open (anyone there is sent back to the town)
+            var open = Lots.Running().FirstOrDefault(x => x.House == house);
+            if (open != null)
+            {
+                Lots.Close(house);
+                await Lots.WaitExit(open, TimeSpan.FromSeconds(30));
+            }
+            Log.Info(a.Name + " is moving their family (" + mine.Name + ") out of house " + house);
+            var w = Lots.Get(house, out var error, new[] { "-moveout" + mine.Family });
+            if (w == null) { await HttpServer.SendJson(stream, 503, new { error }, cors); return; }
+            await Lots.WaitExit(w, TimeSpan.FromSeconds(90));
+            if (!w.MovedOut)
+            {
+                var why = w.Problem ?? "the lot didn't finish";
+                Log.Warn("moving " + a.Name + "'s family out failed: " + why);
+                await HttpServer.SendJson(stream, 500, new { error = "Your family couldn't move out: " + why.Replace("error ", "") }, cors);
+                return;
+            }
+            Owners.Set(a.Key, null);
+            Log.Info(a.Name + "'s family has left the town (house " + house + " is for sale)");
+            await HttpServer.SendJson(stream, 200, new { ok = true }, cors);
         }
 
         /// <summary>

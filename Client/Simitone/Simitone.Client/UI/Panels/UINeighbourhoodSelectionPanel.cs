@@ -667,6 +667,33 @@ namespace Simitone.Client.UI.Panels
         /// <summary>SimsRedux: which lot this is.</summary>
         public int HouseID;
 
+        private float _roofTop = -1;
+        /// <summary>
+        /// SimsRedux: how far down the house picture the top of the house is (0..1), so the plumbob
+        /// sits just above the roof. Pictures saved by this game (and by the online town's lots) show
+        /// the whole lot with lots of empty space above a small house, so it's measured, not guessed.
+        /// </summary>
+        private float RoofTop()
+        {
+            if (_roofTop >= 0) return _roofTop;
+            _roofTop = 0.22f;
+            try
+            {
+                int w = HouseTex.Width, h = HouseTex.Height;
+                var data = new Color[w * h];
+                HouseTex.GetData(data);
+                int x0 = w / 5, x1 = w - w / 5;
+                for (int y = 0; y < h; y++)
+                {
+                    bool found = false;
+                    for (int x = x0; x < x1; x++) if (data[y * w + x].A > 40) { found = true; break; }
+                    if (found) { _roofTop = Math.Max(0, (y + 2) / (float)h); break; }
+                }
+            }
+            catch { }
+            return _roofTop;
+        }
+
         /// <summary>SimsRedux: re-reads who lives here (after a move-in, eviction, rezone...).</summary>
         public void Refresh()
         {
@@ -720,7 +747,7 @@ namespace Simitone.Client.UI.Panels
                 var yOff = new Vector2(Offsets.XOff, -Offsets.BaseYOff) / HouseScale;
                 var img = new Vector2(-Offsets.Width, -Offsets.Height) / HouseScale + yOff;
                 float imgW = HouseTex.Width / HouseScale, imgH = HouseTex.Height / HouseScale;
-                float top = img.Y + imgH * 0.22f;
+                float top = img.Y + imgH * RoofTop();
                 if (FamilyName != null) top -= 30; // above the plumbbob
                 return new Vector2(img.X + imgW / 2, top);
             }
@@ -747,7 +774,7 @@ namespace Simitone.Client.UI.Panels
                 // centre it over the house picture itself, low enough to sit just above the roof
                 var img = new Vector2(-Offsets.Width, -Offsets.Height) / HouseScale + yOff;
                 float imgW = HouseTex.Width / HouseScale, imgH = HouseTex.Height / HouseScale;
-                var pos = new Vector2(img.X + imgW / 2 - bob.Width / 2f, img.Y + imgH * 0.22f - bob.Height + lift);
+                var pos = new Vector2(img.X + imgW / 2 - bob.Width / 2f, img.Y + imgH * RoofTop() - bob.Height + lift);
                 DrawLocalTexture(batch, bob, null, pos + new Vector2(1, 2), Vector2.One, Color.Black * 0.35f); // shadow
                 DrawLocalTexture(batch, bob, null, pos, Vector2.One);
             }

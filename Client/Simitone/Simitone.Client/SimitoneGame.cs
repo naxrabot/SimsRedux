@@ -96,6 +96,8 @@ namespace Simitone.Client
         /// </summary>
         protected override void Initialize()
         {
+            // SimsRedux lot worker: hide the window straight away (it would show a grey window while loading)
+            if (Simitone.Client.Utils.ReduxWorker.Active) Simitone.Client.Utils.ReduxWorker.HideWindow();
 
             var settings = GlobalSettings.Default;
             if (FSOEnvironment.DPIScaleFactor != 1 || FSOEnvironment.SoftwareDepth)

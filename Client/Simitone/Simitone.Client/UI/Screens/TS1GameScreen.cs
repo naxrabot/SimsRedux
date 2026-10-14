@@ -63,7 +63,15 @@ namespace Simitone.Client.UI.Screens
         /// </summary>
         public FAMI ActiveFamily
         {
-            get { return (_activeFamily == null && Guest != null && Guest.IsOwner) ? vm?.TS1State?.CurrentFamily : _activeFamily; }
+            get
+            {
+                if (_activeFamily != null || Guest == null || !Guest.IsOwner) return _activeFamily;
+                var lotFamily = vm?.TS1State?.CurrentFamily;
+                if (lotFamily != null && lotFamily.ChunkID == ReduxTown.MyFamily) return lotFamily;
+                // (the lot hasn't said yet: the town's copy the lot sent when you arrived)
+                try { return Content.Get().Neighborhood.GetFamily((ushort)ReduxTown.MyFamily) ?? lotFamily; }
+                catch { return lotFamily; }
+            }
             set { _activeFamily = value; }
         }
 
@@ -445,6 +453,14 @@ namespace Simitone.Client.UI.Screens
             this.Add(Frontend);
             ShowOnlineStatus();
             ReduxOnlineInfo.Log("On the host's lot");
+            if (Guest.IsOwner)
+            {
+                var lotFam = vm.TS1State?.CurrentFamily;
+                FAMI hoodFam = null;
+                try { hoodFam = Content.Get().Neighborhood.GetFamily((ushort)ReduxTown.MyFamily); } catch { }
+                ReduxOnlineInfo.Log("[home] my family " + ReduxTown.MyFamily + "; the lot's family: " + (lotFam == null ? "none" : lotFam.ChunkID + " with §" + lotFam.Budget)
+                    + "; the town's copy: " + (hoodFam == null ? "none" : "§" + hoodFam.Budget) + "; showing §" + (ActiveFamily?.Budget ?? -1));
+            }
         }
 
         private void GuestLost()
@@ -1589,6 +1605,27 @@ namespace Simitone.Client.UI.Screens
             foreach (var f in families.Take(5 - buttons.Count)) { var ff = f; buttons.Add(Tuple.Create<string, Action>("Bring the " + f.Name + " family", () => confirm(ff, false))); }
             buttons.Add(Tuple.Create<string, Action>("Cancel", null));
             UIClassicDialog.Show("Move In", "Who's moving into the town?\n\nMake a brand-new family for the online town, or bring one of your families from your own neighborhood (they're copied - your single-player family stays).", buttons.ToArray());
+        }
+
+        /// <summary>2C: delete your online family (they leave the town; the house goes up for sale) to start a new one.</summary>
+        public void MoveOutOfTown()
+        {
+            if (vm != null || !ReduxTown.Active || TownBusy || ReduxTown.MyFamily < 0) return;
+            var name = string.IsNullOrEmpty(ReduxTown.MyFamilyName) ? "your" : "the " + ReduxTown.MyFamilyName;
+            UIClassicDialog.YesNo("Move Out", "Delete " + name + " family from the online town?\n\nThey leave the town for good and the house goes up for sale. "
+                + "Your single-player families aren't touched. Afterwards you can make a new family or bring another one in.",
+                () =>
+                {
+                    TownBusy = true;
+                    var wait = UIClassicLoadScreen.ShowWaiting("Moving Out", "Your family is packing up...", true);
+                    ReduxTown.MoveOut((error) =>
+                    {
+                        wait?.Close();
+                        TownBusy = false;
+                        if (error != null) { UIClassicDialog.Ok("Move Out", error); return; }
+                        ShowTown("Back to the Town"); // the town again, without them
+                    });
+                });
         }
 
         private void DoMoveIn(short house, ReduxFamilyPackage fam)
