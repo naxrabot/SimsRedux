@@ -309,9 +309,11 @@ namespace Simitone.Client.UI.Screens
             if (server == null) return;
             var host = new ReduxHost(vm, server);
             string error;
-            if (!host.Start(ReduxOnlineInfo.DefaultPort, out error))
+            // the dedicated server (when it's running) owns the usual port and passes players to us
+            var port = ReduxOnlineInfo.HostPort();
+            if (!host.Start(port, out error))
             {
-                UIClassicDialog.Ok("Couldn't Host", "The game couldn't open port " + ReduxOnlineInfo.DefaultPort + " for friends to join.\n\n" + error
+                UIClassicDialog.Ok("Couldn't Host", "The game couldn't open port " + port + " for friends to join.\n\n" + error
                     + "\n\nIs another copy of the game already hosting?");
                 return;
             }

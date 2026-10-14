@@ -1,0 +1,15 @@
+{
+  "name": "simsredux-server-panel",
+  "version": "1.0.0",
+  "description": "Start, watch and run The Sims Redux dedicated servers (Live and Test) from one window.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node test-core.mjs"
+  },
+  "devDependencies": {
+    "electron": "^44.0.0"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}

@@ -48,6 +48,30 @@ namespace Simitone.Client.Utils
     {
         public const int Version = 1;
         public const int DefaultPort = 37564;
+        /// <summary>Where the game hosts when the dedicated server is running on DefaultPort (it passes players along).</summary>
+        public const int BehindServerPort = 37565;
+
+        /// <summary>
+        /// The port to host on: the usual one, unless something on this PC (the dedicated server,
+        /// started from the server panel) already answers there - then the one behind it.
+        /// </summary>
+        public static int HostPort()
+        {
+            try
+            {
+                using (var probe = new TcpClient())
+                {
+                    var connect = probe.ConnectAsync(IPAddress.Loopback, DefaultPort);
+                    if (connect.Wait(400) && probe.Connected)
+                    {
+                        Log("[host] The dedicated server is running on port " + DefaultPort + " - hosting behind it on " + BehindServerPort);
+                        return BehindServerPort;
+                    }
+                }
+            }
+            catch { }
+            return DefaultPort;
+        }
         public const uint HostID = 65537;
         public const uint FirstGuestID = 100001;
         public const int MaxMessage = 64 * 1024 * 1024;
@@ -292,6 +316,7 @@ namespace Simitone.Client.Utils
             try
             {
                 Listener = new TcpListener(IPAddress.Any, port);
+                if (OperatingSystem.IsWindows()) Listener.ExclusiveAddressUse = true; // never quietly share a port with the dedicated server
                 Listener.Start();
             }
             catch (Exception e)

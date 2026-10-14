@@ -1,0 +1,240 @@
+/* ============================================================
+   The Sims Redux — server panel
+   ------------------------------------------------------------
+   Night blue, with one plumbob green that only ever means "this is alive".
+   Same furniture as the Red is Dead panel: hairlines, a faint grid.
+   ============================================================ */
+:root{
+  --bg:#0b0e1a;
+  --bg2:#10142a;
+  --panel:#141932;
+  --panel2:#1a2040;
+  --line:#252c52;
+  --line2:#323a66;
+  --text:#d3d7ef;
+  --dim:#8188b4;
+  --dimmer:#5b6190;
+  --acc:#78ff8c;          /* alive */
+  --accdim:#2f6b3a;
+  --warn:#e0b25c;
+  --bad:#e0655c;
+  --mono:ui-monospace,"JetBrains Mono","Cascadia Mono","SF Mono",Consolas,"DejaVu Sans Mono",monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--bg);color:var(--text);
+  font-family:var(--mono);font-size:13px;line-height:1.45;
+  display:flex;flex-direction:column;overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+/* the faintest possible grid, so the dark is not flat */
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:52px 52px;opacity:.13;
+}
+body>*{position:relative;z-index:1}
+button{
+  font:inherit;font-size:12px;color:var(--text);background:var(--panel2);
+  border:1px solid var(--line2);padding:5px 9px;cursor:pointer;
+  letter-spacing:.04em;white-space:nowrap;
+}
+button:hover:not(:disabled){border-color:var(--dim);background:#222a52}
+button:active:not(:disabled){transform:translateY(1px)}
+button:disabled{opacity:.36;cursor:default}
+button.go{color:var(--acc);border-color:var(--accdim)}
+button.go:hover:not(:disabled){background:#163020;border-color:var(--acc)}
+button.stop{color:var(--bad);border-color:#5e3330}
+button.stop:hover:not(:disabled){background:#251a19;border-color:var(--bad)}
+input{
+  font:inherit;color:var(--text);background:#090c1c;
+  border:1px solid var(--line2);padding:6px 9px;width:100%;
+}
+input:focus{outline:none;border-color:var(--dim)}
+input[readonly]{color:var(--dim)}
+
+/* ---------- header ---------- */
+#top{
+  display:flex;align-items:center;gap:22px;
+  padding:11px 16px;background:var(--bg2);border-bottom:1px solid var(--line);
+}
+.brand{display:flex;align-items:baseline;gap:9px;flex:0 0 auto}
+.brand .mark{color:var(--acc);font-size:15px;transform:translateY(1px)}
+.brand .name{letter-spacing:.22em;font-weight:700;font-size:14px}
+.brand .sub{color:var(--dimmer);letter-spacing:.16em;font-size:10px;text-transform:uppercase}
+.stats{display:flex;align-items:center;gap:10px;flex:1 1 auto;min-width:0;flex-wrap:wrap}
+.stat{
+  display:flex;align-items:center;gap:9px;
+  border:1px solid var(--line2);background:var(--panel);padding:5px 12px 5px 10px;min-width:210px;
+}
+.stat .col{display:flex;flex-direction:column;min-width:0}
+.stat b{font-size:9px;letter-spacing:.17em;color:var(--dim)}
+.stat .val{font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stat .dot{
+  width:8px;height:8px;border-radius:50%;background:var(--dimmer);flex:0 0 auto;
+  box-shadow:0 0 0 3px rgba(255,255,255,.02);
+}
+.stat.up .dot{background:var(--acc);box-shadow:0 0 9px rgba(111,227,160,.55)}
+.stat.up .val{color:var(--acc)}
+.stat.warn .dot{background:var(--warn);box-shadow:0 0 9px rgba(224,178,92,.4)}
+.stat.warn .val{color:var(--warn)}
+.stat.bad .dot{background:var(--bad);box-shadow:0 0 9px rgba(224,101,92,.4)}
+.stat.bad .val{color:var(--bad)}
+.stat.busy .dot{animation:pulse 1.1s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.25}50%{opacity:1}}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{
+  border:1px solid var(--line);background:#0f1328;color:var(--dim);
+  padding:3px 8px;font-size:11px;letter-spacing:.04em;
+}
+.chip b{color:var(--text);font-weight:400}
+
+/* ---------- toolbar ---------- */
+#bar{
+  display:flex;gap:13px;align-items:center;flex-wrap:wrap;
+  padding:8px 16px;background:var(--bg2);border-bottom:1px solid var(--line);
+}
+.grp{display:flex;gap:5px}
+.grp.right{margin-left:auto}
+
+/* ---------- body ---------- */
+main{flex:1 1 auto;display:flex;min-height:0}
+#consolePane{flex:1 1 auto;display:flex;flex-direction:column;min-width:0;min-height:0}
+#console{
+  flex:1 1 auto;overflow:auto;padding:12px 16px;
+  background:#090c19;border-bottom:1px solid var(--line);
+  white-space:pre-wrap;word-break:break-word;font-size:12.5px;
+  scrollbar-color:var(--line2) transparent;
+}
+#console .l{padding:1px 0}
+#console .t{color:var(--dimmer);margin-right:9px;display:inline-block;min-width:60px}
+#console .out{color:var(--text)}
+#console .err{color:var(--bad)}
+#console .panel{color:var(--acc)}
+#console .you{color:var(--warn)}
+#console .empty{color:var(--dimmer);padding:30px 0;text-align:center}
+#inputRow{display:flex;align-items:center;gap:9px;padding:9px 16px;background:var(--bg2)}
+#inputRow .caret{color:var(--acc);font-weight:700}
+#inputRow input{border-color:var(--line2);background:#090c1c}
+#inputRow input:focus{border-color:var(--accdim)}
+#hint{
+  padding:0 16px 8px;color:var(--dimmer);font-size:11px;min-height:19px;
+  background:var(--bg2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+#hint b{color:var(--dim);font-weight:400}
+
+/* ---------- side panel ---------- */
+#side{
+  flex:0 0 clamp(330px,34%,470px);display:flex;flex-direction:column;
+  background:var(--panel);border-left:1px solid var(--line);min-height:0;
+}
+#side.hidden,#cfg.hidden{display:none}
+.sideHead{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;border-bottom:1px solid var(--line);background:var(--bg2);
+}
+.sideHead b{font-size:10px;letter-spacing:.18em;color:var(--dim)}
+.x{padding:3px 8px;font-size:10px;letter-spacing:.12em}
+.sideSearch{padding:9px 12px;border-bottom:1px solid var(--line)}
+#sideBody{flex:1 1 auto;overflow:auto;padding:4px 0 18px;scrollbar-color:var(--line2) transparent}
+.sect{
+  padding:13px 14px 5px;font-size:9.5px;letter-spacing:.18em;color:var(--dimmer);
+  text-transform:uppercase;border-top:1px solid var(--line);margin-top:6px;
+}
+.sect:first-child{border-top:0;margin-top:0}
+.sect.future{color:var(--warn)}
+.cmd{display:block;width:100%;text-align:left;border:0;background:transparent;padding:5px 14px;cursor:pointer}
+.cmd:hover{background:#1e2550}
+.cmd .sig{color:var(--text);display:block}
+.cmd .sig em{color:var(--dim);font-style:normal}
+.cmd .what{color:var(--dim);display:block;font-size:11.5px}
+.cmd.soon{cursor:default}
+.cmd.soon:hover{background:transparent}
+.cmd.soon .sig{color:var(--dimmer)}
+.cmd.soon .what{color:var(--dimmer)}
+.note{padding:8px 14px 2px;color:var(--dimmer);font-size:11.5px}
+
+/* ---------- settings ---------- */
+#cfg{
+  position:fixed;inset:0;z-index:20;background:rgba(4,6,16,.74);
+  display:flex;align-items:center;justify-content:center;padding:24px;
+}
+.cfgBox{
+  width:min(620px,100%);max-height:100%;overflow:auto;
+  background:var(--panel);border:1px solid var(--line2);
+}
+.cfgBox label{display:block;padding:12px 16px 0;font-size:11px;letter-spacing:.1em;color:var(--dim)}
+.cfgBox .lh{display:block;color:var(--dimmer);letter-spacing:0;font-size:11px;margin:2px 0 6px;text-transform:none}
+.cfgBox code{color:var(--text)}
+.cfgBox .row{display:flex;gap:7px}
+.cfgFoot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px;margin-top:8px;border-top:1px solid var(--line)}
+#cfgMsg{color:var(--dimmer);font-size:11.5px}
+
+@media (max-width:860px){
+  .stat{min-width:150px}
+  #side{position:fixed;inset:0;flex:none;z-index:15}
+}
+
+/* ---------- the big overlays: game data, bots & corps ---------- */
+/* .hidden is ID-scoped earlier in this file, so bind the layout to :not(.hidden)
+   — otherwise a hidden overlay still covers the window and eats every click. */
+.ovl{position:fixed;inset:0;background:rgba(0,0,0,.62);
+ align-items:center;justify-content:center;z-index:60;padding:18px}
+.ovl.hidden{display:none!important}
+.ovl:not(.hidden){display:flex}
+.ovlBox{background:var(--panel,#120d12);border:1px solid var(--line,#3a2430);
+ width:min(1100px,100%);height:min(760px,100%);display:flex;flex-direction:column;min-height:0}
+.ovlBody{flex:1;min-height:0;overflow:auto;padding:6px 10px 12px}
+.tabs{display:flex;flex-wrap:wrap;gap:4px;padding:6px 10px;border-bottom:1px solid var(--line,#3a2430)}
+.tabs button{font:inherit;font-size:11px;letter-spacing:.06em;padding:4px 9px;cursor:pointer;
+ background:transparent;color:var(--dim,#8a7a84);border:1px solid transparent}
+.tabs button.on{color:var(--fg,#e8dce4);border-color:var(--line,#3a2430);background:var(--deep,#0c080c)}
+.tabs button:hover{color:var(--fg,#e8dce4)}
+.sideSearch{display:flex;gap:6px;align-items:center}
+.sideSearch input{flex:1}
+
+/* ---------- Live / Test ---------- */
+.servers{display:flex;gap:4px;flex:0 0 auto}
+.srv{display:flex;align-items:center;gap:7px;padding:6px 12px;letter-spacing:.16em;font-size:11px;color:var(--dim)}
+.srv .dot{width:7px;height:7px;border-radius:50%;background:var(--dimmer)}
+.srv.run .dot{background:var(--acc);box-shadow:0 0 8px rgba(120,255,140,.55)}
+.srv.on{color:var(--text);border-color:var(--acc);background:#16203f}
+.srv[data-ch="test"].on{border-color:var(--warn)}
+
+/* ---------- overlays ---------- */
+.ovlBox{background:var(--panel);border:1px solid var(--line2)}
+.ovlBox.small{width:min(680px,100%);height:auto;max-height:100%}
+.lh{color:var(--dimmer);font-size:11px;letter-spacing:0}
+select{font:inherit;font-size:12px;color:var(--text);background:#090c1c;border:1px solid var(--line2);padding:5px 6px}
+.accTop{display:flex;flex-direction:column;gap:3px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.tog{display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer}
+.tog input{width:auto}
+.accNew{display:flex;gap:6px;align-items:center;padding:9px 14px;border-bottom:1px solid var(--line)}
+.accNew b{font-size:9.5px;letter-spacing:.17em;color:var(--dim);white-space:nowrap;margin-right:4px}
+.accNew input{flex:1;min-width:0}
+.arow{display:grid;grid-template-columns:minmax(140px,1.2fr) 110px minmax(130px,1fr) 300px;gap:10px;align-items:center;
+  padding:7px 6px;border-bottom:1px solid rgba(255,255,255,.04)}
+.arow .an{font-size:13px}
+.arow .an.sus{color:var(--bad);text-decoration:line-through}
+.arow .al{color:var(--dim);font-size:11px}
+.arow .aa{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+.arow .aa button{font-size:10.5px;padding:3px 7px}
+.arow .aa .danger{color:var(--bad);border-color:#5e3330}
+.arow.head{color:var(--dimmer);font-size:9.5px;letter-spacing:.16em;border-bottom:1px solid var(--line)}
+.arow .pw{display:flex;gap:5px}
+.arow .pw input{width:150px;padding:3px 6px;font-size:11.5px}
+.role-admin{color:var(--acc)}
+.role-tester{color:var(--warn)}
+.empty2{padding:26px 8px;color:var(--dim);line-height:1.6}
+.gfBody{padding:12px 16px 18px}
+.gfBody p{margin:0 0 10px;line-height:1.55}
+.gfBody label{display:block;font-size:11px;letter-spacing:.1em;color:var(--dim);margin-top:6px}
+.gfBody .lh{display:block;margin:2px 0 6px}
+.gfBody .row{display:flex;gap:7px}
+.gfState{margin-top:14px;padding:10px 12px;border:1px solid var(--line);background:#0f1328;font-size:12px;line-height:1.55}
+.gfState.ok{border-color:var(--accdim);color:var(--acc)}
+.gfState.bad{border-color:#5e3330;color:var(--warn)}
+.cfgCols{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.cfgHead{padding:14px 16px 0;font-size:9.5px;letter-spacing:.18em;color:var(--acc)}
+.cfgCols>div:last-child .cfgHead{color:var(--warn)}

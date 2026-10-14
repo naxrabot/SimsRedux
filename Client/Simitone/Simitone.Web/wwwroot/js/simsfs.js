@@ -133,14 +133,47 @@
 #srx-setup .bar div { height: 100%; width: 0; background: linear-gradient(#7cf08a, #2fae45); transition: width .15s; }
 #srx-setup .status { font-size: 13px; min-height: 18px; }
 #srx-setup .error { color: #ff9a8a; }
-#srx-setup .hidden, #srx-setup.hidden { display: none; }`;
+#srx-setup .hidden, #srx-setup.hidden { display: none; }
+#srx-setup .acct { border: 1px solid #3a3a8a; background: #00002c; padding: 12px 14px; margin: 0 0 16px; }
+#srx-setup .acct h3 { margin: 0 0 8px; font-size: 13px; color: #9fb4ff; font-weight: 600; letter-spacing: .04em; }
+#srx-setup .acct .row { display: flex; gap: 8px; flex-wrap: wrap; }
+#srx-setup .acct input { font: inherit; font-size: 14px; color: #fff; background: #000052; border: 1px solid #5a5aa8; padding: 7px 9px; flex: 1 1 140px; min-width: 0; }
+#srx-setup .acct input:focus { outline: none; border-color: #8fb4ff; }
+#srx-setup .acct button { margin-top: 8px; }
+#srx-setup .acct button.second { background: #1d2a6e; border-color: #5a6ab8; border-right-color: #0a1240; border-bottom-color: #0a1240; }
+#srx-setup .acct .who { font-size: 14px; }
+#srx-setup .acct .who b { color: #fff; }
+#srx-setup .acct .msg { font-size: 13px; min-height: 0; margin-top: 6px; }
+#srx-setup .acct .msg.error { color: #ff9a8a; }
+#srx-setup .acct .small { font-size: 12px; color: #8a8ac8; margin-top: 8px; }
+#srx-setup .srvfiles { margin: 0 0 14px; }
+#srx-setup .or { font-size: 13px; color: #8a8ac8; margin: 2px 0 6px; }`;
         document.head.appendChild(style);
         const el = document.createElement('div');
         el.id = 'srx-setup';
         el.innerHTML = `<div class="box">
   <h1>The Sims Redux</h1>
   <h2 class="title"></h2>
+  <div class="acct">
+    <h3>YOUR ACCOUNT</h3>
+    <div class="out">
+      <div class="row"><input class="aname" type="text" autocomplete="username" placeholder="Name" maxlength="20" spellcheck="false">
+        <input class="apw" type="password" autocomplete="current-password" placeholder="Password"></div>
+      <button class="login">Log in</button> <button class="second register">Create account</button>
+      <div class="small">An account keeps your homes and families yours online. You can also play without one.</div>
+    </div>
+    <div class="in hidden">
+      <div class="who">Logged in as <b class="aname2"></b> <span class="arole"></span></div>
+      <button class="link logout">Log out</button>
+    </div>
+    <div class="msg"></div>
+  </div>
   <div class="pick hidden">
+    <div class="srvfiles hidden">
+      <p>Your account can load the game files straight from the server &mdash; nothing to install.</p>
+      <button class="fromserver">Get the game files from the server</button>
+      <p class="or">or use your own copy of The Sims:</p>
+    </div>
     <p>To play, choose the folder where <b>The Sims</b> is installed &mdash; the one with the <code>GameData</code> folder inside. It's usually
        <code>C:\\Program Files (x86)\\Maxis\\The Sims</code>.</p>
     <p>Your browser will ask to <i>upload</i> the files. Nothing leaves your computer: they're only copied into this
@@ -165,7 +198,11 @@
             status: el.querySelector('.status'),
             again: el.querySelector('.again'),
             change: el.querySelector('.change'),
+            acct: el.querySelector('.acct'),
+            srvfiles: el.querySelector('.srvfiles'),
+            fromServer: el.querySelector('.fromserver'),
         };
+        Account.attach(el);
         ui.choose.onclick = () => ui.input.click();
         return ui;
     }
@@ -187,6 +224,144 @@
         screen().bar.style.width = (total > 0 ? Math.min(100, done / total * 100) : 0).toFixed(1) + '%';
     }
     function mb(bytes) { return (bytes / 1048576).toFixed(0) + ' MB'; }
+
+    // ---------- the player's account (on the dedicated server) ----------
+    //
+    // The website and the server are at different addresses: tsr.mbrew.studio serves the game,
+    // tsr-lot.mbrew.studio is the server on Joey's PC (through Cloudflare). ?server=... picks
+    // another server, e.g. the Test one.
+    const Account = (function () {
+        const SERVER = (new URLSearchParams(location.search).get('server') || 'https://tsr-lot.mbrew.studio').replace(/\/+$/, '');
+        const KEY = 'srx-account';
+        let session = null;      // { token, name, role, files }
+        let root = null, onChange = null;
+
+        function load() {
+            try { session = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { session = null; }
+            return session;
+        }
+        function store(s) {
+            session = s;
+            try { if (s) localStorage.setItem(KEY, JSON.stringify(s)); else localStorage.removeItem(KEY); } catch (e) { }
+            paint();
+            if (onChange) onChange(session);
+        }
+        async function call(path, body, method) {
+            const headers = {};
+            if (body) headers['Content-Type'] = 'application/json';
+            if (session && session.token) headers['Authorization'] = 'Bearer ' + session.token;
+            let r;
+            try {
+                r = await fetch(SERVER + path, { method: method || (body ? 'POST' : 'GET'), headers, body: body ? JSON.stringify(body) : undefined });
+            } catch (e) {
+                return { ok: false, status: 0, error: "Couldn't reach the server. It may be offline right now - you can still play without an account." };
+            }
+            let j = null;
+            try { j = await r.json(); } catch (e) { }
+            if (!r.ok) return { ok: false, status: r.status, error: (j && j.error) || ('The server answered ' + r.status) };
+            return Object.assign({ ok: true, status: r.status }, j || {});
+        }
+        function msg(text, error) {
+            if (!root) return;
+            const m = root.querySelector('.msg');
+            m.textContent = text || '';
+            m.classList.toggle('error', !!error);
+        }
+        function paint() {
+            if (!root) return;
+            const on = !!(session && session.token);
+            root.querySelector('.out').classList.toggle('hidden', on);
+            root.querySelector('.in').classList.toggle('hidden', !on);
+            if (on) {
+                root.querySelector('.aname2').textContent = session.name;
+                root.querySelector('.arole').textContent = session.role === 'admin' ? '(Admin)' : session.role === 'tester' ? '(Tester)' : '';
+            }
+            const s = screen();
+            s.srvfiles.classList.toggle('hidden', !(on && session.files));
+        }
+        async function login(register) {
+            const name = root.querySelector('.aname').value.trim();
+            const password = root.querySelector('.apw').value;
+            if (!name || !password) { msg('Type a name and a password.', true); return; }
+            msg(register ? 'Making your account...' : 'Logging in...');
+            const r = await call(register ? '/api/register' : '/api/login', { name, password });
+            if (!r.ok) { msg(r.error, true); return; }
+            root.querySelector('.apw').value = '';
+            store({ token: r.token, name: r.name, role: r.role, files: !!r.files });
+            msg(register ? 'Account made. Welcome, ' + r.name + '!' : (r.motd || ''));
+        }
+        async function logout() {
+            if (session) call('/api/logout', {}).catch(() => { });
+            store(null);
+            msg('Logged out.');
+        }
+        // checks a remembered login is still good (and picks up role changes)
+        async function refresh() {
+            if (!load()) { paint(); return; }
+            const r = await call('/api/me');
+            if (r.ok) store({ token: session.token, name: r.name, role: r.role, files: !!r.files });
+            else if (r.status === 401) { store(null); msg('Please log in again.'); }
+            else paint(); // server offline: keep the remembered login
+        }
+        function attach(el) {
+            root = el.querySelector('.acct');
+            root.querySelector('.login').onclick = () => login(false);
+            root.querySelector('.register').onclick = () => login(true);
+            root.querySelector('.logout').onclick = logout;
+            root.querySelector('.apw').addEventListener('keydown', e => { if (e.key === 'Enter') login(false); });
+            load(); paint();
+        }
+        return {
+            SERVER, attach, refresh, call,
+            get session() { return session; },
+            set onChange(fn) { onChange = fn; },
+            show(on) { if (root) root.classList.toggle('hidden', !on); },
+        };
+    })();
+
+    // Admin and Tester accounts: the Sims 1 files come from the server instead of a folder.
+    async function downloadFromServer() {
+        const s = Account.session;
+        const list = await Account.call('/api/files');
+        if (!list.ok) { if (list.status === 401) Account.refresh(); throw new Error(list.error); }
+        const files = (list.files || []).filter(f => f && f.p && !SKIP_EXT.test(f.p));
+        if (!files.some(f => f.p.toLowerCase() === 'gamedata/uitext.iff')) throw new Error("the server's game folder doesn't have GameData\\UIText.iff in it");
+        const total = files.reduce((n, f) => n + (f.s || 0), 0);
+        show('Getting the game files from the server', { progress: true });
+        Account.show(false);
+        await clearSims();
+        try { if (navigator.storage && navigator.storage.persist) await navigator.storage.persist(); } catch (e) { }
+
+        let done = 0, count = 0, failed = null;
+        const queue = files.slice();
+        async function worker() {
+            while (queue.length && !failed) {
+                const f = queue.shift();
+                let blob = null;
+                for (let attempt = 0; attempt < 4 && !blob; attempt++) {
+                    try {
+                        const r = await fetch(Account.SERVER + '/api/file?p=' + encodeURIComponent(f.p), { headers: { 'Authorization': 'Bearer ' + s.token } });
+                        if (r.status === 401 || r.status === 403) { failed = 'your login stopped working - log in again'; return; }
+                        if (!r.ok) throw new Error(r.status);
+                        blob = await r.blob();
+                    } catch (e) {
+                        if (attempt === 3) { failed = 'couldn\'t download ' + f.p + ' (' + (e && e.message || e) + ')'; return; }
+                        await new Promise(ok => setTimeout(ok, 800 * (attempt + 1)));
+                    }
+                }
+                const name = SIMS_ROOT + f.p;
+                const tx = db.transaction(STORE, 'readwrite');
+                tx.objectStore(STORE).put({ name: normalize(name), blob }, key(name));
+                await txDone(tx);
+                done += blob.size; count++;
+                setProgress(done, total);
+                status(`${count} of ${files.length} files (${mb(done)} of ${mb(total)})`);
+            }
+        }
+        await Promise.all(Array.from({ length: 6 }, worker));
+        if (failed) { await clearSims(); throw new Error(failed); }
+        return true;
+    }
 
     // ---------- choosing the folder ----------
 
@@ -295,6 +470,7 @@
         const now = records.filter(r => !isLazy(r.k));
         const total = now.reduce((n, r) => n + (r.v.blob ? r.v.blob.size : 0), 0);
         show('Loading your Sims files', { progress: true, again: true });
+        Account.show(false);
         let done = 0, count = 0;
         // a few at a time keeps the browser responsive
         const queue = now.slice();
@@ -347,9 +523,21 @@
         let problem = '';
         while (!loaded) {
             show('Welcome!', { pick: true });
+            Account.show(true);
+            Account.refresh();
             if (problem) status(problem, true);
-            const list = await waitForFolder();
+            const choice = await Promise.race([
+                waitForFolder().then(list => ({ list })),
+                new Promise(ok => { screen().fromServer.onclick = () => ok({ server: true }); }),
+            ]);
             try {
+                if (choice.server) {
+                    await downloadFromServer();
+                    loaded = await loadStored();
+                    if (!loaded) problem = 'The game files could not be read back. Please try again.';
+                    continue;
+                }
+                const list = choice.list;
                 if (!await copyFolder(list)) {
                     problem = "That folder doesn't have The Sims in it (no GameData\\UIText.iff was found). Pick the folder that has GameData inside.";
                     continue;
@@ -358,7 +546,8 @@
                 if (!loaded) problem = 'Your Sims files could not be read back. Please try again.';
             } catch (e) {
                 console.error(e);
-                problem = 'Copying failed: ' + (e && e.message ? e.message : e) + '. Make sure there is enough free disk space and try again.';
+                problem = (choice.server ? 'Getting the files from the server failed: ' : 'Copying failed: ') + (e && e.message ? e.message : e) +
+                    (choice.server ? '. Try again, or pick your own Sims folder.' : '. Make sure there is enough free disk space and try again.');
             }
         }
         await contentReady;
@@ -464,5 +653,6 @@
     }
     function isFullScreen() { return !!document.fullscreenElement; }
 
+    window.SimsAccount = { get server() { return Account.SERVER; }, get session() { return Account.session; }, refresh: () => Account.refresh() };
     window.SimsFS = { changeFolder, setFullScreen, isFullScreen, prepare, fileExists, dirExists, fileSize, read, write, deleteFile, createDir, deleteDir, moveFile, list, normalize };
 })();

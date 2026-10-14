@@ -38,6 +38,16 @@ jobs:
           if (-not (Test-Path errors.txt)) { New-Item errors.txt -ItemType File | Out-Null }
           exit $code
 
+      - name: Build the dedicated server
+        shell: pwsh
+        run: |
+          dotnet build Client/Server/SimsRedux.Server/SimsRedux.Server.csproj -c Release -v minimal -clp:NoSummary 2>&1 | Tee-Object -FilePath server.log
+          if ($LASTEXITCODE -ne 0) { Select-String -Path server.log -Pattern ': error ' | ForEach-Object { "::error::$($_.Line.Trim())" } | Select-Object -First 10; exit 1 }
+
+      - name: Test the server panel
+        shell: pwsh
+        run: node Client/Server/Panel/test-core.mjs
+
       # GitHub shows at most 10 errors per step, so the list is reported in chunks of 10.
       - name: Errors 1-10
         if: failure()

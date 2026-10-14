@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:">
+<title>The Sims Redux — server</title>
+<link rel="stylesheet" href="ui.css">
+</head>
+<body>
+
+<header id="top">
+  <div class="brand">
+    <span class="mark">◆</span>
+    <span class="name">THE SIMS REDUX</span>
+    <span class="sub">server control</span>
+  </div>
+
+  <div class="servers" id="servers" role="tablist" aria-label="Which server">
+    <button class="srv" data-ch="live" role="tab"><span class="dot"></span>LIVE</button>
+    <button class="srv" data-ch="test" role="tab"><span class="dot"></span>TEST</button>
+  </div>
+
+  <div class="stats" id="stats">
+    <div class="stat" id="stGame">
+      <span class="dot"></span>
+      <div class="col">
+        <b>GAME SERVER</b>
+        <span class="val" id="gameVal">checking…</span>
+      </div>
+    </div>
+    <div class="stat" id="stEdge">
+      <span class="dot"></span>
+      <div class="col">
+        <b id="edgeName">CLOUDFLARE</b>
+        <span class="val" id="edgeVal">checking…</span>
+      </div>
+    </div>
+    <div class="chips" id="chips"></div>
+  </div>
+</header>
+
+<div id="bar">
+  <div class="grp">
+    <button id="bStart" class="go">▶ START</button>
+    <button id="bStop" class="stop" disabled>■ STOP</button>
+    <button id="bRestart" disabled>↻ RESTART</button>
+  </div>
+  <div class="grp">
+    <button data-open="data">Data folder</button>
+    <button data-open="backups">backups/</button>
+    <button data-open="log">server.log</button>
+  </div>
+  <div class="grp">
+    <button id="bAccounts">Accounts…</button>
+    <button id="bFiles">Game files…</button>
+  </div>
+  <div class="grp right">
+    <button id="bCmds">Commands</button>
+    <button id="bSite">Open site</button>
+    <button id="bCfg">Settings</button>
+  </div>
+</div>
+
+<main>
+  <section id="consolePane">
+    <div id="console" tabindex="0" aria-live="polite"></div>
+    <div id="inputRow">
+      <span class="caret">›</span>
+      <input id="cmd" type="text" spellcheck="false" autocomplete="off" placeholder="start the server to type commands" disabled>
+      <button id="bSend" disabled>SEND</button>
+      <button id="bClear" title="empty the console">CLEAR</button>
+    </div>
+    <div id="hint"></div>
+  </section>
+
+  <aside id="side" class="hidden">
+    <div class="sideHead">
+      <b>CONSOLE COMMANDS</b>
+      <button id="sideClose" class="x">CLOSE</button>
+    </div>
+    <div class="sideSearch"><input id="cmdFind" type="text" spellcheck="false" autocomplete="off" placeholder="filter…"></div>
+    <div id="sideBody"></div>
+  </aside>
+</main>
+
+<!-- ============ ACCOUNTS ============
+     Read from the server's accounts.json (names and roles only — never the
+     password hashes), changed by sending console commands. -->
+<div id="acc" class="hidden ovl">
+  <div class="ovlBox">
+    <div class="sideHead">
+      <b id="accTitle">ACCOUNTS</b>
+      <span id="accNote" class="lh"></span>
+      <button id="accClose" class="x">CLOSE</button>
+    </div>
+    <div class="accTop">
+      <label class="tog"><input type="checkbox" id="accReg"> New accounts can be made on the website</label>
+      <span class="lh">Admins and Testers can download the Sims 1 files from the server. Players use their own.</span>
+    </div>
+    <div class="accNew">
+      <b>NEW ACCOUNT</b>
+      <input id="newName" type="text" spellcheck="false" autocomplete="off" placeholder="name">
+      <input id="newPw" type="text" spellcheck="false" autocomplete="off" placeholder="password (6+ letters, no spaces)">
+      <select id="newRole"><option value="player">Player</option><option value="tester">Tester</option><option value="admin">Admin</option></select>
+      <button id="newGo" class="go">ADD</button>
+    </div>
+    <div id="accBody" class="ovlBody"></div>
+  </div>
+</div>
+
+<!-- ============ GAME FILES ============ -->
+<div id="gf" class="hidden ovl">
+  <div class="ovlBox small">
+    <div class="sideHead"><b>GAME FILES</b><button id="gfClose" class="x">CLOSE</button></div>
+    <div class="gfBody">
+      <p>Admin and Tester accounts can load the game in a browser without installing The Sims: the
+         website downloads the Sims 1 files from this PC. Everyone else picks their own Sims folder.</p>
+      <p class="lh">Players can only ever get files from the folder below, and only if their account is
+         an Admin or Tester. Change roles in <b>Accounts…</b></p>
+      <label>Sims 1 folder on this PC<span class="lh">the folder The Sims is installed in — the one with GameData inside</span>
+        <div class="row"><input id="gfDir" type="text" spellcheck="false" readonly><button id="gfPick">Choose…</button><button id="gfOpen">Open</button></div>
+      </label>
+      <div id="gfState" class="gfState"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SETTINGS ============ -->
+<div id="cfg" class="hidden">
+  <div class="cfgBox">
+    <div class="sideHead"><b>SETTINGS</b><button id="cfgClose" class="x">CLOSE</button></div>
+    <label>Server program<span class="lh">SimsRedux.Server.exe — Visual Studio builds it into <code>Client\Server\bin</code></span>
+      <div class="row"><input id="fExe" type="text" spellcheck="false" readonly><button id="bExe">Choose…</button></div>
+    </label>
+    <div class="cfgCols">
+      <div>
+        <div class="cfgHead">LIVE SERVER</div>
+        <label>Port<span class="lh">the Cloudflare tunnel sends tsr-lot.mbrew.studio here</span>
+          <input id="fLivePort" type="number" min="1" max="65535"></label>
+        <label>Public address<span class="lh">checked from outside, through Cloudflare</span>
+          <input id="fLiveUrl" type="text" spellcheck="false" placeholder="https://tsr-lot.mbrew.studio"></label>
+        <label>Data folder<span class="lh">leave empty for <code>Client\Server\ServerData\live</code></span>
+          <input id="fLiveData" type="text" spellcheck="false"></label>
+      </div>
+      <div>
+        <div class="cfgHead">TEST SERVER</div>
+        <label>Port<span class="lh">must differ from Live (and from 37565, where the game hosts)</span>
+          <input id="fTestPort" type="number" min="1" max="65535"></label>
+        <label>Public address<span class="lh">empty until it has its own tunnel route</span>
+          <input id="fTestUrl" type="text" spellcheck="false" placeholder="(none yet)"></label>
+        <label>Data folder<span class="lh">leave empty for <code>Client\Server\ServerData\test</code></span>
+          <input id="fTestData" type="text" spellcheck="false"></label>
+      </div>
+    </div>
+    <label>Website<span class="lh">what "Open site" opens</span>
+      <input id="fSite" type="text" spellcheck="false" placeholder="https://tsr.mbrew.studio"></label>
+    <div class="cfgFoot"><span id="cfgMsg"></span><button id="cfgSave" class="go">SAVE</button></div>
+  </div>
+</div>
+
+<script src="ui.js"></script>
+</body>
+</html>
