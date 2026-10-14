@@ -23,6 +23,16 @@ namespace Simitone.Client.Utils
         {
             var t = (text ?? "").Trim().ToLowerInvariant();
             if (t == "freshneighborhood" || t == "freshneighbourhood") { ReduxFreshHood.Ask(false); return true; }
+            if (t == "freshtown")
+            {
+                // the online town: only the server's admin account can do this (the server checks)
+                if (!ReduxTown.LoggedIn) { UIClassicDialog.Ok("Fresh Town", "Log in to the online town first (the Online button)."); return true; }
+                UIClassicDialog.YesNo("Fresh Town", "Start the ONLINE town over for everyone?\n\nEvery open lot on the server closes (anyone on one is sent back), "
+                    + "and the town goes back to the game's starting neighborhood. The old town is kept in the server's backups.\n\nOnly the admin account can do this.",
+                    () => ReduxTown.StartTownOver((error) =>
+                        UIClassicDialog.Ok("Fresh Town", error ?? "The online town has been started over. Everyone gets the new town the next time they go to it.")));
+                return true;
+            }
             if (t != "debugredux" && t != "debugredux on" && t != "debugredux off") return false;
             Enabled = t != "debugredux off";
             UIClassicDialog.Ok("Redux Debug", Enabled

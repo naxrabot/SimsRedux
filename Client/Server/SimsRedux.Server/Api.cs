@@ -118,6 +118,7 @@ namespace SimsRedux.Server
                 case "/api/file": if (req.Method == "GET") { await FileGet(req, stream, cors); return; } break;
                 case "/api/town/info": if (req.Method == "GET") { await TownInfo(req, stream, cors); return; } break;
                 case "/api/town": if (req.Method == "GET") { await TownGet(req, stream, cors); return; } break;
+                case "/api/town/fresh": if (req.Method == "POST") { await TownFresh(req, stream, cors); return; } break;
             }
             await HttpServer.SendJson(stream, 404, new { error = "Not found" }, cors);
         }
@@ -306,6 +307,27 @@ namespace SimsRedux.Server
                 if (TownAnnounced.Add(a.Key + stamp)) Log.Info(a.Name + " is getting the town (" + (bundle.Length / 1024) + " KB)");
             }
             await HttpServer.Send(stream, 200, "application/octet-stream", bundle, cors);
+        }
+
+        /// <summary>
+        /// Start the online town over (the in-game admin cheat). Admins only: the same as typing
+        /// /town fresh in the server panel. Every open lot is closed first.
+        /// </summary>
+        private async Task TownFresh(Request req, Stream stream, Dictionary<string, string> cors)
+        {
+            var a = Accounts.Check(req.BearerToken());
+            if (a == null) { await HttpServer.SendJson(stream, 401, new { error = "Log in first." }, cors); return; }
+            if (a.Role != Roles.Admin)
+            {
+                Log.Warn(a.Name + " (" + a.Role + ") tried to start the online town over - only admins can");
+                await HttpServer.SendJson(stream, 403, new { error = "Only the server admin can start the online town over." }, cors);
+                return;
+            }
+            Log.Info(a.Name + " is starting the online town over (from the game)");
+            var result = await Task.Run(() => Lots.FreshTown(false));
+            Log.Info(result);
+            bool ok = result.StartsWith("fresh town set up");
+            await HttpServer.SendJson(stream, ok ? 200 : 500, ok ? (object)new { ok = true, message = result } : new { error = result }, cors);
         }
 
         // ---------- online lots ----------

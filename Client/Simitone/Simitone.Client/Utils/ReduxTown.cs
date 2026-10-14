@@ -99,6 +99,21 @@ namespace Simitone.Client.Utils
             }, null);
         }
 
+        /// <summary>Admin only (the server checks): start the online town over for everyone.</summary>
+        public static void StartTownOver(Action<string> done)
+        {
+            Run(async () =>
+            {
+                using (var resp = await Send(HttpMethod.Post, "/api/town/fresh"))
+                {
+                    var json = Parse(await resp.Content.ReadAsStringAsync());
+                    if (!resp.IsSuccessStatusCode) return Error(json, "The server said no (" + (int)resp.StatusCode + ").");
+                    ReduxSettings.Set("townstamp", ""); // download it again next time
+                    return null;
+                }
+            }, done);
+        }
+
         // ---- the town's files ----
 
         /// <summary>

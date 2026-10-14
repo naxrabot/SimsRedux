@@ -18,7 +18,8 @@ namespace Simitone.Client.Utils
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
-            "Online: you only control your own Sim. Questions about other Sims (the family living there, NPCs) are answered by the lot, not by visitors.",
+            "Online: you can only control your own Sim - never anyone else's Sims or the town's families.",
+            "Online: only the server admin can start the online town over (server panel, or the admin cheat freshtown).",
         };
 
         public static string Text { get { return "v" + Number; } }
