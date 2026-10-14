@@ -61,6 +61,8 @@ namespace Simitone.Client
 
             this.Window.AllowUserResizing = true;
             this.Window.ClientSizeChanged += new EventHandler<EventArgs>(Window_ClientSizeChanged);
+            // SimsRedux lot worker: make the window invisible as soon as it exists
+            if (Simitone.Client.Utils.ReduxWorker.Active) Simitone.Client.Utils.ReduxWorker.HideWindow(Window.Handle);
 
             Thread.CurrentThread.Name = "Game";
 
@@ -97,7 +99,7 @@ namespace Simitone.Client
         protected override void Initialize()
         {
             // SimsRedux lot worker: hide the window straight away (it would show a grey window while loading)
-            if (Simitone.Client.Utils.ReduxWorker.Active) Simitone.Client.Utils.ReduxWorker.HideWindow();
+            if (Simitone.Client.Utils.ReduxWorker.Active) Simitone.Client.Utils.ReduxWorker.HideWindow(Window.Handle);
 
             var settings = GlobalSettings.Default;
             if (FSOEnvironment.DPIScaleFactor != 1 || FSOEnvironment.SoftwareDepth)
@@ -317,7 +319,8 @@ namespace Simitone.Client
             {
                 this.IsMouseVisible = true;
                 if (!FSOEnvironment.SoftwareKeyboard) AddTextInput();
-                this.Window.Title = "The Sims Redux"; // SimsRedux
+                // SimsRedux (a lot's window on the server is named so it can't be mistaken for the game)
+                this.Window.Title = Simitone.Client.Utils.ReduxWorker.Active ? "Sims Redux server - lot " + Simitone.Client.Utils.ReduxWorker.House : "The Sims Redux";
                 HasUpdated = true;
                 GameFacade.Screens = uiLayer;
                 GameController.EnterLoading();
@@ -330,7 +333,8 @@ namespace Simitone.Client
             {
                 // SimsRedux lot worker (dedicated server): nothing to look at, so no drawing
                 SuppressDraw();
-                if (++WorkerFrames % 300 == 1) Simitone.Client.Utils.ReduxWorker.HideWindow();
+                // every frame for the first ~10 seconds (the game shows its window once it starts running), then now and then
+                if (++WorkerFrames < 600 || WorkerFrames % 300 == 1) Simitone.Client.Utils.ReduxWorker.HideWindow(Window.Handle);
             }
 
             base.Update(gameTime);

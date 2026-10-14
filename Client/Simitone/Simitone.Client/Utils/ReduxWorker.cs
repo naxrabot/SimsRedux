@@ -271,14 +271,42 @@ namespace Simitone.Client.Utils
 
         [DllImport("user32.dll")]
         private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+        [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
+        private static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex);
+        [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
+        private static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr value);
+        [DllImport("user32.dll")]
+        private static extern bool SetLayeredWindowAttributes(IntPtr hWnd, uint crKey, byte alpha, uint flags);
+        [DllImport("user32.dll")]
+        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
 
-        public static void HideWindow()
+        private static IntPtr Disguised;
+
+        /// <summary>
+        /// Keeps the lot's game window off the server PC's screen. The game shows its window itself
+        /// after starting up (whatever the server asked for), so the window is first made fully
+        /// see-through, taken off the taskbar and moved far off-screen - then even when it's "shown"
+        /// there's nothing to see - and it's also hidden outright.
+        /// </summary>
+        public static void HideWindow(IntPtr handle = default)
         {
             if (!OperatingSystem.IsWindows()) return;
             try
             {
-                var handle = GameFacade.Game?.Window?.Handle ?? IntPtr.Zero;
-                if (handle != IntPtr.Zero) ShowWindow(handle, 0); // SW_HIDE
+                if (handle == IntPtr.Zero) handle = GameFacade.Game?.Window?.Handle ?? IntPtr.Zero;
+                if (handle == IntPtr.Zero) return;
+                if (Disguised != handle)
+                {
+                    const int GWL_EXSTYLE = -20;
+                    const long WS_EX_LAYERED = 0x80000, WS_EX_TOOLWINDOW = 0x80, WS_EX_APPWINDOW = 0x40000, WS_EX_NOACTIVATE = 0x8000000;
+                    var ex = GetWindowLongPtr(handle, GWL_EXSTYLE).ToInt64();
+                    ex = (ex | WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE) & ~WS_EX_APPWINDOW;
+                    SetWindowLongPtr(handle, GWL_EXSTYLE, new IntPtr(ex));
+                    SetLayeredWindowAttributes(handle, 0, 0, 0x2); // LWA_ALPHA, fully see-through
+                    SetWindowPos(handle, IntPtr.Zero, -32000, -32000, 0, 0, 0x1 | 0x4 | 0x10 | 0x20); // NOSIZE|NOZORDER|NOACTIVATE|FRAMECHANGED
+                    Disguised = handle;
+                }
+                ShowWindow(handle, 0); // SW_HIDE
             }
             catch { }
         }
