@@ -230,31 +230,38 @@ namespace SimsRedux.Server
         }
 
         /// <summary>
-        /// A brand-new town: the game's untouched starting neighbourhood (TemplateUserData in the
-        /// Sims folder) - the original families and townies, nobody's own Sims. Like starting a
-        /// new single-player game. The old town is kept in backups/.
+        /// A brand-new town from the Sims folder, nobody's own Sims in it:
+        ///   "/town fresh"          the game's Neighbourhood 1 as it came (UserData): the Goths,
+        ///                          Newbies, Pleasants and the other starting families in their houses
+        ///   "/town fresh empty"    the game's blank template (TemplateUserData): houses, no families
+        /// The old town is kept in backups/.
         /// </summary>
-        public string FreshTown()
+        public string FreshTown(bool empty)
         {
             if (Running().Count > 0) return "close all lots first (/lots close all)";
             var game = (Config.GameFolder ?? "").Trim().Trim('"');
             if (game.Length == 0 || !Directory.Exists(game)) return "the server doesn't know where the Sims folder is - set it with /files folder <path>";
-            var template = Path.Combine(game, "TemplateUserData");
-            if (!File.Exists(Path.Combine(template, "Neighborhood.iff")) || !File.Exists(Path.Combine(template, "LotLocations.iff")))
-                return "there's no untouched starting neighbourhood (TemplateUserData) in " + game + " - use /town import <folder> with a fresh UserData folder instead";
-            var result = ImportTown(template);
+            var source = Path.Combine(game, empty ? "TemplateUserData" : "UserData");
+            if (!File.Exists(Path.Combine(source, "Neighborhood.iff")) || !File.Exists(Path.Combine(source, "LotLocations.iff")))
+                return "there's no starting neighbourhood in " + source + " - use /town import <folder> with a UserData folder instead";
+            var result = ImportTown(source);
             if (!TownReady) return result;
-            // the template can be missing the expansion packs' lot names and descriptions:
-            // borrow just those from the game's normal UserData
-            foreach (var name in new[] { "NeighborhoodDesc.iff", "STDesc.iff", "MTDesc.iff" })
+            // the blank template can be missing the expansion packs' lot names and descriptions
+            if (empty)
             {
-                var to = Path.Combine(TownDir, "Houses", name);
-                var from = Path.Combine(game, "UserData", "Houses", name);
-                try { if (!File.Exists(to) && File.Exists(from)) { Directory.CreateDirectory(Path.GetDirectoryName(to)); File.Copy(from, to); } }
-                catch { }
+                foreach (var name in new[] { "NeighborhoodDesc.iff", "STDesc.iff", "MTDesc.iff" })
+                {
+                    var to = Path.Combine(TownDir, "Houses", name);
+                    var from = Path.Combine(game, "UserData", "Houses", name);
+                    try { if (!File.Exists(to) && File.Exists(from)) { Directory.CreateDirectory(Path.GetDirectoryName(to)); File.Copy(from, to); } }
+                    catch { }
+                }
             }
-            Log.Info("a fresh town was set up from the game's starting neighbourhood");
-            return "fresh town set up (the game's starting neighbourhood): " + Houses().Count + " houses";
+            int sims = 0;
+            try { sims = Directory.GetFiles(Path.Combine(TownDir, "Characters"), "*.iff").Length; } catch { }
+            Log.Info("a fresh town was set up from " + source);
+            return "fresh town set up from " + source + ": " + Houses().Count + " houses, " + sims + " Sims"
+                + (empty ? " (no families)" : " (the game's starting families - if your own old Sims 1 families show up, this Sims folder has been played in; use /town fresh empty)");
         }
 
         private static void Copy(string from, string to)

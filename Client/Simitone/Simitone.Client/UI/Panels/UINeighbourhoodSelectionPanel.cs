@@ -328,6 +328,21 @@ namespace Simitone.Client.UI.Panels
         private int Mode;
         private Texture2D BgTexture;
 
+        /// <summary>
+        /// SimsRedux: the neighbourhood pictures (map and animated layers), loaded once and kept for
+        /// the whole game. In the browser, loading the same picture a second time (coming back from
+        /// Downtown, or into the online town) came out black, so they're never loaded twice.
+        /// </summary>
+        private static readonly Dictionary<string, Texture2D> MapTextures = new Dictionary<string, Texture2D>();
+        public static Texture2D MapTexture(string name)
+        {
+            Texture2D tex;
+            if (MapTextures.TryGetValue(name, out tex) && tex != null && !tex.IsDisposed) return tex;
+            tex = ((ITextureRef)Content.Get().TS1Global.Get(name))?.Get(GameFacade.GraphicsDevice);
+            MapTextures[name] = tex;
+            return tex;
+        }
+
         /// <summary>SimsRedux: what the map looks like right now, for the logs (finding a black screen).</summary>
         public string Describe()
         {
@@ -355,7 +370,7 @@ namespace Simitone.Client.UI.Panels
             Add(shad);
 
             Texture2D bgTex = null;
-            try { bgTex = ((ITextureRef)Provider.Get(config.Graphic))?.Get(GameFacade.GraphicsDevice); }
+            try { bgTex = MapTexture(config.Graphic); }
             catch (Exception e) { Console.WriteLine("[SimsRedux] neighbourhood picture " + config.Graphic + " couldn't be loaded: " + e.Message); }
             BgTexture = bgTex;
             var bg = new UIImage(bgTex);
@@ -498,7 +513,7 @@ namespace Simitone.Client.UI.Panels
         public UINeighborhoodAnimationLayer(NeighborhoodImageAnim anim, bool pulsate, int frameTime)
         {
             var provider = Content.Get().TS1Global;
-            Frames = anim.Frames.Select(x => ((ITextureRef)provider.Get(x)).Get(GameFacade.GraphicsDevice)).ToArray();
+            Frames = anim.Frames.Select(x => UINeighborhoodSelectionPanel.MapTexture(x)).ToArray();
             SubFrame = frameTime;
             FrameTime = frameTime;
             FrameTime *= GlobalSettings.Default.TargetRefreshRate;
@@ -738,6 +753,9 @@ namespace Simitone.Client.UI.Panels
 
         public override void Removed()
         {
+            // SimsRedux: in the browser, throwing pictures away while others are still in use has
+            // blanked the map; they're small, so the browser keeps them until the page closes
+            if (OperatingSystem.IsBrowser()) return;
             HouseTex?.Dispose();
             HouseOpenTex?.Dispose();
         }
