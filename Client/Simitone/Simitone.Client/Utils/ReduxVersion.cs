@@ -12,14 +12,14 @@ namespace Simitone.Client.Utils
     /// </summary>
     public static class ReduxVersion
     {
-        public const string Number = "0.8";
+        public const string Number = "0.9";
         public const string Stage = "Beta";
 
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
-            "If the game's starting families (the Goths and the Pleasants) no longer live in your neighborhood, the game offers to start it fresh. Your old one is kept as a backup.",
-            "The cheat freshneighborhood also works on a lot: you're asked when you get back to the neighborhood.",
+            "A fresh single-player neighborhood now has 4 families living in it, and houses on most empty lots (3 lots stay empty to build on).",
+            "The online town keeps 2 families and its empty lots as they are.",
         };
 
         public static string Text { get { return "v" + Number; } }
