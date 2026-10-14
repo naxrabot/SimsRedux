@@ -12,6 +12,7 @@ namespace SimsRedux.Server
         private readonly Accounts Accounts;
         private readonly GameFiles Files;
         private readonly Api Api;
+        public Lots Lots;
         public Action<int> Quit; // exit code: 0 stop, 75 restart
 
         public Commands(ServerConfig config, Accounts accounts, GameFiles files, Api api)
@@ -36,6 +37,12 @@ namespace SimsRedux.Server
             new[] { "/files folder <path>", "where the Sims 1 game folder is on this PC" },
             new[] { "/files rescan", "look at the game folder again" },
             new[] { "/motd <text>", "the message players see when they log in" },
+            new[] { "/town", "the online town: its houses and which are open" },
+            new[] { "/town import [folder]", "copy a neighbourhood in as the town (default: your Neighborhood 1)" },
+            new[] { "/lots", "lots that are open right now, with who's on them" },
+            new[] { "/lots open <house>", "open a lot (players can also just travel there)" },
+            new[] { "/lots close <house|all>", "save and close a lot" },
+            new[] { "/lots game <path>", "the game program that runs lots (Simitone.Windows.exe)" },
             new[] { "/name <text>", "the server's name" },
             new[] { "/save", "save everything now" },
             new[] { "/backup", "save and keep a dated copy in backups/" },
@@ -70,7 +77,8 @@ namespace SimsRedux.Server
                     var active = Accounts.RecentlyActive(TimeSpan.FromMinutes(5));
                     var mem = System.Diagnostics.Process.GetCurrentProcess().WorkingSet64 / 1048576;
                     Log.Reply(Config.Name + " (" + Config.Channel + ") v" + Api.Version + "\n" +
-                        "  accounts: " + Accounts.Count + ", active now: " + active.Count + ", on a lot: " + Api.LotConnections + "\n" +
+                        "  accounts: " + Accounts.Count + ", active now: " + active.Count + ", on lots: " + (Api.LotConnections + Lots.PlayerCount) + "\n" +
+                        "  town: " + (Lots.TownReady ? Lots.Houses().Count + " houses, " + Lots.Running().Count + " open" : "not set up (/town import)") + "\n" +
                         "  game files: " + (Files.Ready ? Files.Count + " files, " + Files.TotalBytes / 1048576 + " MB" : Files.Problem) + "\n" +
                         "  new accounts: " + (Config.Registration ? "open" : "closed") + "   memory: " + mem + " MB");
                     break;
@@ -157,6 +165,43 @@ namespace SimsRedux.Server
                         : "game files not available: " + Files.Problem);
                     break;
 
+                case "/town":
+                    if (Arg(1)?.ToLowerInvariant() == "import") { Log.Reply(Lots.ImportTown(Rest(2).Trim('"'))); break; }
+                    if (!Lots.TownReady) { Log.Reply("no town yet - copy your Neighborhood 1 in with  /town import"); break; }
+                    {
+                        var houses = Lots.Houses();
+                        var open = Lots.Running().ToDictionary(w => w.House);
+                        Log.Reply("town: " + Lots.TownDir + "\n" + houses.Count + " houses: " +
+                            string.Join(", ", houses.Select(h => h + (open.ContainsKey(h) ? (open[h].Ready ? " (open)" : " (opening)") : ""))) +
+                            "\nPlayers travel to a house with the address  tsr-lot.mbrew.studio/lot/<house>");
+                    }
+                    break;
+
+                case "/lots":
+                    switch (Arg(1)?.ToLowerInvariant())
+                    {
+                        case "open":
+                            if (!short.TryParse(Arg(2), out var oh)) { Log.Reply("usage: /lots open <house number>"); break; }
+                            Log.Reply(Lots.Get(oh, out error) != null ? "house " + oh + " is opening" : "couldn't: " + error);
+                            break;
+                        case "close":
+                            if (Arg(2)?.ToLowerInvariant() == "all") { Lots.CloseAll(); Log.Reply("closed every lot"); break; }
+                            if (!short.TryParse(Arg(2), out var ch)) { Log.Reply("usage: /lots close <house number|all>"); break; }
+                            Log.Reply(Lots.Close(ch) ? "house " + ch + " is saving and closing" : "house " + ch + " isn't open");
+                            break;
+                        case "game":
+                            if (Arg(2) != null) { Config.GameExe = Rest(2).Trim('"'); Config.Save(); }
+                            Log.Reply("game program: " + (Lots.GameExe() ?? "NOT FOUND - /lots game <path to Simitone.Windows.exe>"));
+                            break;
+                        default:
+                            var running = Lots.Running();
+                            if (running.Count == 0) { Log.Reply("no lots open. Players open one by travelling to it; or /lots open <house>"); break; }
+                            Log.Reply(string.Join("\n", running.Select(w => "house " + w.House + ": " + (w.Ready ? (w.Players == 0 ? "open, empty" : w.Players + " here (" + w.Who + ")") : "opening...") +
+                                "  \u00b7 up " + (int)(DateTime.UtcNow - w.Started).TotalMinutes + "m  \u00b7 port " + w.Port)));
+                            break;
+                    }
+                    break;
+
                 case "/motd":
                     if (Arg(1) != null) { Config.Motd = Rest(1); Config.Save(); }
                     Log.Reply("message of the day: " + Config.Motd);
@@ -180,12 +225,14 @@ namespace SimsRedux.Server
                     break;
 
                 case "/restart":
+                    Lots.CloseAll();
                     Log.Info("restarting...");
                     Quit?.Invoke(75);
                     break;
 
                 case "/quit":
                 case "/stop":
+                    Lots.CloseAll();
                     Log.Info("stopping...");
                     Quit?.Invoke(0);
                     break;

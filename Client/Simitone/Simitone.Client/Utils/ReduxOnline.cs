@@ -873,7 +873,8 @@ namespace Simitone.Client.Utils
                 {
                     var ws = new ClientWebSocket();
                     if (!OperatingSystem.IsBrowser()) ws.Options.KeepAliveInterval = TimeSpan.FromSeconds(20); // browsers manage this themselves
-                    using (var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15)))
+                    // up to 90 seconds: a lot on the dedicated server may be starting up for us
+                    using (var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(90)))
                         await ws.ConnectAsync(uri, timeout.Token);
                     var sock = new ReduxSocket(ws);
                     sock.Start();

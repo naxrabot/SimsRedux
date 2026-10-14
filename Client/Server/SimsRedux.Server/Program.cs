@@ -65,8 +65,9 @@ namespace SimsRedux.Server
             }
             var files = new GameFiles();
             files.Scan(Config.GameFolder);
-            var api = new Api(Config, Accounts, files);
-            var commands = new Commands(Config, Accounts, files, api) { Quit = code => { ExitCode = code; Done.Set(); } };
+            var lots = new Lots(Config);
+            var api = new Api(Config, Accounts, files) { Lots = lots };
+            var commands = new Commands(Config, Accounts, files, api) { Lots = lots, Quit = code => { ExitCode = code; Done.Set(); } };
 
             var http = new HttpServer(api.Handle);
             if (!http.Start(Config.Bind, Config.Port, out var error))
@@ -101,10 +102,13 @@ namespace SimsRedux.Server
             input.Start();
 
             Console.CancelKeyPress += (s, e) => { e.Cancel = true; ExitCode = 0; Done.Set(); };
+            if (!Lots.TownReady) Log.Info("no online town yet: copy your Neighborhood 1 in with  /town import");
+            else Log.Info("town: " + lots.Houses().Count + " houses \u00b7 game program: " + (lots.GameExe() ?? "NOT FOUND (/lots game <path>)"));
             AppDomain.CurrentDomain.ProcessExit += (s, e) => { try { Accounts?.SaveAll(); } catch { } };
 
             Done.Wait();
             timer.Dispose();
+            lots.CloseAll();
             http.Shutdown();
             Accounts.SaveAll();
             Config.Save();

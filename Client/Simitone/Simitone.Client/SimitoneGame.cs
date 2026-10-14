@@ -302,6 +302,7 @@ namespace Simitone.Client
         /// checking for collisions, gathering input, and playing audio.
         /// </summary>
         /// <param name="gameTime">Provides a snapshot of timing values.</param>
+        private int WorkerFrames;
         protected override void Update(GameTime gameTime)
         {
             if (!HasUpdated)
@@ -316,6 +317,13 @@ namespace Simitone.Client
             GameThread.UpdateExecuting = true;
 
             if (HITVM.Get() != null) HITVM.Get().Tick();
+
+            if (Simitone.Client.Utils.ReduxWorker.Active)
+            {
+                // SimsRedux lot worker (dedicated server): nothing to look at, so no drawing
+                SuppressDraw();
+                if (++WorkerFrames % 300 == 1) Simitone.Client.Utils.ReduxWorker.HideWindow();
+            }
 
             base.Update(gameTime);
             GameThread.UpdateExecuting = false;

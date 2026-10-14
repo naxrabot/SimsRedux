@@ -84,6 +84,7 @@ function chips(){
     d.textContent = k + " "; const b = document.createElement("b"); b.textContent = v; d.appendChild(b); c.appendChild(d); };
   const L = LOCAL[ACTIVE] || {};
   if (L.state === "up") {
+    add("lots open", L.lots|0);
     add("accounts", L.accounts|0);
     add("files", L.files && L.files.ready ? (L.files.mb|0) + " MB" : "not set");
     add("sign-ups", L.registration ? "open" : "closed");
@@ -142,7 +143,7 @@ function drawCommands(filter){
       const w = document.createElement("span"); w.className = "what"; w.textContent = what;
       b.appendChild(s); b.appendChild(w);
       b.addEventListener("click", () => {
-        const base = /^\/[a-z]+(?: (?:add|folder|rescan))?/.exec(sig);
+        const base = /^\/[a-z]+(?: (?:add|folder|rescan|import|open|close|game))?/.exec(sig);
         const el = $("cmd");
         el.value = base ? base[0] + (/[<[]/.test(sig) ? " " : "") : "";
         if (!RUN[ACTIVE]) say("Start the server first — then this command will go through.");

@@ -186,6 +186,7 @@ namespace Simitone.Client.UI.Screens
             {
                 NeighSelection(mode);
             }
+            if (ReduxWorker.Active) GameThread.NextUpdate((s) => ReduxWorker.Begin(this));
         }
         public int? MoveInFamily;
 
@@ -310,7 +311,7 @@ namespace Simitone.Client.UI.Screens
             var host = new ReduxHost(vm, server);
             string error;
             // the dedicated server (when it's running) owns the usual port and passes players to us
-            var port = ReduxOnlineInfo.HostPort();
+            var port = ReduxWorker.Active ? ReduxWorker.Port : ReduxOnlineInfo.HostPort();
             if (!host.Start(port, out error))
             {
                 UIClassicDialog.Ok("Couldn't Host", "The game couldn't open port " + port + " for friends to join.\n\n" + error
@@ -320,6 +321,7 @@ namespace Simitone.Client.UI.Screens
             Host = host;
             host.OnNotice += (text) => OnlineStatus?.Notice(text);
             ShowOnlineStatus();
+            if (ReduxWorker.Active) return; // nobody to read it
             UIClassicDialog.Ok("Hosting Online", "Friends can now join this lot.\n\nOn this PC (for testing): localhost\nOn your home network: this PC's IP address\nOver the internet: " + ReduxOnlineInfo.DefaultAddress
                 + " (once the Cloudflare tunnel is running)\n\nThe lot stops being online when you go back to the neighborhood.");
         }
@@ -634,6 +636,7 @@ namespace Simitone.Client.UI.Screens
             //vm.Context.Clock.Hours = 12;
             // SimsRedux online: messages from friends / the host go in before the lot ticks
             Host?.Process();
+            ReduxWorker.Tick();
             if (Guest != null && !Guest.Process()) GuestLost();
             if ((Host != null || IsGuest) && vm != null && ++OnlineStateLog >= 300)
             {

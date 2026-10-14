@@ -145,7 +145,7 @@ function readHealth(r, running) {
   return {
     state: "up", detail: "",
     channel: h.channel || "", version: h.version || "",
-    players: h.players | 0, online: h.online | 0, accounts: h.accounts | 0,
+    players: h.players | 0, online: h.online | 0, accounts: h.accounts | 0, lots: h.lots | 0, town: !!h.town,
     registration: !!h.registration,
     uptime: h.uptime | 0, rssMB: h.rssMB | 0,
     files: h.files || { ready: false }
@@ -185,6 +185,14 @@ const COMMANDS = [
     ["/delete <name>", "remove an account for good"],
     ["/registration on|off", "let people make accounts on the website, or not"]
   ]],
+  ["The online town", [
+    ["/town", "the town's houses and which are open"],
+    ["/town import [folder]", "copy a neighbourhood in as the town — empty = your Neighborhood 1"],
+    ["/lots", "lots open right now, with who's on them"],
+    ["/lots open <house>", "open a lot (players can also just travel there)"],
+    ["/lots close <house|all>", "save and close a lot"],
+    ["/lots game <path>", "the game program that runs lots (Simitone.Windows.exe)"]
+  ]],
   ["Players", [
     ["/who", "accounts active in the last 5 minutes"],
     ["/motd <text>", "the message players see when they log in"]
@@ -207,7 +215,6 @@ const COMMANDS = [
 
 /* On the roadmap, not built yet: listed so there's one place to look. */
 const PLANNED = [
-  ["/lots", "lots running on this server (next drop)"],
   ["/say <text>", "a message on every player's screen (with lots on the server)"],
   ["/kick <name>", "drop someone off their lot"],
   ["/promote", "copy the Test server's content to Live"],

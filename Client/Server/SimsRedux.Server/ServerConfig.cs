@@ -28,6 +28,8 @@ namespace SimsRedux.Server
         };
         /// <summary>Until lots run on this server, online lots hosted from the game are passed through to this port.</summary>
         public int GameHostPort { get; set; } = 37565;
+        /// <summary>The game program that runs the town's lots (Simitone.Windows.exe). Empty = where Visual Studio builds it.</summary>
+        public string GameExe { get; set; } = "";
 
         [JsonIgnore] public string Path;
 

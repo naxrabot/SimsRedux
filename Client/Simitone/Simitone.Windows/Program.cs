@@ -120,6 +120,7 @@ namespace Simitone.Windows
                 FSOEnvironment.GFXContentDir = "Content/" + (useDX ? "DX/" : "OGL/");
                 FSOEnvironment.UserDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Simitone/").Replace('\\', '/');
                 Directory.CreateDirectory(FSOEnvironment.UserDir);
+                Simitone.Client.Utils.ReduxWorker.Configure(args); // SimsRedux: started by the dedicated server to run one lot
                 FSOEnvironment.Linux = false;
                 FSOEnvironment.DirectX = useDX;
                 FSOEnvironment.GameThread = Thread.CurrentThread;
@@ -173,6 +174,12 @@ namespace Simitone.Windows
         private static void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
         {
             var exception = e.ExceptionObject;
+            if (Simitone.Client.Utils.ReduxWorker.Active)
+            {
+                // a lot worker has nobody to click OK: tell the server and stop
+                Simitone.Client.Utils.ReduxWorker.Say("error crashed: " + exception);
+                Environment.Exit(1);
+            }
             if (exception is OutOfMemoryException)
             {
                 MessageBox.Show(e.ExceptionObject.ToString(), "Out of Memory! FreeSO needs to close.");
