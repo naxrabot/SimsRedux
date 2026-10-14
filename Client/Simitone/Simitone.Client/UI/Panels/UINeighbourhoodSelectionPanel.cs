@@ -678,7 +678,8 @@ namespace Simitone.Client.UI.Panels
                 var hood = Content.Get().Neighborhood;
                 var fam = hood.GetFamilyForHouse((short)HouseID);
                 if (fam != null && fam.HouseNumber == HouseID && fam.FamilyGUIDs != null && fam.FamilyGUIDs.Length > 0
-                    && !ReduxTown.Active && ReduxRoster.IsPlayers(fam)) // not over the game's own background families
+                    && (ReduxTown.Active ? fam.ChunkID == ReduxTown.MyFamily  // online: only over your own family's home
+                                         : ReduxRoster.IsPlayers(fam)))      // not over the game's own background families
                     FamilyName = hood.MainResource.Get<FAMs>(fam.ChunkID)?.GetString(0) ?? "Your family";
             }
             catch { }

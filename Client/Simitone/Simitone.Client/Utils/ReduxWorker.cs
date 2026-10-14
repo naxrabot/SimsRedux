@@ -27,6 +27,8 @@ namespace Simitone.Client.Utils
         public static int Port;
         /// <summary>The town's UserData folder (Neighborhood.iff, Houses, Characters...).</summary>
         public static string Town;
+        /// <summary>2C: a family moving in here (their package file) and the account they belong to.</summary>
+        public static string MoveInFile, MoveInOwner;
 
         /// <summary>How long an empty lot stays open (for someone coming back) before it saves and closes.</summary>
         private static readonly TimeSpan EmptyGrace = TimeSpan.FromMinutes(2);
@@ -51,6 +53,8 @@ namespace Simitone.Client.Utils
                 else if (s.StartsWith("house") && short.TryParse(s.Substring(5), out var h)) House = h;
                 else if (s.StartsWith("port") && int.TryParse(s.Substring(4), out var p)) Port = p;
                 else if (s.StartsWith("town")) Town = s.Substring(4).Trim('"').Replace('\\', '/').TrimEnd('/') + "/";
+                else if (s.StartsWith("movein")) MoveInFile = s.Substring(6).Trim('"');
+                else if (s.StartsWith("owner")) MoveInOwner = s.Substring(5).Trim('"');
             }
             if (!Active) return false;
             if (House <= 0 || Port <= 0 || string.IsNullOrEmpty(Town))
@@ -96,6 +100,28 @@ namespace Simitone.Client.Utils
             catch { }
         }
 
+        /// <summary>The town's family owners (written by the server): the family number an account owns, or -1.</summary>
+        public static int OwnedFamily(string account)
+        {
+            if (string.IsNullOrEmpty(account) || string.IsNullOrEmpty(Town)) return -1;
+            try
+            {
+                var path = Path.Combine(Town, "owners.json");
+                if (!File.Exists(path)) return -1;
+                using (var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(path)))
+                {
+                    foreach (var p in doc.RootElement.EnumerateObject())
+                    {
+                        var acct = p.Value.TryGetProperty("Account", out var a) ? a.GetString() : p.Name;
+                        if (string.Equals(acct, account, StringComparison.OrdinalIgnoreCase) || string.Equals(p.Name, account, StringComparison.OrdinalIgnoreCase))
+                            return p.Value.TryGetProperty("Family", out var f) ? f.GetInt32() : -1;
+                    }
+                }
+            }
+            catch (Exception e) { Say("error reading owners: " + e.Message); }
+            return -1;
+        }
+
         /// <summary>Called once the game screen exists: load the town and open the house.</summary>
         public static void Begin(TS1GameScreen screen)
         {
@@ -110,6 +136,21 @@ namespace Simitone.Client.Utils
                     Environment.Exit(3);
                 }
                 HideWindow();
+                if (!string.IsNullOrEmpty(MoveInFile))
+                {
+                    // 2C: a player's family moves in here first (bought with their own money)
+                    try
+                    {
+                        var pack = ReduxFamilyPackage.FromBytes(File.ReadAllBytes(MoveInFile));
+                        var fam = pack.MoveInto(House);
+                        Say("movedin " + fam.ChunkID);
+                    }
+                    catch (Exception e)
+                    {
+                        Say("error movein " + e.Message);
+                        Environment.Exit(5);
+                    }
+                }
                 screen.HostAfterLoad = true;
                 screen.PlayHouse(House, null);
                 Say("loading house " + House);

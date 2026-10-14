@@ -129,3 +129,60 @@ namespace SimsRedux.Server
         }
     }
 }
+
+namespace SimsRedux.Server
+{
+    /// <summary>
+    /// Which account owns which family (and house) in the online town. Kept with the town
+    /// (Town/UserData/owners.json), so a fresh town starts with nobody owning anything, and the
+    /// lot workers read it to know who may control the family living on their lot.
+    /// </summary>
+    public static class Owners
+    {
+        public class Owner
+        {
+            public string Account { get; set; } = "";
+            public int Family { get; set; }
+            public int House { get; set; }
+            public string Name { get; set; } = "";
+        }
+
+        private static readonly object Lock = new object();
+        private static string FilePath => Path.Combine(Lots.TownDir, "owners.json");
+
+        public static Dictionary<string, Owner> All()
+        {
+            lock (Lock)
+            {
+                try
+                {
+                    if (!File.Exists(FilePath)) return new Dictionary<string, Owner>();
+                    return System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, Owner>>(File.ReadAllText(FilePath)) ?? new Dictionary<string, Owner>();
+                }
+                catch (Exception e)
+                {
+                    Log.Warn("town: couldn't read owners.json: " + e.Message);
+                    return new Dictionary<string, Owner>();
+                }
+            }
+        }
+
+        public static Owner Of(string accountKey)
+        {
+            var all = All();
+            return all.TryGetValue(accountKey ?? "", out var o) ? o : null;
+        }
+
+        public static void Set(string accountKey, Owner owner)
+        {
+            lock (Lock)
+            {
+                var all = All();
+                if (owner == null) all.Remove(accountKey); else all[accountKey] = owner;
+                var tmp = FilePath + ".tmp";
+                File.WriteAllText(tmp, System.Text.Json.JsonSerializer.Serialize(all, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+                File.Move(tmp, FilePath, true);
+            }
+        }
+    }
+}

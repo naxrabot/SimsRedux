@@ -44,7 +44,8 @@ namespace Simitone.Client.UI.Panels
                 var names = Game.Host.GuestNames;
                 return names.Count == 0 ? "Online: waiting for friends to join" : "Online: " + string.Join(", ", names) + (names.Count == 1 ? " is here" : " are here");
             }
-            if (Game.IsGuest) return "Online: visiting a friend's lot";
+            if (Game.IsGuest && Game.Guest.IsOwner) return "Online: at home";
+            if (Game.IsGuest) return "Online: visiting";
             return null;
         }
 

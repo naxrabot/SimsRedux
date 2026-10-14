@@ -300,7 +300,10 @@ namespace Simitone.Client.UI.Panels
             // SimsRedux online: a visiting player only sees questions about their own Sim; the lot
             // answers the others (the family living there, NPCs)
             var game = FSO.Client.UI.Framework.UIScreen.Current as Simitone.Client.UI.Screens.TS1GameScreen;
-            if (game != null && game.IsGuest && info.Caller is VMAvatar && info.Caller.PersistID != vm.MyUID) return;
+            // (2C: on your own family's lot, questions about any of your family come to you too)
+            if (game != null && game.IsGuest && info.Caller is VMAvatar && info.Caller.PersistID != vm.MyUID
+                && !(game.Guest.IsOwner && ((VMAvatar)info.Caller).GetPersonData(FSO.SimAntics.Model.VMPersonDataVariable.TS1FamilyNumber) == Simitone.Client.Utils.ReduxTown.MyFamily
+                     && info.Caller.PersistID < Simitone.Client.Utils.ReduxOnlineInfo.FirstGuestID)) return;
 
             if (!ShowSimanticsExceptions && info.Title == "SimAntics Exception!")
                 return;
@@ -701,7 +704,7 @@ namespace Simitone.Client.UI.Panels
             var screen = Parent as TS1GameScreen;
             bool online = screen != null && (screen.Host != null || screen.IsGuest);
             if (!online) return true;
-            bool isHost = !screen.IsGuest;
+            bool isHost = !screen.IsVisitor; // (2C: the family's owner answers for their home lot)
             // only friends' own Sims belong to them; everything else (the host's family, objects
             // like the Help System, the game itself) is the host's to answer
             if (caller is VMAvatar && caller.PersistID == vm.MyUID) return true;
@@ -716,7 +719,7 @@ namespace Simitone.Client.UI.Panels
 
         private void TryAutoSelectSim()
         {
-            if ((Parent as TS1GameScreen)?.IsGuest == true) return; // a visitor only ever has their own Sim
+            if ((Parent as TS1GameScreen)?.IsVisitor == true) return; // a visitor only ever has their own Sim
             if (AutoSelectCooldown > 0) { AutoSelectCooldown--; return; }
             AutoSelectCooldown = 60; // try about once a second, not every frame
             try

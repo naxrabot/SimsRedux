@@ -196,6 +196,8 @@ namespace Simitone.Client.UI.Screens
         /// <summary>Visiting a friend's lot (null when not visiting).</summary>
         public ReduxGuest Guest;
         public bool IsGuest { get { return Guest != null; } }
+        /// <summary>2C: on someone else's lot (a guest who isn't the family's owner).</summary>
+        public bool IsVisitor { get { return Guest != null && !Guest.IsOwner; } }
         /// <summary>Start hosting as soon as the next lot finishes loading.</summary>
         public bool HostAfterLoad;
         private UIClassicOnlineStatus OnlineStatus;
@@ -542,7 +544,7 @@ namespace Simitone.Client.UI.Screens
 
         public void ChangeSpeedTo(int speed)
         {
-            if (IsGuest) return; // SimsRedux: the host controls the speed on their lot
+            if (IsVisitor) return; // SimsRedux: the host (or the family's owner) controls the speed
             //0 speed is 0x
             //1 speed is 1x
             //2 speed is 3x
@@ -1221,7 +1223,7 @@ namespace Simitone.Client.UI.Screens
         {
             if (IsGuest)
             {
-                UIClassicDialog.YesNo("Leave Lot?", "Do you want to leave your friend's lot and go back to your own neighborhood?", () => ExitLot());
+                UIClassicDialog.YesNo("Leave Lot?", ReduxTown.Active ? "Leave this lot and go back to the town?" : "Do you want to leave your friend's lot and go back to your own neighborhood?", () => ExitLot());
                 return;
             }
             if (UIClassicNeighborhoodBar.Enabled)
@@ -1363,20 +1365,18 @@ namespace Simitone.Client.UI.Screens
         /// Go to the server's town with one of your own Sims: the Sim is packed up from your own
         /// neighbourhood first, then the town is downloaded (if it changed) and shown.
         /// </summary>
-        public void EnterTown(uint simGUID)
+        public void EnterTown()
         {
             if (vm != null || TownBusy) return;
-            string error;
-            var join = ReduxGuest.MakeJoinPacket(ReduxTown.Name, simGUID, out error);
-            if (join == null)
-            {
-                UIClassicDialog.Ok("Couldn't Go to the Town", error);
-                return;
-            }
-            ReduxTown.JoinPacket = join;
-            ReduxTown.TravelSim = simGUID;
+            // your own families, packed up now (before the town replaces your neighbourhood),
+            // in case you move one of them into the town
+            try { ReduxTown.MyFamilies = ReduxFamilyPackage.FromCurrentNeighbourhood(); }
+            catch (Exception e) { ReduxOnlineInfo.Log("[town] couldn't list your families: " + e.Message); ReduxTown.MyFamilies.Clear(); }
             ShowTown("Going to the Town");
         }
+
+        /// <summary>Old way in (picked a single-player Sim): still goes to the town; the Sim isn't needed any more.</summary>
+        public void EnterTown(uint simGUID) { EnterTown(); }
 
         /// <summary>Fetch the town if needed, then put it on the neighbourhood screen.</summary>
         private void ShowTown(string title)
@@ -1445,13 +1445,109 @@ namespace Simitone.Client.UI.Screens
         public void TravelToTownHouse(short house)
         {
             if (vm != null || !ReduxTown.Active) return;
-            if (ReduxTown.JoinPacket == null)
+            HostAfterLoad = false;
+            if (house == ReduxTown.MyHouse)
             {
-                UIClassicDialog.Ok("Travel", "Pick the Sim you're bringing first: leave the town and go back in from the Online window.");
+                // home: you control your whole family there
+                JoinOnline(ReduxTown.LotAddress(house), ReduxGuest.MakeOwnerJoinPacket(ReduxTown.Name));
+                if (Guest != null) Guest.IsOwner = true;
                 return;
             }
-            HostAfterLoad = false;
-            JoinOnline(ReduxTown.LotAddress(house), ReduxTown.JoinPacket);
+            if (ReduxTown.MyFamily < 0)
+            {
+                UIClassicDialog.Ok("Visit", "Move your family into the town first: click an empty lot or a house for sale and choose Move In.");
+                return;
+            }
+            // visiting: one of your family goes
+            var members = MyTownFamily();
+            if (members.Count == 0)
+            {
+                UIClassicDialog.Ok("Visit", "Your family's Sims couldn't be found in the town.");
+                return;
+            }
+            Action<uint> go = (guid) =>
+            {
+                string error;
+                var join = ReduxGuest.MakeJoinPacket(ReduxTown.Name, guid, out error);
+                if (join == null) { UIClassicDialog.Ok("Visit", error); return; }
+                JoinOnline(ReduxTown.LotAddress(house), join);
+            };
+            if (members.Count == 1) { go(members[0].Item1); return; }
+            var buttons = new List<Tuple<string, Action>>();
+            foreach (var m in members.Take(5)) { var g = m.Item1; buttons.Add(Tuple.Create<string, Action>(m.Item2, () => go(g))); }
+            buttons.Add(Tuple.Create<string, Action>("Cancel", null));
+            UIClassicDialog.Show("Visit", "Who's going?", buttons.ToArray());
+        }
+
+        /// <summary>2C: your family's Sims in the town (id, first name).</summary>
+        private List<Tuple<uint, string>> MyTownFamily()
+        {
+            var list = new List<Tuple<uint, string>>();
+            try
+            {
+                var neigh = Content.Get().Neighborhood;
+                var fam = neigh.MainResource.List<FAMI>()?.FirstOrDefault(f => f.ChunkID == ReduxTown.MyFamily);
+                if (fam?.FamilyGUIDs == null) return list;
+                foreach (var guid in fam.FamilyGUIDs)
+                {
+                    var obj = Content.Get().WorldObjects.Get(guid);
+                    if (obj == null) continue;
+                    string n = null;
+                    try { n = obj.Resource.Get<CTSS>(obj.OBJ.CatalogStringsID)?.GetString(0); } catch { }
+                    list.Add(Tuple.Create(guid, string.IsNullOrWhiteSpace(n) ? obj.OBJ.ChunkLabel : n));
+                }
+            }
+            catch (Exception e) { ReduxOnlineInfo.Log("[town] couldn't list your family: " + e.Message); }
+            return list;
+        }
+
+        /// <summary>2C: move one of your families into an empty lot or house for sale in the town.</summary>
+        public void MoveIntoTown(short house)
+        {
+            if (vm != null || !ReduxTown.Active || TownBusy) return;
+            if (ReduxTown.MyFamily >= 0)
+            {
+                UIClassicDialog.Ok("Move In", "Your family already lives in the town. (Moving house comes later.)");
+                return;
+            }
+            var families = ReduxTown.MyFamilies;
+            if (families.Count == 0)
+            {
+                UIClassicDialog.Ok("Move In", "You don't have a family of your own yet. Make one in your own neighborhood (Create-A-Family), then come back to move them in.");
+                return;
+            }
+            int price = 0;
+            try { price = Content.Get().Neighborhood.GetHouse(house)?.Get<SIMI>(1)?.PurchaseValue ?? 0; } catch { }
+            Action<ReduxFamilyPackage> confirm = (fam) =>
+            {
+                if (fam.Budget < price)
+                {
+                    UIClassicDialog.Ok("Move In", "The " + fam.Name + " family has §" + fam.Budget.ToString("##,#0") + ", but this lot costs §" + price.ToString("##,#0") + ".");
+                    return;
+                }
+                UIClassicDialog.YesNo("Move In", "Move the " + fam.Name + " family (" + fam.Members.Count + " Sim" + (fam.Members.Count == 1 ? "" : "s") + ") in here for §" + price.ToString("##,#0") + "?\n\n"
+                    + "They're copied into the online town - your single-player family stays where it is. Online, only you can control them.",
+                    () => DoMoveIn(house, fam));
+            };
+            if (families.Count == 1) { confirm(families[0]); return; }
+            var buttons = new List<Tuple<string, Action>>();
+            foreach (var f in families.Take(5)) { var ff = f; buttons.Add(Tuple.Create<string, Action>("The " + f.Name + " family", () => confirm(ff))); }
+            buttons.Add(Tuple.Create<string, Action>("Cancel", null));
+            UIClassicDialog.Show("Move In", "Which of your families is moving into the town?", buttons.ToArray());
+        }
+
+        private void DoMoveIn(short house, ReduxFamilyPackage fam)
+        {
+            TownBusy = true;
+            var wait = UIClassicLoadScreen.ShowWaiting("Moving In", "The " + fam.Name + " family is moving in...", true);
+            ReduxTown.MoveIn(house, fam, (error) =>
+            {
+                wait?.Close();
+                TownBusy = false;
+                if (error != null) { UIClassicDialog.Ok("Move In", error); return; }
+                ReduxOnlineInfo.Log("[town] the " + fam.Name + " family moved into house " + house);
+                TravelToTownHouse(house); // straight home
+            });
         }
     }
 

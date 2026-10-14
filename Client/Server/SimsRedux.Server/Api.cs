@@ -119,6 +119,7 @@ namespace SimsRedux.Server
                 case "/api/town/info": if (req.Method == "GET") { await TownInfo(req, stream, cors); return; } break;
                 case "/api/town": if (req.Method == "GET") { await TownGet(req, stream, cors); return; } break;
                 case "/api/town/fresh": if (req.Method == "POST") { await TownFresh(req, stream, cors); return; } break;
+                case "/api/town/movein": if (req.Method == "POST") { await TownMoveIn(req, stream, cors); return; } break;
             }
             await HttpServer.SendJson(stream, 404, new { error = "Not found" }, cors);
         }
@@ -282,6 +283,8 @@ namespace SimsRedux.Server
                 ok = true,
                 name = a.Name,
                 stamp = Town.Stamp(),
+                mine = Owners.Of(a.Key) is Owners.Owner o ? new { family = o.Family, house = o.House, name = o.Name } : null,
+                owners = Owners.All().Values.Select(x => new { house = x.House, account = x.Account, name = x.Name }),
                 lots = (Lots?.Running() ?? new List<Lots.Worker>()).Select(w => new { house = w.House, players = w.Players, open = w.Ready }),
             }, cors);
         }
@@ -307,6 +310,49 @@ namespace SimsRedux.Server
                 if (TownAnnounced.Add(a.Key + stamp)) Log.Info(a.Name + " is getting the town (" + (bundle.Length / 1024) + " KB)");
             }
             await HttpServer.Send(stream, 200, "application/octet-stream", bundle, cors);
+        }
+
+        /// <summary>
+        /// Move a family into the town (2C). The body is the family (its Sims' files and details)
+        /// from the player's own neighbourhood; the lot is opened with it and the family moves in
+        /// there, buying the lot with its own money. One family per account.
+        /// </summary>
+        private async Task TownMoveIn(Request req, Stream stream, Dictionary<string, string> cors)
+        {
+            var a = Accounts.Check(req.BearerToken());
+            if (a == null) { await HttpServer.SendJson(stream, 401, new { error = "Log in first." }, cors); return; }
+            if (!short.TryParse(req.QueryValue("house"), out var house)) { await HttpServer.SendJson(stream, 400, new { error = "Which house?" }, cors); return; }
+            if (Owners.Of(a.Key) is Owners.Owner mine) { await HttpServer.SendJson(stream, 409, new { error = "Your family already lives in the town (house " + mine.House + ")." }, cors); return; }
+            if (req.Body.Length < 16 || req.Body[0] != 'S' || req.Body[1] != 'R' || req.Body[2] != 'X' || req.Body[3] != 'F')
+            { await HttpServer.SendJson(stream, 400, new { error = "That wasn't a family." }, cors); return; }
+            var fams = IffPeek.Families(Path.Combine(Lots.TownDir, "Neighborhood.iff"));
+            if (fams != null && fams.Houses.Contains(house)) { await HttpServer.SendJson(stream, 409, new { error = "Someone already lives there." }, cors); return; }
+            if (Lots.Running().Any(w => w.House == house)) { await HttpServer.SendJson(stream, 409, new { error = "Someone is on that lot right now - try again in a few minutes." }, cors); return; }
+
+            var dir = Path.Combine(Program.DataDir, "Town", "incoming");
+            Directory.CreateDirectory(dir);
+            var file = Path.Combine(dir, a.Key + "-" + DateTime.UtcNow.Ticks + ".srxf");
+            File.WriteAllBytes(file, req.Body);
+            Log.Info(a.Name + " is moving their family into house " + house + " (" + (req.Body.Length / 1024) + " KB)");
+
+            var w = Lots.Get(house, out var error, new[] { "-movein" + file, "-owner" + a.Name });
+            if (w == null) { await HttpServer.SendJson(stream, 503, new { error }, cors); return; }
+            // wait for the family to move in (the lot loads, adds them, buys the house) and the lot to open
+            var until = DateTime.UtcNow.AddSeconds(90);
+            while (DateTime.UtcNow < until && !w.Finished && (w.MovedInFamily < 0 || !w.Ready) && w.Problem == null) await Task.Delay(250);
+            try { File.Delete(file); } catch { }
+            if (w.MovedInFamily < 0)
+            {
+                var why = w.Problem ?? (w.Finished ? "the lot closed" : "it took too long");
+                Log.Warn("moving " + a.Name + "'s family in failed: " + why);
+                await HttpServer.SendJson(stream, 500, new { error = "Your family couldn't move in: " + why.Replace("error ", "") }, cors);
+                return;
+            }
+            var name = req.QueryValue("name") ?? "";
+            if (name.Length > 40) name = name.Substring(0, 40);
+            Owners.Set(a.Key, new Owners.Owner { Account = a.Name, Family = w.MovedInFamily, House = house, Name = name });
+            Log.Info(a.Name + "'s family (" + name + ") now lives in house " + house);
+            await HttpServer.SendJson(stream, 200, new { ok = true, family = w.MovedInFamily, house }, cors);
         }
 
         /// <summary>
@@ -379,7 +425,7 @@ namespace SimsRedux.Server
                         return;
                     }
                 }
-                if (await Relay(req, stream, w.Port, "house " + house)) return;
+                if (await Relay(req, stream, w.Port, "house " + house, WithAccount(req.Raw, who.Name))) return;
                 // it was open but didn't answer (closing at that very moment): start it again
                 Log.Info("online: house " + house + " didn't answer - reopening it");
                 await Lots.WaitExit(w, TimeSpan.FromSeconds(30));
@@ -395,10 +441,27 @@ namespace SimsRedux.Server
         /// Until lots run on this server (the next step), a lot hosted from the game on this PC is
         /// reached through here: the connection is handed to the game unchanged, both ways.
         /// </summary>
-        private Task RelayLot(Request req, Stream stream) => Relay(req, stream, Config.GameHostPort, null);
+        private Task RelayLot(Request req, Stream stream) => Relay(req, stream, Config.GameHostPort, null, null);
+
+        /// <summary>
+        /// The request passed on to a town lot, with a line saying which account this is (any such
+        /// line the player's own game sent is removed first, so nobody can pretend to be someone else).
+        /// </summary>
+        private static byte[] WithAccount(byte[] raw, string account)
+        {
+            var text = Encoding.ASCII.GetString(raw);
+            var end = text.IndexOf("\r\n\r\n", StringComparison.Ordinal);
+            if (end < 0) return raw;
+            var lines = text.Substring(0, end).Split("\r\n").Where(l => !l.StartsWith("X-Redux-Account", StringComparison.OrdinalIgnoreCase)).ToList();
+            var safe = new string((account ?? "").Where(c => c >= 32 && c < 127).ToArray());
+            lines.Insert(1, "X-Redux-Account: " + safe);
+            var head = Encoding.ASCII.GetBytes(string.Join("\r\n", lines) + "\r\n\r\n");
+            var rest = raw.AsSpan(Encoding.ASCII.GetByteCount(text.Substring(0, end + 4))).ToArray();
+            return head.Concat(rest).ToArray();
+        }
 
         /// <summary>Passes the connection through to a lot on this PC. False if nothing answered there (and nothing was sent yet for a town lot).</summary>
-        private async Task<bool> Relay(Request req, Stream stream, int port, string what)
+        private async Task<bool> Relay(Request req, Stream stream, int port, string what, byte[] raw)
         {
             using var game = new TcpClient();
             try
@@ -420,7 +483,7 @@ namespace SimsRedux.Server
             {
                 game.NoDelay = true;
                 var gs = game.GetStream();
-                await gs.WriteAsync(req.Raw);
+                await gs.WriteAsync(raw ?? req.Raw);
                 var a = stream.CopyToAsync(gs);
                 var b = gs.CopyToAsync(stream);
                 await Task.WhenAny(a, b);

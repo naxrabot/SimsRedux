@@ -82,6 +82,9 @@ namespace SimsRedux.Server
     public class HttpServer
     {
         private const int MaxHeader = 16 * 1024, MaxBody = 64 * 1024, MaxOpen = 400;
+        /// <summary>Moving a family into the town sends its Sims' files (checked for a login once read).</summary>
+        private const int MaxFamilyBody = 16 * 1024 * 1024;
+        private static int BodyLimit(Request req) => (req.Method == "POST" && req.Path == "/api/town/movein") ? MaxFamilyBody : MaxBody;
         private TcpListener Listener;
         private readonly Func<Request, Stream, TcpClient, Task> Handle;
         private readonly CancellationTokenSource Stop = new CancellationTokenSource();
@@ -179,7 +182,7 @@ namespace SimsRedux.Server
             if ((req.Header("Transfer-Encoding") ?? "").IndexOf("chunked", StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 // Cloudflare can pass a request body along in chunks instead of saying its length
-                var body = await ReadChunked(stream, buf, bodyStart, len, cts.Token);
+                var body = await ReadChunked(stream, buf, bodyStart, len, cts.Token, BodyLimit(req));
                 if (body == null) return null;
                 req.Body = body;
                 req.Raw = buf.AsSpan(0, bodyStart).ToArray();
@@ -187,7 +190,14 @@ namespace SimsRedux.Server
             else
             {
                 int.TryParse(req.Header("Content-Length") ?? "0", out var contentLength);
-                if (contentLength < 0 || contentLength > MaxBody) return null;
+                if (contentLength < 0 || contentLength > BodyLimit(req)) return null;
+                if (bodyStart + contentLength > buf.Length)
+                {
+                    // a big body (a family moving in): a bigger buffer for this one request
+                    var bigger = new byte[bodyStart + contentLength];
+                    Buffer.BlockCopy(buf, 0, bigger, 0, len);
+                    buf = bigger;
+                }
                 while (len - bodyStart < contentLength)
                 {
                     int n = await stream.ReadAsync(buf.AsMemory(len, bodyStart + contentLength - len), cts.Token);
@@ -210,7 +220,7 @@ namespace SimsRedux.Server
         }
 
         /// <summary>Reads a "chunked" body: [size in hex]\r\n[data]\r\n ... 0\r\n\r\n. Null if it's too big or broken.</summary>
-        private static async Task<byte[]> ReadChunked(Stream stream, byte[] buf, int start, int len, CancellationToken ct)
+        private static async Task<byte[]> ReadChunked(Stream stream, byte[] buf, int start, int len, CancellationToken ct, int limit)
         {
             var pending = new MemoryStream();
             pending.Write(buf, start, len - start);
@@ -234,7 +244,7 @@ namespace SimsRedux.Server
                 if (!int.TryParse(sizeText, System.Globalization.NumberStyles.HexNumber, null, out var size) || size < 0) return null;
                 pos += lineEnd + 2;
                 if (size == 0) return body.ToArray();
-                if (body.Length + size > MaxBody) return null;
+                if (body.Length + size > limit) return null;
                 // the chunk and its \r\n
                 while (pending.Length - pos < size + 2)
                 {

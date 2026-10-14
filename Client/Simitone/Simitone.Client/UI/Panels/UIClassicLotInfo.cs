@@ -243,13 +243,26 @@ namespace Simitone.Client.UI.Panels
             {
                 bool lived = info.Occupied, community = false;
                 try { community = GetHover(houseID).Community; } catch { }
-                if (!lived && !community)
+                var screen = FSO.Client.UI.Framework.UIScreen.Current as TS1GameScreen;
+                if (houseID == Simitone.Client.Utils.ReduxTown.MyHouse)
                 {
-                    UIClassicDialog.Ok(title, (message.Length > 0 ? message + "\n\n" : "") + "Nobody lives here yet, so there's nothing to visit. (Moving in and building in the town come later.)");
+                    UIClassicDialog.Show(title, (message.Length > 0 ? message + "\n\n" : "") + "This is your family's home.",
+                        Tuple.Create("Go Home", (Action)(() => select(houseID))),
+                        Tuple.Create("Cancel", (Action)null));
                     return;
                 }
+                if (lived || community)
+                {
+                    string who = null;
+                    if (lived && Simitone.Client.Utils.ReduxTown.HouseOwners.TryGetValue(houseID, out var owner)) who = owner + "'s family lives here.";
+                    UIClassicDialog.Show(title, (message.Length > 0 ? message + "\n\n" : "") + (who ?? ""),
+                        Tuple.Create("Visit", (Action)(() => select(houseID))),
+                        Tuple.Create("Cancel", (Action)null));
+                    return;
+                }
+                // an empty lot or a house for sale: move your family in
                 UIClassicDialog.Show(title, message,
-                    Tuple.Create("Travel Here", (Action)(() => select(houseID))),
+                    Tuple.Create("Move In", (Action)(() => screen?.MoveIntoTown((short)houseID))),
                     Tuple.Create("Cancel", (Action)null));
                 return;
             }

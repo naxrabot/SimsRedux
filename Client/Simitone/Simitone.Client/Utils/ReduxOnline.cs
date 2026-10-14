@@ -179,6 +179,12 @@ namespace Simitone.Client.Utils
         public VMNetClient Client;
         public string PlayerName = "";
         public DateTime Opened = DateTime.UtcNow;
+        /// <summary>The account the dedicated server says this is (town lots only), or null.</summary>
+        public string Account;
+        /// <summary>2C: this player owns the family living on this lot (and controls them).</summary>
+        public bool IsOwner;
+        public short OwnerFamily = -1;
+        public DateTime LastControlTry;
 
         private Task SendChain = Task.CompletedTask;
         private readonly object SendLock = new object();
@@ -317,7 +323,8 @@ namespace Simitone.Client.Utils
             Port = port;
             try
             {
-                Listener = new TcpListener(IPAddress.Any, port);
+                // a lot on the dedicated server only takes connections passed on by the server itself
+                Listener = new TcpListener(ReduxWorker.Active ? IPAddress.Loopback : IPAddress.Any, port);
                 if (OperatingSystem.IsWindows()) Listener.ExclusiveAddressUse = true; // never quietly share a port with the dedicated server
                 Listener.Start();
             }
@@ -383,7 +390,7 @@ namespace Simitone.Client.Utils
                     if (c > 16384) throw new Exception("handshake too long");
                 }
                 var text = Encoding.ASCII.GetString(header.ToArray());
-                string key = null, realIP = null;
+                string key = null, realIP = null, account = null;
                 foreach (var line in text.Split(new[] { "\r\n" }, StringSplitOptions.None))
                 {
                     var colon = line.IndexOf(':');
@@ -392,6 +399,7 @@ namespace Simitone.Client.Utils
                     var value = line.Substring(colon + 1).Trim();
                     if (name == "sec-websocket-key") key = value;
                     else if (name == "cf-connecting-ip" || (name == "x-forwarded-for" && realIP == null)) realIP = value.Split(',')[0].Trim();
+                    else if (name == "x-redux-account" && ReduxWorker.Active) account = value; // added by the dedicated server
                 }
                 if (key == null)
                 {
@@ -415,6 +423,7 @@ namespace Simitone.Client.Utils
                 });
                 var sock = new ReduxSocket(ws);
                 sock.RemoteIP = realIP ?? ((tcp.Client.RemoteEndPoint as IPEndPoint)?.Address.ToString() ?? "?");
+                sock.Account = account;
                 sock.Start();
                 Pending.Enqueue(sock);
             }
@@ -483,6 +492,7 @@ namespace Simitone.Client.Utils
                         sock.Close("Your game sent something the host couldn't read.");
                     }
                 }
+                if (sock.IsOwner && sock.Client != null && !sock.Closed) GiveOwnerASim(sock);
                 if (sock.Client == null && !sock.Closed && (DateTime.UtcNow - sock.Opened).TotalSeconds > 60)
                     sock.Close("Took too long to join.");
                 if (sock.Closed)
@@ -490,6 +500,7 @@ namespace Simitone.Client.Utils
                     lock (Sockets) Sockets.Remove(sock);
                     if (sock.Client != null)
                     {
+                        vm.ReduxFamilyControl.Remove(sock.Client.PersistID);
                         Driver.DisconnectClient(sock.Client);
                         OnNotice?.Invoke(sock.PlayerName + " left.");
                         ReduxOnlineInfo.Log(sock.PlayerName + " left (" + sock.CloseReason + ")");
@@ -514,7 +525,8 @@ namespace Simitone.Client.Utils
                     var msg = ReduxOnlineInfo.UnpackVM(data);
                     if (msg.Type != VMNetMessageType.Command || msg.Data.Length == 0) return;
                     var cmd = (VMCommandType)msg.Data[0];
-                    if (!GuestCommands.Contains(cmd)) return; // friends can't buy, build or change the time
+                    // friends can't buy, build or change the time - the family's owner can, on their own lot
+                    if (!sock.IsOwner && !GuestCommands.Contains(cmd)) return;
                     if (cmd == VMCommandType.RequestResync)
                     {
                         // their game went out of step: send a fresh neighbourhood before the fresh lot
@@ -554,6 +566,47 @@ namespace Simitone.Client.Utils
             if (version != ReduxOnlineInfo.Version)
             {
                 sock.Close("Your game is a different version from the host's. Both of you need the latest update.");
+                return;
+            }
+
+            // ---- 2C: lots in the online town ----
+            if (ReduxWorker.Active)
+            {
+                var owned = ReduxWorker.OwnedFamily(sock.Account);
+                var homeFamily = vm.TS1State?.CurrentFamily;
+                if (guid == 0)
+                {
+                    // coming home: the family living here must be this player's
+                    if (owned < 0 || homeFamily == null || homeFamily.ChunkID != owned)
+                    {
+                        sock.Close("This isn't your family's home.");
+                        return;
+                    }
+                    JoinAsOwner(sock, name, (short)owned);
+                    return;
+                }
+                // visiting: only with a Sim from your own family in the town
+                var neighTown = Content.Get().Neighborhood;
+                var tnid = neighTown.GetNeighborIDForGUID(guid);
+                var tnb = (tnid == null) ? null : neighTown.GetNeighborByID(tnid.Value);
+                var simFamily = (tnb?.PersonData != null && tnb.PersonData.Length > (int)VMPersonDataVariable.TS1FamilyNumber) ? tnb.PersonData[(int)VMPersonDataVariable.TS1FamilyNumber] : -1;
+                if (owned < 0 || tnb == null || simFamily != owned)
+                {
+                    sock.Close(owned < 0 ? "Move your family into the online town first: click an empty lot or a house for sale."
+                        : "You can only visit with a Sim from your own family.");
+                    return;
+                }
+                if (homeFamily != null && homeFamily.ChunkID == owned)
+                {
+                    sock.Close("That's your own home - choose Go Home instead.");
+                    return;
+                }
+                if (vm.Entities.Any(x => x is VMAvatar && x.Object?.OBJ?.GUID == guid))
+                {
+                    sock.Close("That Sim is already here.");
+                    return;
+                }
+                JoinAsTownVisitor(sock, name, guid);
                 return;
             }
 
@@ -648,6 +701,77 @@ namespace Simitone.Client.Utils
             ReduxOnlineInfo.Log(name + " joined from " + sock.RemoteIP + " with Sim " + guid.ToString("X8") + " as player " + id);
         }
 
+        /// <summary>2C: the family's owner comes home and takes control of their family (not a visiting Sim).</summary>
+        private void JoinAsOwner(ReduxSocket sock, string name, short family)
+        {
+            var id = NextID++;
+            sock.Send(ReduxOnlineInfo.Pack(ReduxPacket.Welcome, w => { w.Write(id); w.Write("home"); }));
+            sock.Send(BuildHoodPacket());
+            var client = new VMNetClient()
+            {
+                PersistID = id,
+                RemoteIP = sock.RemoteIP,
+                AvatarState = new VMNetAvatarPersistState()
+                {
+                    Name = name,
+                    PersistID = id,
+                    CustomGUID = 0, // no visitor: one of the family is handed over instead
+                    DefaultSuits = new VMAvatarDefaultSuits(false),
+                    Permissions = FSO.SimAntics.Model.TSOPlatform.VMTSOAvatarPermissions.Owner,
+                },
+                NetHandle = sock,
+            };
+            sock.Client = client;
+            sock.IsOwner = true;
+            sock.OwnerFamily = family;
+            vm.ReduxFamilyControl[id] = family;
+            Driver.ConnectClient(client);
+            OnNotice?.Invoke(name + " came home.");
+            ReduxOnlineInfo.Log(name + " (" + sock.Account + ") came home to their family (family " + family + ") as player " + id);
+        }
+
+        /// <summary>2C: visiting another lot with one of your own town family's Sims (already in everyone's town).</summary>
+        private void JoinAsTownVisitor(ReduxSocket sock, string name, uint guid)
+        {
+            var id = NextID++;
+            sock.Send(ReduxOnlineInfo.Pack(ReduxPacket.Welcome, w => { w.Write(id); w.Write("the lot"); }));
+            sock.Send(BuildHoodPacket());
+            var client = new VMNetClient()
+            {
+                PersistID = id,
+                RemoteIP = sock.RemoteIP,
+                AvatarState = new VMNetAvatarPersistState()
+                {
+                    Name = name,
+                    PersistID = id,
+                    CustomGUID = guid,
+                    DefaultSuits = new VMAvatarDefaultSuits(false),
+                    Permissions = FSO.SimAntics.Model.TSOPlatform.VMTSOAvatarPermissions.Visitor,
+                },
+                NetHandle = sock,
+            };
+            sock.Client = client;
+            Driver.ConnectClient(client);
+            OnNotice?.Invoke(name + " is visiting.");
+            ReduxOnlineInfo.Log(name + " (" + sock.Account + ") is visiting with Sim " + guid.ToString("X8") + " as player " + id);
+        }
+
+        /// <summary>2C: an owner without a Sim to control gets one of their family (when one is on the lot).</summary>
+        private void GiveOwnerASim(ReduxSocket sock)
+        {
+            if ((DateTime.UtcNow - sock.LastControlTry).TotalSeconds < 2) return;
+            sock.LastControlTry = DateTime.UtcNow;
+            var id = sock.Client.PersistID;
+            if (vm.GetAvatarByPersist(id) != null) return;
+            var sim = vm.Context.ObjectQueries.Avatars.FirstOrDefault(x => !x.Dead && !x.IsPet
+                && x.GetPersonData(VMPersonDataVariable.TS1FamilyNumber) == sock.OwnerFamily
+                && x.PersistID < ReduxOnlineInfo.FirstGuestID
+                && x.Position != FSO.LotView.Model.LotTilePos.OUT_OF_WORLD
+                && (x.GetValue(VMStackObjectVariable.MovementFlags) & (short)VMMovementFlags.FSOExcludeUserSave) == 0);
+            if (sim == null) return;
+            Driver.SendCommand(new FSO.SimAntics.NetPlay.Model.Commands.VMNetChangeControlCmd() { ActorUID = id, TargetID = sim.ObjectID });
+        }
+
         private bool GuidTaken(uint guid)
         {
             var neigh = Content.Get().Neighborhood;
@@ -668,7 +792,7 @@ namespace Simitone.Client.Utils
         }
 
         /// <summary>Gives the Sim in a character file a new id, returning the new file.</summary>
-        private static byte[] Reguid(string path, uint oldGuid, uint newGuid)
+        internal static byte[] Reguid(string path, uint oldGuid, uint newGuid)
         {
             try
             {
@@ -821,6 +945,21 @@ namespace Simitone.Client.Utils
         public bool Connecting { get => _connecting; private set => _connecting = value; }
 
         public static string HoodFolder { get { return Path.Combine(FSOEnvironment.UserDir, "OnlineHood/"); } }
+
+        /// <summary>2C: coming home to your own family's lot (you control them; no visiting Sim).</summary>
+        public bool IsOwner;
+
+        public static byte[] MakeOwnerJoinPacket(string playerName)
+        {
+            return ReduxOnlineInfo.Pack(ReduxPacket.Join, w =>
+            {
+                w.Write(ReduxOnlineInfo.Version);
+                w.Write(playerName ?? "Player");
+                w.Write(0u);  // no Sim: one of the family is handed over
+                w.Write(0);   // no character file
+                w.Write(0);   // no person data
+            });
+        }
 
         /// <summary>Builds the "here's me and my Sim" packet. Must be made before the host's neighbourhood replaces ours.</summary>
         public static byte[] MakeJoinPacket(string playerName, uint simGUID, out string error)

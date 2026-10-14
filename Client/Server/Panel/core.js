@@ -195,6 +195,8 @@ const COMMANDS = [
     ["/town fresh", "brand-new town: the game's Neighbourhood 1 with its starting families"],
     ["/town fresh empty", "brand-new town with houses but no families"],
     ["/town sources", "every neighbourhood found, with its families"],
+    ["/town owners", "which account's family lives where"],
+    ["/town disown <account>", "take a town family away from an account"],
     ["/town import [folder]", "copy a neighbourhood in as the town — empty = your Neighborhood 1"],
     ["/lots", "lots open right now, with who's on them"],
     ["/lots open <house>", "open a lot (players can also just travel there)"],

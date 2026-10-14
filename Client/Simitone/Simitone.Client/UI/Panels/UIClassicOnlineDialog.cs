@@ -202,11 +202,10 @@ namespace Simitone.Client.UI.Panels
             {
                 var screen = UIScreen.Current as TS1GameScreen;
                 if (screen == null) return;
-                var last = (uint)ReduxSettings.GetInt("onlinesim", 0);
-                if (ReduxTown.LoggedIn && last != 0 && ListSims().Any(x => x.Item1 == last))
+                if (ReduxTown.LoggedIn)
                 {
                     screen.HostAfterLoad = false;
-                    screen.EnterTown(last);
+                    screen.EnterTown();
                 }
                 else Show();
             });
@@ -242,7 +241,7 @@ namespace Simitone.Client.UI.Panels
         }
 
         /// <summary>The Sim buttons show on the Join page, and on the Town page once logged in.</summary>
-        private bool SimsShowing { get { return Page == JoinTab || (Page == TownTab && ReduxTown.LoggedIn); } }
+        private bool SimsShowing { get { return Page == JoinTab; } }
 
         private void SetPage(int page)
         {
@@ -277,11 +276,9 @@ namespace Simitone.Client.UI.Panels
         {
             var screen = UIScreen.Current as TS1GameScreen;
             if (screen == null) return;
-            if (PickedSim == 0) { UIClassicDialog.Ok("The Town", "Pick the Sim you'll bring when you visit houses in the town."); return; }
-            ReduxSettings.Set("onlinesim", (int)PickedSim);
             Close();
             screen.HostAfterLoad = false;
-            screen.EnterTown(PickedSim);
+            screen.EnterTown();
         }
 
         private void StartHost()
@@ -365,9 +362,9 @@ namespace Simitone.Client.UI.Panels
             else if (Page == TownTab)
             {
                 Line(batch, "Logged in as " + ReduxTown.Name, 110, Heading);
-                Line(batch, "The town is shared by everyone on the server. Click a house there to travel to it.", 136, Body);
-                Line(batch, "Your own neighborhood stays as it is. Leave Town brings you back.", 156, Body);
-                Line(batch, Sims.Count == 0 ? "You need a family living in a house first." : "Pick the Sim you'll bring", 182, Heading);
+                Line(batch, "The town is shared by everyone on the server. Move one of your families into", 136, Body);
+                Line(batch, "an empty lot or a house for sale, then click houses to go home or visit.", 156, Body);
+                Line(batch, "Your own neighborhood stays as it is. Leave Town brings you back.", 176, Body);
             }
             else if (Page == HostTab && !ReduxPlatform.CanHost)
             {

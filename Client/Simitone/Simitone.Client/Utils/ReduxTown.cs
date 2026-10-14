@@ -30,6 +30,17 @@ namespace Simitone.Client.Utils
         public static byte[] JoinPacket;
         public static uint TravelSim;
 
+        // ---- 2C: your family in the town ----
+        /// <summary>The house your family lives in, in the town (0 = you haven't moved in yet).</summary>
+        public static int MyHouse;
+        /// <summary>Your family's number in the town (-1 = none).</summary>
+        public static int MyFamily = -1;
+        public static string MyFamilyName = "";
+        /// <summary>Who lives where: house number -> account name (the other players' families).</summary>
+        public static Dictionary<int, string> HouseOwners = new Dictionary<int, string>();
+        /// <summary>Your own single-player families, packed up when you went to the town (to move one in).</summary>
+        public static List<ReduxFamilyPackage> MyFamilies = new List<ReduxFamilyPackage>();
+
         public static string Folder { get { return Path.Combine(FSOEnvironment.UserDir, "OnlineTown/"); } }
 
         private static readonly HttpClient Http = new HttpClient() { Timeout = TimeSpan.FromMinutes(5) };
@@ -114,6 +125,53 @@ namespace Simitone.Client.Utils
             }, done);
         }
 
+        private static void ReadOwnership(JsonElement? json)
+        {
+            MyHouse = 0; MyFamily = -1; MyFamilyName = "";
+            var owners = new Dictionary<int, string>();
+            try
+            {
+                if (json != null && json.Value.TryGetProperty("mine", out var mine) && mine.ValueKind == JsonValueKind.Object)
+                {
+                    MyHouse = mine.GetProperty("house").GetInt32();
+                    MyFamily = mine.GetProperty("family").GetInt32();
+                    MyFamilyName = mine.TryGetProperty("name", out var n) ? (n.GetString() ?? "") : "";
+                }
+                if (json != null && json.Value.TryGetProperty("owners", out var list) && list.ValueKind == JsonValueKind.Array)
+                    foreach (var o in list.EnumerateArray())
+                        owners[o.GetProperty("house").GetInt32()] = o.TryGetProperty("account", out var a) ? (a.GetString() ?? "") : "";
+            }
+            catch (Exception e) { ReduxOnlineInfo.Log("[town] couldn't read who lives where: " + e.Message); }
+            HouseOwners = owners;
+        }
+
+        /// <summary>
+        /// 2C: moves one of your families into a house in the town (the server opens the lot and they
+        /// move in, paying for it). done(null) on success.
+        /// </summary>
+        public static void MoveIn(int house, ReduxFamilyPackage family, Action<string> done)
+        {
+            var body = family.ToBytes();
+            Run(async () =>
+            {
+                var req = new HttpRequestMessage(HttpMethod.Post, Server + "/api/town/movein?house=" + house + "&name=" + Uri.EscapeDataString(family.Name ?? ""));
+                var token = Token;
+                if (token.Length > 0) req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                req.Content = new ByteArrayContent(body);
+                req.Content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+                using (var resp = await Http.SendAsync(req))
+                {
+                    var json = Parse(await resp.Content.ReadAsStringAsync());
+                    if (!resp.IsSuccessStatusCode) return Error(json, "The server said no (" + (int)resp.StatusCode + ").");
+                    MyHouse = house;
+                    MyFamilyName = family.Name;
+                    if (json != null && json.Value.TryGetProperty("family", out var f)) MyFamily = f.GetInt32();
+                    ReduxSettings.Set("townstamp", ""); // the town changed
+                    return null;
+                }
+            }, done);
+        }
+
         // ---- the town's files ----
 
         /// <summary>
@@ -135,6 +193,7 @@ namespace Simitone.Client.Utils
                 }
                 if (!info.IsSuccessStatusCode) return Error(json, "The server couldn't send the town (" + (int)info.StatusCode + ").");
                 var stamp = Get(json, "stamp") ?? "";
+                ReadOwnership(json);
 
                 bool have = stamp.Length > 0 && stamp == ReduxSettings.GetString("townstamp", "")
                     && FSOFile.Exists(Path.Combine(Folder, "Neighborhood.iff"));

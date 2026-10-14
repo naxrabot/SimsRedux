@@ -21,6 +21,8 @@ namespace SimsRedux.Server
             public int Players;
             public string Who = "";
             public string Problem;
+            /// <summary>Set when a family moved in on this lot (its family number in the town).</summary>
+            public int MovedInFamily = -1;
         }
 
         private readonly ServerConfig Config;
@@ -75,7 +77,10 @@ namespace SimsRedux.Server
         }
 
         /// <summary>The worker for a house, starting one if it isn't open. Null (with a reason) if it can't.</summary>
-        public Worker Get(short house, out string error)
+        public Worker Get(short house, out string error) => Get(house, out error, null);
+
+        /// <summary>Opens a lot (or gives the one that's open). extraArgs: more for the game, e.g. moving a family in.</summary>
+        public Worker Get(short house, out string error, string[] extraArgs)
         {
             error = null;
             lock (Lock)
@@ -102,6 +107,7 @@ namespace SimsRedux.Server
                 };
                 foreach (var a in new[] { "-path" + Config.GameFolder.TrimEnd('\\', '/'), "-worker", "-house" + house, "-port" + port, "-town" + TownDir })
                     psi.ArgumentList.Add(a);
+                if (extraArgs != null) foreach (var a in extraArgs) psi.ArgumentList.Add(a);
                 try { w.Process = Process.Start(psi); }
                 catch (Exception e) { error = "couldn't start the game for this lot: " + e.Message; return null; }
                 Open[house] = w;
@@ -152,6 +158,7 @@ namespace SimsRedux.Server
                 return;
             }
             if (text.StartsWith("error")) { w.Problem = text; Log.Warn("lot " + w.House + ": " + text); return; }
+            if (text.StartsWith("movedin ") && int.TryParse(text.Substring(8).Trim(), out var fam)) { w.MovedInFamily = fam; Log.Info("lot " + w.House + ": a family moved in (family " + fam + ")"); return; }
             if (text.StartsWith("closing")) w.Closing = true; // new arrivals wait for it to finish, then it reopens
             if (text == "saved") return; // every few minutes - not worth a line each time
             Log.Info("lot " + w.House + ": " + text);

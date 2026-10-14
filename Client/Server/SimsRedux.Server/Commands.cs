@@ -43,6 +43,8 @@ namespace SimsRedux.Server
             new[] { "/town fresh", "start a brand-new town: the game's Neighbourhood 1 with its starting families (the old one goes to backups/)" },
             new[] { "/town fresh empty", "start a brand-new town with houses but no families" },
             new[] { "/town sources", "every neighbourhood the server can find, with how many families live in it" },
+            new[] { "/town owners", "which account's family lives in which house" },
+            new[] { "/town disown <account>", "the account no longer owns its town family (they stay as a town family)" },
             new[] { "/town import [folder]", "copy a neighbourhood in as the town (default: your Neighborhood 1)" },
             new[] { "/lots", "lots that are open right now, with who's on them" },
             new[] { "/lots open <house>", "open a lot (players can also just travel there)" },
@@ -190,6 +192,21 @@ namespace SimsRedux.Server
                     if (Arg(1)?.ToLowerInvariant() == "import") { Log.Reply(Lots.ImportTown(Rest(2).Trim('"'))); break; }
                     if (Arg(1)?.ToLowerInvariant() == "fresh") { Log.Reply("setting up a fresh town (this can take a minute)..."); Log.Reply(Lots.FreshTown(Arg(2)?.ToLowerInvariant() == "empty")); break; }
                     if (Arg(1)?.ToLowerInvariant() == "sources") { Log.Reply(Lots.Sources()); break; }
+                    if (Arg(1)?.ToLowerInvariant() == "owners")
+                    {
+                        var owners = Owners.All();
+                        Log.Reply(owners.Count == 0 ? "no player families in the town yet"
+                            : string.Join("\n", owners.Values.OrderBy(o => o.House).Select(o => "house " + o.House + ": " + o.Account + " (the " + o.Name + " family, family " + o.Family + ")")));
+                        break;
+                    }
+                    if (Arg(1)?.ToLowerInvariant() == "disown")
+                    {
+                        var key = Accounts.KeyOf(Rest(2));
+                        if (Owners.Of(key) == null) { Log.Reply(Rest(2) + " doesn't own a family in the town"); break; }
+                        Owners.Set(key, null);
+                        Log.Reply(Rest(2) + " no longer owns their town family");
+                        break;
+                    }
                     if (!Lots.TownReady) { Log.Reply("no town yet - start one with  /town fresh"); break; }
                     {
                         var houses = Lots.Houses();
