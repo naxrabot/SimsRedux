@@ -22,6 +22,7 @@ namespace Simitone.Client.Utils
         public static bool TryCheat(string text)
         {
             var t = (text ?? "").Trim().ToLowerInvariant();
+            if (t == "freshneighborhood" || t == "freshneighbourhood") { ReduxFreshHood.Ask(false); return true; }
             if (t != "debugredux" && t != "debugredux on" && t != "debugredux off") return false;
             Enabled = t != "debugredux off";
             UIClassicDialog.Ok("Redux Debug", Enabled

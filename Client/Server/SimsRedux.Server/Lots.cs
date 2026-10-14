@@ -278,9 +278,12 @@ namespace SimsRedux.Server
             }
             int sims = 0;
             try { sims = Directory.GetFiles(Path.Combine(TownDir, "Characters"), "*.iff").Length; } catch { }
-            Log.Info("a fresh town was set up from " + source);
-            return "fresh town set up from " + source + ": " + Houses().Count + " houses, " + sims + " Sims"
-                + (empty ? " (no families)" : " (the game's starting families - if your own old Sims 1 families show up, this Sims folder has been played in; use /town fresh empty)");
+            var fam = IffPeek.Families(Path.Combine(TownDir, "Neighborhood.iff"));
+            Log.Info("a fresh town was set up from " + source + " - " + IffPeek.Describe(TownDir));
+            var reply = "fresh town set up from " + source + ": " + Houses().Count + " houses, " + sims + " Sims, " + IffPeek.Describe(TownDir);
+            if (!empty && (fam == null || fam.InHouses == 0))
+                reply += "\nThat neighbourhood has no families living in houses. Type  /town sources  to see every neighbourhood found, then  /town import <folder>  to use one that has them.";
+            return reply;
         }
 
         /// <summary>
@@ -298,6 +301,38 @@ namespace SimsRedux.Server
                 var src = Path.Combine(from, sub);
                 if (Directory.Exists(src)) Copy(src, Path.Combine(to, sub));
             }
+        }
+
+        /// <summary>Every neighbourhood folder the server can find, with its families (to pick one for the town).</summary>
+        public string Sources()
+        {
+            var found = new List<string>();
+            void Look(string dir)
+            {
+                try
+                {
+                    if (!File.Exists(Path.Combine(dir, "Neighborhood.iff"))) return;
+                    found.Add(dir + "\n      " + IffPeek.Describe(dir));
+                }
+                catch { }
+            }
+            var game = (Config.GameFolder ?? "").Trim().Trim('"');
+            if (Directory.Exists(game))
+            {
+                foreach (var d in Directory.GetDirectories(game).OrderBy(x => x)) Look(d);
+            }
+            var docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            foreach (var d in new[] { Path.Combine(docs, "Simitone"), Path.Combine(docs, "EA Games"), Path.Combine(docs, "Electronic Arts") })
+            {
+                if (!Directory.Exists(d)) continue;
+                try { foreach (var u in Directory.GetDirectories(d, "*", SearchOption.AllDirectories).Take(400)) Look(u); } catch { }
+            }
+            var backups = Path.Combine(Program.DataDir, "backups");
+            if (Directory.Exists(backups))
+                foreach (var b in Directory.GetDirectories(backups, "town-*").OrderBy(x => x)) Look(Path.Combine(b, "UserData"));
+            Look(TownDir);
+            if (found.Count == 0) return "no neighbourhoods found";
+            return "neighbourhoods found (use one with  /town import <folder>):\n  " + string.Join("\n  ", found);
         }
 
         private static void Copy(string from, string to)

@@ -1402,6 +1402,14 @@ namespace Simitone.Client.UI.Screens
             });
         }
 
+        /// <summary>SimsRedux: rebuild the neighbourhood screen (after the neighbourhood itself was replaced).</summary>
+        public void RefreshNeighbourhoodScreen()
+        {
+            if (vm != null) return;
+            if (TS1NeighPanel != null) { Remove(TS1NeighPanel); TS1NeighPanel = null; }
+            NeighSelection(NeighSelectionMode.Normal);
+        }
+
         /// <summary>Back to your own neighbourhood from the town.</summary>
         public void LeaveTown()
         {

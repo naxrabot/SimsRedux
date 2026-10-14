@@ -42,6 +42,7 @@ namespace SimsRedux.Server
             new[] { "/town", "the online town: its houses and which are open" },
             new[] { "/town fresh", "start a brand-new town: the game's Neighbourhood 1 with its starting families (the old one goes to backups/)" },
             new[] { "/town fresh empty", "start a brand-new town with houses but no families" },
+            new[] { "/town sources", "every neighbourhood the server can find, with how many families live in it" },
             new[] { "/town import [folder]", "copy a neighbourhood in as the town (default: your Neighborhood 1)" },
             new[] { "/lots", "lots that are open right now, with who's on them" },
             new[] { "/lots open <house>", "open a lot (players can also just travel there)" },
@@ -187,12 +188,13 @@ namespace SimsRedux.Server
 
                 case "/town":
                     if (Arg(1)?.ToLowerInvariant() == "import") { Log.Reply(Lots.ImportTown(Rest(2).Trim('"'))); break; }
-                    if (Arg(1)?.ToLowerInvariant() == "fresh") { Log.Reply(Lots.FreshTown(Arg(2)?.ToLowerInvariant() == "empty")); break; }
+                    if (Arg(1)?.ToLowerInvariant() == "fresh") { Log.Reply("setting up a fresh town (this can take a minute)..."); Log.Reply(Lots.FreshTown(Arg(2)?.ToLowerInvariant() == "empty")); break; }
+                    if (Arg(1)?.ToLowerInvariant() == "sources") { Log.Reply(Lots.Sources()); break; }
                     if (!Lots.TownReady) { Log.Reply("no town yet - start one with  /town fresh"); break; }
                     {
                         var houses = Lots.Houses();
                         var open = Lots.Running().ToDictionary(w => w.House);
-                        Log.Reply("town: " + Lots.TownDir + "\n" + houses.Count + " houses: " +
+                        Log.Reply("town: " + Lots.TownDir + "\n" + IffPeek.Describe(Lots.TownDir) + "\n" + houses.Count + " houses: " +
                             string.Join(", ", houses.Select(h => h + (open.ContainsKey(h) ? (open[h].Ready ? " (open)" : " (opening)") : ""))) +
                             "\nPlayers travel to a house with the address  tsr-lot.mbrew.studio/lot/<house>");
                     }
