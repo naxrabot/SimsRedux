@@ -3,6 +3,7 @@ using FSO.Client.UI.Framework;
 using FSO.Common.Utils;
 using Microsoft.Xna.Framework;
 using Simitone.Client.UI.Screens;
+using Simitone.Client.Utils;
 using System;
 
 namespace Simitone.Client.UI.Panels
@@ -11,9 +12,11 @@ namespace Simitone.Client.UI.Panels
     /// SimsRedux online: a small navy tag at the top of the screen while a lot is shared, saying
     /// who's here, plus short notices ("Bob joined your lot!") that fade away.
     /// </summary>
-    public class UIClassicOnlineStatus : UIElement
+    public class UIClassicOnlineStatus : UIContainer
     {
         private TS1GameScreen Game;
+        /// <summary>In the online town: straight back to your own (single-player) neighbourhood.</summary>
+        private UITS1TileButton LeaveButton;
         private TextStyle Style, NoticeStyle;
         private string NoticeText;
         private DateTime NoticeTime;
@@ -29,6 +32,12 @@ namespace Simitone.Client.UI.Panels
             NoticeStyle.Size = 14;
             NoticeStyle.Color = new Color(255, 240, 110);
             NoticeStyle.Shadow = true;
+
+            LeaveButton = new UITS1TileButton(TS1UIGraphics.Get("cpanel/Buttons/ButtonTileDialog.bmp"), "Leave Multiplayer", 150);
+            LeaveButton.TextSize = 12;
+            LeaveButton.OnButtonClick += (b) => UIClassicDialog.YesNo("Leave Multiplayer?",
+                "Leave the online town and go back to your own neighborhood?", () => Game.LeaveMultiplayer());
+            Add(LeaveButton);
         }
 
         public void Notice(string text)
@@ -59,15 +68,17 @@ namespace Simitone.Client.UI.Panels
 
             var w = (int)Style.MeasureString(text).X + 28;
             var pos = new Vector2((int)((sw - w) / 2), 6);
+            LeaveButton.Visible = Simitone.Client.Utils.ReduxTown.Active && Game.IsGuest;
+            LeaveButton.Position = pos + new Vector2(w + 8, -3);
             DrawLocalTexture(batch, px, null, pos + new Vector2(3, 3), new Vector2(w, 22), Color.Black * 0.3f);
             DrawLocalTexture(batch, px, null, pos, new Vector2(w, 22), new Color(0, 0, 82) * 0.9f);
             DrawLocalTexture(batch, px, null, pos + new Vector2(8, 8), new Vector2(6, 6), new Color(90, 230, 90)); // the "online" light
             DrawLocalString(batch, text, pos + new Vector2(18, 0), Style, new Rectangle(0, 0, w - 22, 22), TextAlignment.Left | TextAlignment.Middle);
 
+            if (NoticeText != null && (DateTime.UtcNow - NoticeTime).TotalSeconds > 6) NoticeText = null;
             if (NoticeText != null)
             {
                 var age = (DateTime.UtcNow - NoticeTime).TotalSeconds;
-                if (age > 6) { NoticeText = null; return; }
                 var fade = (float)Math.Min(1, Math.Max(0, 6 - age));
                 var nw = (int)NoticeStyle.MeasureString(NoticeText).X + 30;
                 var npos = new Vector2((int)((sw - nw) / 2), 34);
@@ -76,6 +87,7 @@ namespace Simitone.Client.UI.Panels
                 style.Color = NoticeStyle.Color * fade;
                 DrawLocalString(batch, NoticeText, npos, style, new Rectangle(0, 0, nw, 26), TextAlignment.Center | TextAlignment.Middle);
             }
+            base.Draw(batch);
         }
     }
 }

@@ -147,10 +147,10 @@ namespace Simitone.Client.UI.Panels
             // SimsRedux: play online (go to the town, host a house, or visit a friend)
             if (!moveIn)
             {
-                var online = new UITS1TileButton(TS1UIGraphics.Get("cpanel/Buttons/ButtonTileDialog.bmp"), town ? "Leave Town" : "Online", 110);
-                online.TextSize = town ? 13 : 15;
+                var online = new UITS1TileButton(TS1UIGraphics.Get("cpanel/Buttons/ButtonTileDialog.bmp"), town ? "Leave Multiplayer" : "Online", town ? 150 : 110);
+                online.TextSize = town ? 12 : 15;
                 online.Position = new Vector2((showExit ? x + Spacing : x) + 6, 9); // takes the Quit button's place in the browser
-                if (town) online.OnButtonClick += (b) => UIClassicDialog.YesNo("Leave the Town?", "Go back to your own neighborhood?",
+                if (town) online.OnButtonClick += (b) => UIClassicDialog.YesNo("Leave Multiplayer?", "Leave the online town and go back to your own neighborhood?",
                     () => (UIScreen.Current as Simitone.Client.UI.Screens.TS1GameScreen)?.LeaveTown());
                 else online.OnButtonClick += (b) => UIClassicOnlineDialog.AskToConnect();
                 Add(online);

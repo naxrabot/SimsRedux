@@ -1436,6 +1436,18 @@ namespace Simitone.Client.UI.Screens
             NeighSelection(NeighSelectionMode.Normal);
         }
 
+        /// <summary>SimsRedux: Leave Multiplayer - from a lot in the town (or the town itself) straight back to single player.</summary>
+        public void LeaveMultiplayer()
+        {
+            if (vm != null)
+            {
+                ReduxTown.Active = false; // so leaving the lot goes home, not back to the town
+                ExitLot();
+                return;
+            }
+            LeaveTown();
+        }
+
         /// <summary>Back to your own neighbourhood from the town.</summary>
         public void LeaveTown()
         {

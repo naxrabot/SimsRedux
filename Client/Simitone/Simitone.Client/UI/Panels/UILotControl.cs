@@ -1237,6 +1237,7 @@ namespace Simitone.Client.UI.Panels
             LastCutDoors = cutDoors;
             LastDoorWallsMode = WallsMode;
 
+            int doors = 0, hidden = 0, outside = 0;
             foreach (var ent in vm.Entities)
             {
                 if (!(ent is VMGameObject) || ent.Dead) continue;
@@ -1244,7 +1245,9 @@ namespace Simitone.Client.UI.Panels
                 if ((flags2 & VMEntityFlags2.ArchitectualDoor) == 0) continue;
                 var comp = ent.WorldUI as ObjectComponent;
                 if (comp == null) continue;
-                bool hide = (WallsMode == 0 && !DoorLeadsOutside(ent)) || (WallsMode == 1 && DoorIsCut(ent, cutDoors));
+                bool leadsOut = DoorLeadsOutside(ent);
+                bool hide = (WallsMode == 0 && !leadsOut) || (WallsMode == 1 && DoorIsCut(ent, cutDoors));
+                doors++; if (hide) hidden++; if (leadsOut) outside++;
                 if (hide)
                 {
                     if (comp.Visible) comp.Visible = false;
@@ -1255,7 +1258,15 @@ namespace Simitone.Client.UI.Panels
                     comp.Visible = ent.GetValue(FSO.SimAntics.Model.VMStackObjectVariable.Hidden) == 0;
                 }
             }
+            // online: say what happened when the walls mode changes (finding doors that stay up)
+            if (WallsMode != LoggedDoorMode && (Parent as TS1GameScreen)?.IsGuest == true)
+            {
+                LoggedDoorMode = WallsMode;
+                Simitone.Client.Utils.ReduxOnlineInfo.Log("[doors] walls mode " + WallsMode + ": " + doors + " doors, " + hidden + " hidden, " + outside + " lead outside, "
+                    + vm.Context.RoomInfo.Length + " rooms, cut doors " + (cutDoors?.Count ?? -1));
+            }
         }
+        private int LoggedDoorMode = -1;
 
         private HashSet<int> LastCutDoors;
 
