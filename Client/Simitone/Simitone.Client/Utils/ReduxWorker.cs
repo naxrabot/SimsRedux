@@ -35,7 +35,7 @@ namespace Simitone.Client.Utils
         private static readonly TimeSpan AutoSave = TimeSpan.FromMinutes(10);
 
         private static TS1GameScreen Screen;
-        private static DateTime Started, EmptySince, LastSave, BlockedSince;
+        private static DateTime Started, EmptySince, LastSave, BlockedSince, LastSpeedChange;
         private static bool EverHadPlayers, Closing;
         private static int LastCount = -1;
         private static string Command; // from the server, read on its own thread
@@ -152,6 +152,16 @@ namespace Simitone.Client.Utils
                 if (count > 0) EverHadPlayers = true;
                 if (count == 0) EmptySince = now;
                 LastCount = count;
+            }
+
+            // the lot runs while someone is on it (at normal speed, like opening a lot in single player)
+            // and pauses while it's empty, so nothing happens to a family with nobody watching
+            var speedVm = Screen.vm;
+            if (speedVm != null && speedVm.SpeedMultiplier != -1 && now - LastSpeedChange > TimeSpan.FromSeconds(2))
+            {
+                LastSpeedChange = now;
+                if (count > 0 && speedVm.SpeedMultiplier == 0) Screen.ChangeSpeedTo(1);
+                else if (count == 0 && speedVm.SpeedMultiplier > 0) Screen.ChangeSpeedTo(0);
             }
 
             // nobody is at the keyboard on a worker: a question that pauses the game gets the

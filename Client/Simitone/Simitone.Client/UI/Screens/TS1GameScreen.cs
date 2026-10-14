@@ -258,6 +258,7 @@ namespace Simitone.Client.UI.Screens
             };
             Add(TS1NeighPanel);
             if (switcher != null) Add(switcher);
+            try { Console.WriteLine("[SimsRedux] neighbourhood screen (" + (ReduxTown.Active ? "online town" : "your own") + "): " + TS1NeighPanel.Describe()); } catch { }
         }
 
         public void PlayHouse(short house, UIElement switcher)
@@ -1392,6 +1393,12 @@ namespace Simitone.Client.UI.Screens
                     return;
                 }
                 NeighSelection(NeighSelectionMode.Normal);
+                try
+                {
+                    ReduxOnlineInfo.Log("[town] showing the town: " + TS1NeighPanel?.Describe());
+                    GameThread.NextUpdate((s2) => ReduxOnlineInfo.Log("[town] a moment later: " + TS1NeighPanel?.Describe()));
+                }
+                catch (Exception e) { ReduxOnlineInfo.Log("[town] " + e.Message); }
             });
         }
 

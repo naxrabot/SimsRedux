@@ -229,6 +229,34 @@ namespace SimsRedux.Server
             catch (Exception e) { return "couldn't copy the town: " + e.Message; }
         }
 
+        /// <summary>
+        /// A brand-new town: the game's untouched starting neighbourhood (TemplateUserData in the
+        /// Sims folder) - the original families and townies, nobody's own Sims. Like starting a
+        /// new single-player game. The old town is kept in backups/.
+        /// </summary>
+        public string FreshTown()
+        {
+            if (Running().Count > 0) return "close all lots first (/lots close all)";
+            var game = (Config.GameFolder ?? "").Trim().Trim('"');
+            if (game.Length == 0 || !Directory.Exists(game)) return "the server doesn't know where the Sims folder is - set it with /files folder <path>";
+            var template = Path.Combine(game, "TemplateUserData");
+            if (!File.Exists(Path.Combine(template, "Neighborhood.iff")) || !File.Exists(Path.Combine(template, "LotLocations.iff")))
+                return "there's no untouched starting neighbourhood (TemplateUserData) in " + game + " - use /town import <folder> with a fresh UserData folder instead";
+            var result = ImportTown(template);
+            if (!TownReady) return result;
+            // the template can be missing the expansion packs' lot names and descriptions:
+            // borrow just those from the game's normal UserData
+            foreach (var name in new[] { "NeighborhoodDesc.iff", "STDesc.iff", "MTDesc.iff" })
+            {
+                var to = Path.Combine(TownDir, "Houses", name);
+                var from = Path.Combine(game, "UserData", "Houses", name);
+                try { if (!File.Exists(to) && File.Exists(from)) { Directory.CreateDirectory(Path.GetDirectoryName(to)); File.Copy(from, to); } }
+                catch { }
+            }
+            Log.Info("a fresh town was set up from the game's starting neighbourhood");
+            return "fresh town set up (the game's starting neighbourhood): " + Houses().Count + " houses";
+        }
+
         private static void Copy(string from, string to)
         {
             Directory.CreateDirectory(to);

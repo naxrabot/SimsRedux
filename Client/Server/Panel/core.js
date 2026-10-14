@@ -187,6 +187,7 @@ const COMMANDS = [
   ]],
   ["The online town", [
     ["/town", "the town's houses and which are open"],
+    ["/town fresh", "brand-new town from the game's starting neighbourhood (no one's own Sims)"],
     ["/town import [folder]", "copy a neighbourhood in as the town — empty = your Neighborhood 1"],
     ["/lots", "lots open right now, with who's on them"],
     ["/lots open <house>", "open a lot (players can also just travel there)"],

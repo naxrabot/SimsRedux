@@ -38,6 +38,7 @@ namespace SimsRedux.Server
             new[] { "/files rescan", "look at the game folder again" },
             new[] { "/motd <text>", "the message players see when they log in" },
             new[] { "/town", "the online town: its houses and which are open" },
+            new[] { "/town fresh", "start a brand-new town: the game's starting neighbourhood, nobody's own Sims (the old one goes to backups/)" },
             new[] { "/town import [folder]", "copy a neighbourhood in as the town (default: your Neighborhood 1)" },
             new[] { "/lots", "lots that are open right now, with who's on them" },
             new[] { "/lots open <house>", "open a lot (players can also just travel there)" },
@@ -167,7 +168,8 @@ namespace SimsRedux.Server
 
                 case "/town":
                     if (Arg(1)?.ToLowerInvariant() == "import") { Log.Reply(Lots.ImportTown(Rest(2).Trim('"'))); break; }
-                    if (!Lots.TownReady) { Log.Reply("no town yet - copy your Neighborhood 1 in with  /town import"); break; }
+                    if (Arg(1)?.ToLowerInvariant() == "fresh") { Log.Reply(Lots.FreshTown()); break; }
+                    if (!Lots.TownReady) { Log.Reply("no town yet - start one with  /town fresh"); break; }
                     {
                         var houses = Lots.Houses();
                         var open = Lots.Running().ToDictionary(w => w.House);

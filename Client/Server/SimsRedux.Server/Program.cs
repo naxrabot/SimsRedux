@@ -102,7 +102,7 @@ namespace SimsRedux.Server
             input.Start();
 
             Console.CancelKeyPress += (s, e) => { e.Cancel = true; ExitCode = 0; Done.Set(); };
-            if (!Lots.TownReady) Log.Info("no online town yet: copy your Neighborhood 1 in with  /town import");
+            if (!Lots.TownReady) Log.Info("no online town yet: start one with  /town fresh");
             else Log.Info("town: " + lots.Houses().Count + " houses \u00b7 game program: " + (lots.GameExe() ?? "NOT FOUND (/lots game <path>)"));
             AppDomain.CurrentDomain.ProcessExit += (s, e) => { try { Accounts?.SaveAll(); } catch { } };
 

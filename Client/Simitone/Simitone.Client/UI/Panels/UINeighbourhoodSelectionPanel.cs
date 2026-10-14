@@ -326,6 +326,21 @@ namespace Simitone.Client.UI.Panels
 
         private Texture2D texture;
         private int Mode;
+        private Texture2D BgTexture;
+
+        /// <summary>SimsRedux: what the map looks like right now, for the logs (finding a black screen).</summary>
+        public string Describe()
+        {
+            int houses = 0, layers = 0;
+            foreach (var c in GetChildren())
+            {
+                if (c is UINeighborhoodHouseButton) houses++;
+                if (c is UINeighborhoodAnimationLayer) layers++;
+            }
+            var bg = BgTexture == null ? "missing" : (BgTexture.IsDisposed ? "thrown away" : BgTexture.Width + "x" + BgTexture.Height);
+            return "mode " + Mode + ", picture " + bg + ", " + houses + " houses, " + layers + " layers, at " + X.ToString("0") + "," + Y.ToString("0")
+                + " scale " + ScaleX.ToString("0.00") + ", screen " + GlobalSettings.Default.GraphicsWidth + "x" + GlobalSettings.Default.GraphicsHeight;
+        }
 
         public void PopulateScreen(ushort mode)
         {
@@ -339,7 +354,11 @@ namespace Simitone.Client.UI.Panels
             shad.Position = new Vector2(-24);
             Add(shad);
 
-            var bg = new UIImage(((ITextureRef)Provider.Get(config.Graphic)).Get(GameFacade.GraphicsDevice));
+            Texture2D bgTex = null;
+            try { bgTex = ((ITextureRef)Provider.Get(config.Graphic))?.Get(GameFacade.GraphicsDevice); }
+            catch (Exception e) { Console.WriteLine("[SimsRedux] neighbourhood picture " + config.Graphic + " couldn't be loaded: " + e.Message); }
+            BgTexture = bgTex;
+            var bg = new UIImage(bgTex);
             Add(bg);
             bg.ListenForMouse((evt, state) =>
             {
