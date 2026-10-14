@@ -13,7 +13,7 @@ namespace Simitone.Client.Utils
     /// <summary>
     /// SimsRedux dedicated server: the game started by the server as a "lot worker".
     ///
-    ///   Simitone.Windows.exe -path"&lt;Sims folder&gt;" -worker -house12 -port37600 -town"&lt;town folder&gt;" -nosound
+    ///   Simitone.exe -path"&lt;Sims folder&gt;" -worker -house12 -port37600 -town"&lt;town folder&gt;"
     ///
     /// It opens one house from the server's town (not the player's own neighbourhood), hosts it
     /// online on the given port with no window showing, and the server passes players to it.
@@ -60,7 +60,7 @@ namespace Simitone.Client.Utils
             }
             // the game's normal settings folder is used as-is (it starts up exactly like the game);
             // the lot itself is only ever loaded from and saved into the town folder
-            FSOEnvironment.NoSound = true;
+            // sound stays switched on (the game expects it everywhere) but at volume 0 - see SimitoneGame
             Started = DateTime.UtcNow;
 
             var input = new Thread(() =>

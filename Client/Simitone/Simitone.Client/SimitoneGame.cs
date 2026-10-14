@@ -160,6 +160,12 @@ namespace Simitone.Client
             hit.SetMasterVolume(HITVolumeGroup.MUSIC, GlobalSettings.Default.MusicVolume / 10f);
             hit.SetMasterVolume(HITVolumeGroup.VOX, GlobalSettings.Default.VoxVolume / 10f);
             hit.SetMasterVolume(HITVolumeGroup.AMBIENCE, GlobalSettings.Default.AmbienceVolume / 10f);
+            if (Simitone.Client.Utils.ReduxWorker.Active)
+            {
+                // SimsRedux lot worker: silent (nobody is listening on the server PC)
+                foreach (var g in new[] { HITVolumeGroup.FX, HITVolumeGroup.MUSIC, HITVolumeGroup.VOX, HITVolumeGroup.AMBIENCE })
+                    hit.SetMasterVolume(g, 0f);
+            }
 
             ContentStrings.TS1 = true;
             GameFacade.Strings = new ContentStrings();

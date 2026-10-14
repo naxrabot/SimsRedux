@@ -100,7 +100,7 @@ namespace SimsRedux.Server
                     RedirectStandardError = true,
                     CreateNoWindow = true,
                 };
-                foreach (var a in new[] { "-path" + Config.GameFolder.TrimEnd('\\', '/'), "-worker", "-house" + house, "-port" + port, "-town" + TownDir, "-nosound" })
+                foreach (var a in new[] { "-path" + Config.GameFolder.TrimEnd('\\', '/'), "-worker", "-house" + house, "-port" + port, "-town" + TownDir })
                     psi.ArgumentList.Add(a);
                 try { w.Process = Process.Start(psi); }
                 catch (Exception e) { error = "couldn't start the game for this lot: " + e.Message; return null; }
