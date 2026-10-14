@@ -12,14 +12,14 @@ namespace Simitone.Client.Utils
     /// </summary>
     public static class ReduxVersion
     {
-        public const string Number = "1.4";
+        public const string Number = "1.5";
         public const string Stage = "Beta";
 
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
-            "Online: families made for the town start with §15,000 right away in Create-A-Family.",
-            "Online: at home, your family's money (and friends) now show properly instead of 0.",
+            "Diagonal walls no longer vanish at some camera angles in Cutaway view - they're cut down like the other walls.",
+            "Doors in walls that are cut away are hidden with the wall, instead of standing up on their own.",
         };
 
         public static string Text { get { return "v" + Number; } }

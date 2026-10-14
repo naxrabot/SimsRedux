@@ -1221,16 +1221,20 @@ namespace Simitone.Client.UI.Panels
             CustomControl = new UITerrainRaiser(vm, World, this, new List<int>());
         }
 
-        // SimsRedux: doors. Walls up, roof and cutaway: every door shows. Walls down: only doors
-        // that lead outside show (inside doors would stand up like walls in the middle of rooms).
+        // SimsRedux: doors. Walls up and roof: every door shows. Walls down: only doors that lead
+        // outside show (inside doors would stand up like walls in the middle of rooms). Cutaway: a
+        // door in a wall that's cut away is hidden with its wall.
         private HashSet<VMEntity> HiddenDoors = new HashSet<VMEntity>();
         private int DoorCheckTimer;
         private int LastDoorWallsMode = -1;
         private void UpdateDoorHiding()
         {
             if (vm?.Context == null) return;
-            if (LastDoorWallsMode == WallsMode && DoorCheckTimer-- > 0) return;
+            var cutDoors = World?.State?.Platform is FSO.LotView.Platform.WorldPlatform2D ? vm.Context.Blueprint?.WallComp?.CutDoorTiles : null;
+            bool cutChanged = WallsMode == 1 && !ReferenceEquals(cutDoors, LastCutDoors);
+            if (LastDoorWallsMode == WallsMode && !cutChanged && DoorCheckTimer-- > 0) return;
             DoorCheckTimer = 30; // about twice a second: catches doors that were just placed
+            LastCutDoors = cutDoors;
             LastDoorWallsMode = WallsMode;
 
             foreach (var ent in vm.Entities)
@@ -1240,7 +1244,7 @@ namespace Simitone.Client.UI.Panels
                 if ((flags2 & VMEntityFlags2.ArchitectualDoor) == 0) continue;
                 var comp = ent.WorldUI as ObjectComponent;
                 if (comp == null) continue;
-                bool hide = WallsMode == 0 && !DoorLeadsOutside(ent);
+                bool hide = (WallsMode == 0 && !DoorLeadsOutside(ent)) || (WallsMode == 1 && DoorIsCut(ent, cutDoors));
                 if (hide)
                 {
                     if (comp.Visible) comp.Visible = false;
@@ -1251,6 +1255,32 @@ namespace Simitone.Client.UI.Panels
                     comp.Visible = ent.GetValue(FSO.SimAntics.Model.VMStackObjectVariable.Hidden) == 0;
                 }
             }
+        }
+
+        private HashSet<int> LastCutDoors;
+
+        /// <summary>Is the wall this door sits in cut away right now (cutaway mode)?</summary>
+        private bool DoorIsCut(VMEntity door, HashSet<int> cutDoors)
+        {
+            if (cutDoors == null || cutDoors.Count == 0) return false;
+            var pos = door.Position;
+            if (pos == LotTilePos.OUT_OF_WORLD) return false;
+            int dx = 0, dy = 0;
+            switch (door.Direction)
+            {
+                case Direction.NORTH: dy = -1; break;
+                case Direction.SOUTH: dy = 1; break;
+                case Direction.EAST: dx = 1; break;
+                case Direction.WEST: dx = -1; break;
+            }
+            // the wall belongs to the door's tile or the one next to it, front or back
+            foreach (var step in new[] { 0, 1, -1 })
+            {
+                int x = pos.TileX + dx * step, y = pos.TileY + dy * step;
+                if (x < 0 || y < 0 || x > 255 || y > 255) continue;
+                if (cutDoors.Contains((pos.Level << 16) | (y << 8) | x)) return true;
+            }
+            return false;
         }
 
         /// <summary>Is there outdoors on either side of this door?</summary>
