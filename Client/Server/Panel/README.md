@@ -67,3 +67,18 @@ both off on this PC (`tailscale set --exit-node=` and
 ## Running the panel's tests
 
 `node test-core.mjs`
+
+## Taking the game fully offline (the tunnel switch)
+
+Next to the **CLOUDFLARE** light is **Turn tunnel off / Turn tunnel on**. It stops or starts
+the Windows service `cloudflared`, so nobody outside this PC can reach the server (website
+logins, game files, the online town) while it's off. The game server itself keeps running.
+Windows asks "allow this app to make changes?" each time, because services need
+administrator rights. If your service has a different name, set `tunnelService` in the
+panel's settings file (panel.json).
+
+## Approving new accounts
+
+Accounts made on the website wait for approval. They show at the top of **Accounts** as
+"(waiting for approval)" with an **Approve** button (or type `/approve <name>`). Until
+then, logging in says "Please wait for admin approval."

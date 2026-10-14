@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld("panel", {
   setActive:  c             => ipcRenderer.invoke("panel:setActive", String(c)),
   open:       (c, what)     => ipcRenderer.invoke("panel:open", String(c), String(what || "data")),
   site:       ()            => ipcRenderer.invoke("panel:site"),
+  tunnel:     on            => ipcRenderer.invoke("panel:tunnel", !!on),
   pickGameFolder: ()        => ipcRenderer.invoke("panel:pickGameFolder"),
   pickExe:    ()            => ipcRenderer.invoke("panel:pickExe"),
   settings:   patch         => ipcRenderer.invoke("panel:settings", patch),
@@ -23,5 +24,6 @@ contextBridge.exposeInMainWorld("panel", {
   onConsole: fn => ipcRenderer.on("console", (e, line) => fn(line)),
   onRunning: fn => ipcRenderer.on("running", (e, v) => fn(v)),
   onLocal:   fn => ipcRenderer.on("status:local", (e, v) => fn(v)),
-  onPublic:  fn => ipcRenderer.on("status:public", (e, v) => fn(v))
+  onPublic:  fn => ipcRenderer.on("status:public", (e, v) => fn(v)),
+  onTunnel:  fn => ipcRenderer.on("status:tunnel", (e, v) => fn(v))
 });

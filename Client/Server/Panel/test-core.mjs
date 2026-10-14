@@ -63,6 +63,12 @@ const names = C.commandNames();
 ok(names.includes("role") && names.includes("files") && names.includes("quit"), "command names for tab completion");
 ok(C.oneLine("a\nb\r\nc") === "a b c", "commands from the panel stay on one line");
 
+// the Cloudflare tunnel service
+ok(C.readServiceState("SERVICE_NAME: cloudflared\n        STATE              : 4  RUNNING", 0) === "running", "tunnel running");
+ok(C.readServiceState("        STATE              : 1  STOPPED ", 0) === "stopped", "tunnel stopped");
+ok(C.readServiceState("[SC] EnumQueryServicesStatus:OpenService FAILED 1060:", 1060) === "missing", "tunnel not installed");
+ok(C.safeServiceName("cloudflared") === "cloudflared" && C.safeServiceName("x'; rm -rf /") === "cloudflared", "only plain service names reach Windows");
+
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(failed ? "\n" + failed + " FAILED" : "\nall passed");
 process.exit(failed ? 1 : 0);

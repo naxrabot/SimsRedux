@@ -321,8 +321,15 @@ namespace SimsRedux.Server
                 await HttpServer.Send(stream, 404, "text/plain; charset=utf-8", Encoding.UTF8.GetBytes("No such lot."));
                 return;
             }
+            // only approved accounts can travel to the town's lots
             var who = Accounts.Check(req.QueryValue("t"));
-            if (who != null) Log.Info("online: " + who.Name + " is travelling to house " + house);
+            if (who == null)
+            {
+                Log.Info("online: someone without an approved login (from " + req.From + ") tried to go to house " + house);
+                await HttpServer.Send(stream, 401, "text/plain; charset=utf-8", Encoding.UTF8.GetBytes("Log in with an approved account first."));
+                return;
+            }
+            Log.Info("online: " + who.Name + " is travelling to house " + house);
             // two tries: if the lot was just closing (everyone had left), wait for it to finish and open it again
             for (int attempt = 0; attempt < 2; attempt++)
             {

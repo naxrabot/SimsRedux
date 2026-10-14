@@ -13,7 +13,7 @@
 const { app, BrowserWindow, ipcMain, dialog, shell, Menu } = require("electron");
 const path = require("path");
 const fs = require("fs");
-const { spawn } = require("child_process");
+const { spawn, execFile } = require("child_process");
 const C = require("./core.js");
 
 let win = null;
@@ -129,12 +129,47 @@ async function pollPublic(ch) {
   h.channel = ch;
   send("status:public", h);
 }
-function pollAll() { for (const ch of C.CHANNELS) { pollLocal(ch); pollPublic(ch); } }
+function pollAll() { for (const ch of C.CHANNELS) { pollLocal(ch); pollPublic(ch); } pollTunnel(); }
 function startPolling() {
   clearInterval(pollT); clearInterval(slowT);
-  pollT = setInterval(() => C.CHANNELS.forEach(pollLocal), 3000);
+  pollT = setInterval(() => { C.CHANNELS.forEach(pollLocal); pollTunnel(); }, 3000);
   slowT = setInterval(() => C.CHANNELS.forEach(pollPublic), 15000);
   pollAll();
+}
+
+/* ---------- the Cloudflare tunnel ----------
+   The tunnel is the Windows service "cloudflared" (installed with `cloudflared service install`).
+   Reading its state needs nothing special; starting or stopping it needs administrator rights,
+   so Windows shows its usual "allow this app to make changes?" box each time. */
+let tunnelState = "unknown", tunnelBusy = false;
+function tunnelName() { return C.safeServiceName(S && S.tunnelService); }
+function pollTunnel() {
+  if (process.platform !== "win32") { tunnelState = "unsupported"; return send("status:tunnel", { state: tunnelState }); }
+  execFile("sc.exe", ["query", tunnelName()], { windowsHide: true, timeout: 5000 }, (err, stdout, stderr) => {
+    tunnelState = C.readServiceState(String(stdout || "") + String(stderr || ""), err && err.code);
+    send("status:tunnel", { state: tunnelState, busy: tunnelBusy, name: tunnelName() });
+  });
+}
+function setTunnel(on) {
+  if (process.platform !== "win32") return Promise.resolve({ ok: false, error: "the tunnel switch only works on Windows" });
+  if (tunnelBusy) return Promise.resolve({ ok: false, error: "already switching the tunnel" });
+  const name = tunnelName();
+  tunnelBusy = true;
+  send("status:tunnel", { state: tunnelState, busy: true, name });
+  const verb = on ? "start" : "stop";
+  // sc.exe run as administrator (Windows asks first); -Wait so we know when it's done
+  const ps = "Start-Process -FilePath 'sc.exe' -ArgumentList '" + verb + "','" + name + "' -Verb RunAs -WindowStyle Hidden -Wait";
+  return new Promise(resolve => {
+    execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", ps], { windowsHide: true, timeout: 120000 }, (err, stdout, stderr) => {
+      tunnelBusy = false;
+      const text = String(stderr || "") + String(stdout || "");
+      setTimeout(pollTunnel, 1500);
+      setTimeout(() => C.CHANNELS.forEach(pollPublic), 4000);
+      if (err && /canceled|cancelled|declined/i.test(text)) return resolve({ ok: false, error: "Windows didn't get permission (the box was closed or No was picked)" });
+      if (err) return resolve({ ok: false, error: (text.trim() || String(err.message || err)).slice(0, 300) });
+      resolve({ ok: true });
+    });
+  });
 }
 
 /* ---------- the window ---------- */
@@ -205,6 +240,13 @@ ipcMain.handle("panel:open", (e, c, what) => {
     return { ok: true };
   } catch (err) { return { ok: false, error: String(err && err.message || err) }; }
 });
+ipcMain.handle("panel:tunnel", async (e, on) => {
+  const r = await setTunnel(!!on);
+  for (const c of C.CHANNELS) out(c, r.ok ? "panel" : "err", r.ok
+    ? "Cloudflare tunnel " + (on ? "started - the game can be reached from the internet again." : "stopped - nobody outside this PC can reach the game now.")
+    : "Couldn't " + (on ? "start" : "stop") + " the Cloudflare tunnel: " + r.error);
+  return r;
+});
 ipcMain.handle("panel:site", () => { shell.openExternal(S.site || C.DEFAULTS.site); return { ok: true }; });
 
 /** Pick the Sims 1 folder that Admins and Testers can download. */
@@ -233,7 +275,7 @@ ipcMain.handle("panel:pickExe", async () => {
 
 ipcMain.handle("panel:settings", (e, patch) => {
   patch = patch || {};
-  for (const k of ["gameFolder", "site", "serverExe"]) if (typeof patch[k] === "string") S[k] = patch[k].trim();
+  for (const k of ["gameFolder", "site", "serverExe", "tunnelService"]) if (typeof patch[k] === "string") S[k] = patch[k].trim();
   for (const c of C.CHANNELS) if (patch[c]) {
     const p = patch[c];
     S[c] = Object.assign({}, S[c], {

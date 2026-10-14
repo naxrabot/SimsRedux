@@ -57,7 +57,8 @@ const DEFAULTS = {
   gameFolder: "",
   live: { port: 37564, publicUrl: "https://tsr-lot.mbrew.studio", dataDir: "" },
   test: { port: 37566, publicUrl: "", dataDir: "" },
-  site: "https://tsr.mbrew.studio"
+  site: "https://tsr.mbrew.studio",
+  tunnelService: "cloudflared"
 };
 function loadSettings(file) {
   let s = {};
@@ -242,7 +243,25 @@ function commandNames() {
 /** A name or password typed into the panel, made safe for a single console line. */
 function oneLine(s) { return String(s == null ? "" : s).replace(/[\r\n]+/g, " ").trim(); }
 
-module.exports = {
+/* ---------- the Cloudflare tunnel (a Windows service called cloudflared) ---------- */
+/** Reads `sc query <service>`: "running", "stopped", "starting", "stopping", "missing" (not installed) or "unknown". */
+function readServiceState(text, code) {
+  const t = String(text || "");
+  if (code === 1060 || /1060|does not exist|not exist as an installed service/i.test(t)) return "missing";
+  const m = t.match(/STATE\s*:\s*(\d+)/i);
+  if (!m) return "unknown";
+  switch (parseInt(m[1], 10)) {
+    case 1: return "stopped";
+    case 2: return "starting";
+    case 3: return "stopping";
+    case 4: return "running";
+    default: return "unknown";
+  }
+}
+/** Only plain service names (letters, digits, - _ .) are ever passed to Windows. */
+function safeServiceName(n) { n = String(n || "").trim(); return /^[A-Za-z0-9_.-]{1,64}$/.test(n) ? n : "cloudflared"; }
+
+module.exports = { readServiceState, safeServiceName,
   CHANNELS, DEFAULTS,
   guessServerExe, serverCommand, isFile,
   defaultDataDir, dataPaths, readAccounts, readServerConfig,

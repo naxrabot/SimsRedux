@@ -312,6 +312,30 @@ P.onRunning(v => { RUN[v.channel] = !!v.running; setRunning(); });
 P.onLocal(h => { LOCAL[h.channel] = h; if (h.channel === ACTIVE) { paintLocal(); if (!$("gf").classList.contains("hidden")) paintFiles(); } paintTabs(); });
 P.onPublic(p => { PUBLIC[p.channel] = p; if (p.channel === ACTIVE) paintPublic(); });
 
+/* ---- the Cloudflare tunnel switch ---- */
+let TUNNEL = { state: "unknown" };
+function paintTunnel(){
+  const b = $("bTunnel"), t = TUNNEL;
+  b.style.display = t.state === "unsupported" ? "none" : "";
+  b.classList.remove("on", "off");
+  if (t.busy)                       { b.textContent = "switching…"; b.disabled = true; return; }
+  b.disabled = false;
+  if (t.state === "running")        { b.textContent = "Turn tunnel off"; b.classList.add("on"); }
+  else if (t.state === "stopped")   { b.textContent = "Turn tunnel on";  b.classList.add("off"); }
+  else if (t.state === "starting" || t.state === "stopping") { b.textContent = t.state + "…"; b.disabled = true; }
+  else if (t.state === "missing")   { b.textContent = "no tunnel service"; b.disabled = true;
+                                      b.title = "There's no Windows service called " + (t.name || "cloudflared") + " on this PC"; }
+  else                              { b.textContent = "tunnel ?"; }
+}
+P.onTunnel(t => { TUNNEL = t; paintTunnel(); });
+$("bTunnel").addEventListener("click", async () => {
+  const on = TUNNEL.state !== "running";
+  if (!on && !confirm("Turn the Cloudflare tunnel off?\n\nNobody outside this PC will be able to reach the website's account login, the game files or the online town until you turn it back on.\n\nWindows will ask for permission.")) return;
+  TUNNEL.busy = true; paintTunnel();
+  const r = await P.tunnel(on);
+  if (!r.ok) note("err", "Tunnel: " + r.error);
+});
+
 document.querySelectorAll(".srv").forEach(b => b.addEventListener("click", () => switchTo(b.dataset.ch)));
 $("bStart").addEventListener("click", async () => { say(""); const r = await P.start(ACTIVE); if (r && !r.ok) { note("err", r.error); say(r.error); } });
 $("bStop").addEventListener("click", async () => { const r = await P.stop(ACTIVE, false); if (r && !r.ok) say(r.error); });
