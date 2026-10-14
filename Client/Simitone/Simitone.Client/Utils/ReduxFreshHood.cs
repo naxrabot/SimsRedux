@@ -32,9 +32,9 @@ namespace Simitone.Client.Utils
             try
             {
                 if (ReduxSettings.GetBool("freshhoodoffered", false)) return;
-                if (TS1NeighbourProvider.HasFamiliesInHouses(LocalFolder)) return;
+                if (TS1NeighborhoodProvider.HasFamiliesInHouses(LocalFolder)) return;
                 var source = Content.Get().Neighborhood.FreshSource();
-                if (!TS1NeighbourProvider.HasFamiliesInHouses(source)) return; // nothing better to offer
+                if (!TS1NeighborhoodProvider.HasFamiliesInHouses(source)) return; // nothing better to offer
             }
             catch (Exception e)
             {
