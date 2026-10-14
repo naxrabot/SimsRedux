@@ -72,21 +72,40 @@ namespace Simitone.Client.UI.Panels
 
         private void BuildMain(bool moveIn)
         {
-            // neighbourhood switcher (only one neighbourhood for now)
-            var prev = Btn("NghUI/Previous.bmp", 110, 10);
-            var next = Btn("NghUI/Next.bmp", 146, 10);
+            // neighbourhood switcher (only one neighbourhood for now):  < 1 >  in one row, centred
+            // in the bar, pushed right up to the round buttons to leave room for the version text
+            var bandMid = BandMiddle();
+            var prevTex = TS1UIGraphics.Get("NghUI/Previous.bmp");
+            var nextTex = TS1UIGraphics.Get("NghUI/Next.bmp");
+            int prevW = prevTex.Width / Math.Max(1, TS1UIGraphics.GuessFrames(prevTex));
+            int nextW = nextTex.Width / Math.Max(1, TS1UIGraphics.GuessFrames(nextTex));
+            const int numberW = 20;
+            int nextX = MainFirstX - 10 - nextW;
+            int numberX = nextX - numberW;
+            int prevX = numberX - prevW;
+            var prev = Btn("NghUI/Previous.bmp", prevX, (int)Math.Round(bandMid - prevTex.Height / 2f));
+            var next = Btn("NghUI/Next.bmp", nextX, (int)Math.Round(bandMid - nextTex.Height / 2f));
             prev.Disabled = true;
             next.Disabled = true;
 
             NeighNumber = new UILabel();
             NeighNumber.Caption = "1";
-            NeighNumber.Position = new Vector2(128, 10);
-            NeighNumber.Size = new Vector2(16, 18);
-            NeighNumber.Alignment = TextAlignment.Center;
+            NeighNumber.Position = new Vector2(numberX, bandMid - 11);
+            NeighNumber.Size = new Vector2(numberW, 22);
+            NeighNumber.Alignment = TextAlignment.Center | TextAlignment.Middle;
             NeighNumber.CaptionStyle = NeighNumber.CaptionStyle.Clone();
             NeighNumber.CaptionStyle.Size = 14;
             NeighNumber.CaptionStyle.Color = Color.White;
             Add(NeighNumber);
+
+            // SimsRedux: "Redux / Beta / v0.1" next to The Sims logo
+            int textX = 8 + (Logo?.Width ?? 70) + 2;
+            int textW = Math.Max(30, prevX - 4 - textX);
+            AddVersionLine("Redux", 13, Color.White, textX, bandMid - 20, textW, 16);
+            AddVersionLine(ReduxVersion.Stage, 9, new Color(255, 205, 70), textX, bandMid - 4, textW, 12);
+            AddVersionLine(ReduxVersion.Text, 9, new Color(205, 210, 255), textX, bandMid + 8, textW, 12);
+
+            ReduxVersion.ShowUpdatePopupOnce();
 
             int x = MainFirstX;
             var family = Btn("NghUI/MoveIn.bmp", x, ButtonY); x += Spacing;
@@ -130,6 +149,53 @@ namespace Simitone.Client.UI.Panels
                 family.Disabled = true;
                 downtown.Disabled = vacation.Disabled = studio.Disabled = true;
                 newHouse.Disabled = bulldoze.Disabled = rezone.Disabled = true;
+            }
+        }
+
+        private void AddVersionLine(string text, int size, Color color, int x, float y, int w, int h)
+        {
+            var label = new UILabel();
+            label.Caption = text;
+            label.Position = new Vector2(x, y);
+            label.Size = new Vector2(w, h);
+            label.Alignment = TextAlignment.Center | TextAlignment.Middle;
+            label.CaptionStyle = label.CaptionStyle.Clone();
+            label.CaptionStyle.Size = size;
+            label.CaptionStyle.Color = color;
+            label.CaptionStyle.Shadow = true;
+            Add(label);
+        }
+
+        /// <summary>
+        /// The middle (top to bottom) of the purple bar between the logo and the round buttons,
+        /// measured from the banner picture itself so things line up whatever the art.
+        /// </summary>
+        private float BandMiddle()
+        {
+            const float fallback = 30;
+            try
+            {
+                if (Banner == null) return fallback;
+                int w = Banner.Width, h = Banner.Height;
+                int col = Math.Min(w - 1, MainFirstX - 30);
+                var data = new Color[w * h];
+                Banner.GetData(data);
+                int top = -1, bottom = -1;
+                for (int y = 0; y < h; y++)
+                {
+                    if (data[col + y * w].A > 0)
+                    {
+                        if (top < 0) top = y;
+                        bottom = y;
+                    }
+                }
+                if (top < 0 || bottom - top < 16) return fallback;
+                return (top + bottom) / 2f;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("[SimsRedux] Couldn't measure the neighbourhood bar: " + e.Message);
+                return fallback;
             }
         }
 
