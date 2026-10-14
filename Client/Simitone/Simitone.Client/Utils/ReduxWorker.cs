@@ -58,9 +58,8 @@ namespace Simitone.Client.Utils
                 Say("error bad arguments (need -house<N> -port<N> -town<folder>)");
                 Environment.Exit(2);
             }
-            // the worker's own settings and logs never mix with the player's
-            FSOEnvironment.UserDir = Path.Combine(Path.GetDirectoryName(Town.TrimEnd('/')) ?? Town, "Workers", "House" + House).Replace('\\', '/') + "/";
-            Directory.CreateDirectory(FSOEnvironment.UserDir);
+            // the game's normal settings folder is used as-is (it starts up exactly like the game);
+            // the lot itself is only ever loaded from and saved into the town folder
             FSOEnvironment.NoSound = true;
             Started = DateTime.UtcNow;
 
@@ -80,7 +79,21 @@ namespace Simitone.Client.Utils
 
         public static void Say(string text)
         {
+            // one line per message: the server reads them line by line
+            text = (text ?? "").Replace("\r", "").Replace("\n", " | ");
             try { Console.WriteLine("[worker] " + text); Console.Out.Flush(); } catch { }
+        }
+
+        /// <summary>A crash: the whole report to the server, and to a file next to the town.</summary>
+        public static void Crashed(object exception)
+        {
+            Say("error crashed: " + exception);
+            try
+            {
+                var file = Path.Combine(Path.GetDirectoryName(Town.TrimEnd('/')) ?? ".", "worker-crash-house" + House + ".txt");
+                File.WriteAllText(file, DateTime.Now + "\r\n" + exception);
+            }
+            catch { }
         }
 
         /// <summary>Called once the game screen exists: load the town and open the house.</summary>

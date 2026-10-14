@@ -177,7 +177,7 @@ namespace Simitone.Windows
             if (Simitone.Client.Utils.ReduxWorker.Active)
             {
                 // a lot worker has nobody to click OK: tell the server and stop
-                Simitone.Client.Utils.ReduxWorker.Say("error crashed: " + exception);
+                Simitone.Client.Utils.ReduxWorker.Crashed(exception);
                 Environment.Exit(1);
             }
             if (exception is OutOfMemoryException)
