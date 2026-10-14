@@ -12,15 +12,13 @@ namespace Simitone.Client.Utils
     /// </summary>
     public static class ReduxVersion
     {
-        public const string Number = "0.5";
+        public const string Number = "0.6";
         public const string Stage = "Beta";
 
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
-            "The Online button now asks \"Connect to the online neighborhood?\" and takes you to the town.",
-            "New accounts wait for admin approval before they can connect.",
-            "Single player is the main game; the online neighborhood is separate.",
+            "Server: starting a fresh online town now really replaces the old one (open lots are closed first), and everyone's game downloads the new town.",
         };
 
         public static string Text { get { return "v" + Number; } }

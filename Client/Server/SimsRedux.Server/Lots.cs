@@ -209,22 +209,41 @@ namespace SimsRedux.Server
         /// <summary>Copies a neighbourhood (a UserData folder) in as the server's town.</summary>
         public string ImportTown(string from)
         {
-            if (Running().Count > 0) return "close all lots first (/lots close all)";
             if (string.IsNullOrWhiteSpace(from))
                 from = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Simitone", "UserData");
             if (!File.Exists(Path.Combine(from, "Neighborhood.iff"))) return "no Neighborhood.iff in " + from + " - point it at a UserData folder";
+
+            // open lots would save the old town back over the new one: close them first
+            if (Running().Count > 0)
+            {
+                Log.Info("closing the open lots before replacing the town...");
+                CloseAll();
+                if (Running().Count > 0) return "a lot didn't close - try again in a moment (or /lots close all)";
+            }
             try
             {
                 if (Directory.Exists(TownDir))
                 {
+                    // keep the old town (copied, so a file that's still open somewhere can't stop it)
                     var old = Path.Combine(Program.DataDir, "backups", "town-" + DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss"));
-                    Directory.CreateDirectory(Path.GetDirectoryName(old));
-                    Directory.Move(Path.Combine(Program.DataDir, "Town"), old);
+                    Copy(TownDir, old);
                     Log.Info("the old town was kept in " + old);
+                    foreach (var f in Directory.EnumerateFiles(TownDir, "*", SearchOption.AllDirectories))
+                    {
+                        try { File.SetAttributes(f, FileAttributes.Normal); File.Delete(f); }
+                        catch (Exception e) { return "couldn't clear the old town (" + Path.GetFileName(f) + ": " + e.Message + ") - is something still using it?"; }
+                    }
                 }
                 Copy(from, TownDir);
-                Log.Info("town imported from " + from + " (" + Houses().Count + " houses)");
-                return "town set up from " + from + ": " + Houses().Count + " houses";
+                // a fresh copy gets fresh file times, so every player's game sees the town has changed
+                var now = DateTime.Now;
+                foreach (var f in Directory.EnumerateFiles(TownDir, "*", SearchOption.AllDirectories))
+                    try { File.SetLastWriteTime(f, now); } catch { }
+                int sims = 0;
+                try { sims = Directory.GetFiles(Path.Combine(TownDir, "Characters"), "*.iff").Length; } catch { }
+                var nbhd = new FileInfo(Path.Combine(TownDir, "Neighborhood.iff")).Length;
+                Log.Info("town copied from " + from + " (" + Houses().Count + " houses, " + sims + " Sims, Neighborhood.iff " + (nbhd / 1024) + " KB)");
+                return "town set up from " + from + ": " + Houses().Count + " houses, " + sims + " Sims";
             }
             catch (Exception e) { return "couldn't copy the town: " + e.Message; }
         }
@@ -238,7 +257,6 @@ namespace SimsRedux.Server
         /// </summary>
         public string FreshTown(bool empty)
         {
-            if (Running().Count > 0) return "close all lots first (/lots close all)";
             var game = (Config.GameFolder ?? "").Trim().Trim('"');
             if (game.Length == 0 || !Directory.Exists(game)) return "the server doesn't know where the Sims folder is - set it with /files folder <path>";
             var source = Path.Combine(game, empty ? "TemplateUserData" : "UserData");
