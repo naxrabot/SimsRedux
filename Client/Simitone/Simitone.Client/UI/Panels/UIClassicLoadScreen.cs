@@ -33,6 +33,8 @@ namespace Simitone.Client.UI.Panels
         }
 
         private Texture2D Picture;
+        /// <summary>What fills the screen around the picture (black for the Sims 1 travel pictures).</summary>
+        private Color PictureFill = Color.Black;
         private string Title;
         private string Message;
         private List<Step> Steps;
@@ -116,9 +118,15 @@ namespace Simitone.Client.UI.Panels
         /// happen over the network (the bar moves when SetWaiting gives it progress).
         /// </summary>
         private bool Waiting;
-        public static UIClassicLoadScreen ShowWaiting(string title, string message)
+        public static UIClassicLoadScreen ShowWaiting(string title, string message, bool wallpaper = false)
         {
             var screen = new UIClassicLoadScreen(null, title, new List<Step>(), null);
+            if (wallpaper)
+            {
+                // the full-screen Sims Redux wallpaper, with the title, message and bar on it
+                screen.Picture = Simitone.Client.UI.Screens.UISimitoneBg.SharedWallpaper();
+                screen.PictureFill = Simitone.Client.UI.Screens.UISimitoneBg.SharedWallpaperBlue;
+            }
             screen.Waiting = true;
             screen.Cover = true;
             screen.Message = message;
@@ -279,7 +287,7 @@ namespace Simitone.Client.UI.Panels
             if (Picture != null && Picture.Width > 1)
             {
                 // full-screen travel picture, scaled to fit, black bars around it
-                DrawLocalTexture(batch, px, null, Vector2.Zero, new Vector2(sw, sh), Color.Black);
+                DrawLocalTexture(batch, px, null, Vector2.Zero, new Vector2(sw, sh), PictureFill);
                 float scale = Math.Min(sw / Picture.Width, sh / Picture.Height);
                 var ppos = new Vector2((sw - Picture.Width * scale) / 2, (sh - Picture.Height * scale) / 2);
                 DrawLocalTexture(batch, Picture, null, ppos, new Vector2(scale, scale));
@@ -288,6 +296,14 @@ namespace Simitone.Client.UI.Panels
                 var bsize = new Vector2(320, 14);
                 var bpos = new Vector2((int)((sw - bsize.X) / 2), (int)(ppos.Y + Picture.Height * scale - 46));
                 DrawBar(batch, px, bpos, bsize);
+                if (Waiting)
+                {
+                    // online joining: say where we're going, on a dark band so it reads on any picture
+                    var band = new Vector2(bsize.X + 120, 74);
+                    var bandPos = new Vector2(bpos.X - 60, bpos.Y - 62);
+                    DrawLocalTexture(batch, px, null, bandPos, band, new Color(0, 0, 40) * 0.8f);
+                    DrawLocalString(batch, Title ?? "", bandPos + new Vector2(0, 6), titleStyle, new Rectangle(0, 0, (int)band.X, 24), TextAlignment.Center | TextAlignment.Middle);
+                }
                 DrawLocalString(batch, Message, bpos + new Vector2(1, -21), msgStyle, new Rectangle(0, 0, (int)bsize.X, 18), TextAlignment.Center | TextAlignment.Middle);
             }
             else

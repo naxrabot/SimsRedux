@@ -366,16 +366,30 @@ namespace Simitone.Client.UI.Screens
             Downtown = false;
 
             if (TS1NeighPanel != null) Remove(TS1NeighPanel);
-            JoinScreen = UIClassicLoadScreen.ShowWaiting("Visiting a Friend", "Connecting...");
+            // a house in the online town (".../lot/12") or a friend's lot
+            var townHouse = System.Text.RegularExpressions.Regex.Match(address ?? "", @"/lot/(\d+)\s*$");
+            JoinScreen = UIClassicLoadScreen.ShowWaiting(townHouse.Success ? "Travelling to House " + townHouse.Groups[1].Value : "Visiting a Friend", "Connecting to the server...", true);
+            JoinStarted = DateTime.UtcNow;
 
             Guest = new ReduxGuest(vm, driver, address, join);
             Guest.Connect();
         }
 
+        private DateTime JoinStarted;
+
+        /// <summary>While connecting: after a few seconds, explain the wait (the server may be opening the lot).</summary>
+        private void UpdateJoinMessage()
+        {
+            if (JoinScreen == null || Guest == null || !Guest.Connecting) return;
+            var secs = (DateTime.UtcNow - JoinStarted).TotalSeconds;
+            if (secs > 4) JoinScreen.SetWaiting("Opening the lot on the server - this can take up to a minute...", (float)Math.Min(0.4, 0.05 + secs / 150));
+        }
+
         private void GuestStateChange(int state, float progress)
         {
             // 1 = connected, 2 = loading the lot (progress), 3 = ready
-            if (state == 2) JoinScreen?.SetWaiting("Loading the lot...", progress);
+            if (state == 1) JoinScreen?.SetWaiting("Joining...", 0.45f);
+            if (state == 2) JoinScreen?.SetWaiting("Loading the lot...", 0.45f + progress * 0.55f);
             if (state == 3) GameThread.NextUpdate((s) => GuestReady());
         }
 
@@ -637,6 +651,7 @@ namespace Simitone.Client.UI.Screens
             // SimsRedux online: messages from friends / the host go in before the lot ticks
             Host?.Process();
             ReduxWorker.Tick();
+            UpdateJoinMessage();
             if (Guest != null && !Guest.Process()) GuestLost();
             if ((Host != null || IsGuest) && vm != null && ++OnlineStateLog >= 300)
             {

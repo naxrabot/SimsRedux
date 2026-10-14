@@ -208,10 +208,23 @@ namespace Simitone.Client.UI.Screens
         private static bool WallpaperTried;
         private static readonly Color WallpaperBlue = new Color(0, 43, 135); // the wallpaper's own background colour
 
+        /// <summary>SimsRedux: the wallpaper for other loading screens (null if it can't be shown).</summary>
+        public static Texture2D SharedWallpaper()
+        {
+            LoadWallpaper();
+            return Wallpaper;
+        }
+        public static Color SharedWallpaperBlue => WallpaperBlue;
+
         public UISimitoneBg() : base()
         {
             var ui = Content.Get().CustomUI;
             Bg = ui.Get("load_static_bg.png").Get(GameFacade.GraphicsDevice);
+            LoadWallpaper();
+        }
+
+        private static void LoadWallpaper()
+        {
             if (!WallpaperTried)
             {
                 WallpaperTried = true;

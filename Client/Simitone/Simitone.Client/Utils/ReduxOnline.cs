@@ -817,7 +817,8 @@ namespace Simitone.Client.Utils
         private VMClientDriver Driver;
         private VM vm;
         private byte[] JoinPacket;
-        private volatile bool Connecting;
+        private volatile bool _connecting;
+        public bool Connecting { get => _connecting; private set => _connecting = value; }
 
         public static string HoodFolder { get { return Path.Combine(FSOEnvironment.UserDir, "OnlineHood/"); } }
 
