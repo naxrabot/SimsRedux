@@ -17,7 +17,7 @@ namespace SimsRedux.Server
             public int Port;
             public Process Process;
             public DateTime Started;
-            public volatile bool Ready, Finished;
+            public volatile bool Ready, Finished, Closing;
             public int Players;
             public string Who = "";
             public string Problem;
@@ -152,6 +152,7 @@ namespace SimsRedux.Server
                 return;
             }
             if (text.StartsWith("error")) { w.Problem = text; Log.Warn("lot " + w.House + ": " + text); return; }
+            if (text.StartsWith("closing")) w.Closing = true; // new arrivals wait for it to finish, then it reopens
             if (text == "saved") return; // every few minutes - not worth a line each time
             Log.Info("lot " + w.House + ": " + text);
         }
@@ -167,6 +168,15 @@ namespace SimsRedux.Server
                 await Task.Delay(250);
             }
             return w.Ready;
+        }
+
+        /// <summary>Waits for a worker's game to finish closing.</summary>
+        public async Task WaitExit(Worker w, TimeSpan max)
+        {
+            var until = DateTime.UtcNow + max;
+            while (!w.Finished && DateTime.UtcNow < until) await Task.Delay(200);
+            if (!w.Finished) { try { w.Process.Kill(); } catch { } await Task.Delay(500); }
+            lock (Lock) { if (Open.TryGetValue(w.House, out var cur) && cur == w) Open.Remove(w.House); }
         }
 
         public void Send(Worker w, string command)

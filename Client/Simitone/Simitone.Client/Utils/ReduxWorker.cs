@@ -170,6 +170,7 @@ namespace Simitone.Client.Utils
 
             if (now - LastSave > AutoSave) SaveNow();
 
+            if (host.ConnectionCount > 0) EmptySince = now; // someone is still joining
             if (count == 0 && (EverHadPlayers ? now - EmptySince > EmptyGrace : now - Started > FirstPlayerWait))
                 Quit(EverHadPlayers ? "everyone left" : "nobody came");
         }

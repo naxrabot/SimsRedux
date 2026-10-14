@@ -273,6 +273,8 @@ namespace Simitone.Client.Utils
     {
         public int Port;
         public int GuestCount { get { lock (Sockets) return Sockets.Count(x => x.Client != null); } }
+        /// <summary>Every open connection, including friends still joining.</summary>
+        public int ConnectionCount { get { lock (Sockets) return Sockets.Count(x => !x.Closed) + Pending.Count; } }
         public List<string> GuestNames { get { lock (Sockets) return Sockets.Where(x => x.Client != null).Select(x => x.PlayerName).ToList(); } }
         public event Action<string> OnNotice;
 

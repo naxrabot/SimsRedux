@@ -277,23 +277,40 @@ namespace SimsRedux.Server
                 await HttpServer.Send(stream, 404, "text/plain; charset=utf-8", Encoding.UTF8.GetBytes("No such lot."));
                 return;
             }
-            var w = Lots.Get(house, out var error);
-            if (w == null)
+            // two tries: if the lot was just closing (everyone had left), wait for it to finish and open it again
+            for (int attempt = 0; attempt < 2; attempt++)
             {
-                Log.Info("online: someone (from " + req.From + ") tried to go to house " + house + ", but " + error);
-                await HttpServer.Send(stream, 503, "text/plain; charset=utf-8", Encoding.UTF8.GetBytes(error));
-                return;
-            }
-            if (!w.Ready)
-            {
-                Log.Info("online: waiting for house " + house + " to open for a player (from " + req.From + ")");
-                if (!await Lots.WaitReady(w, TimeSpan.FromSeconds(80)))
+                var w = Lots.Get(house, out var error);
+                if (w == null)
                 {
-                    await HttpServer.Send(stream, 503, "text/plain; charset=utf-8", Encoding.UTF8.GetBytes("The lot couldn't be opened. " + (w.Problem ?? "")));
+                    Log.Info("online: someone (from " + req.From + ") tried to go to house " + house + ", but " + error);
+                    await HttpServer.Send(stream, 503, "text/plain; charset=utf-8", Encoding.UTF8.GetBytes(error));
                     return;
                 }
+                if (w.Closing)
+                {
+                    Log.Info("online: house " + house + " is closing - reopening it for a player (from " + req.From + ")");
+                    await Lots.WaitExit(w, TimeSpan.FromSeconds(30));
+                    continue;
+                }
+                if (!w.Ready)
+                {
+                    Log.Info("online: waiting for house " + house + " to open for a player (from " + req.From + ")");
+                    if (!await Lots.WaitReady(w, TimeSpan.FromSeconds(80)))
+                    {
+                        if (w.Closing || w.Finished) continue;
+                        Log.Warn("online: house " + house + " didn't open in time" + (w.Problem != null ? " (" + w.Problem + ")" : ""));
+                        await HttpServer.Send(stream, 503, "text/plain; charset=utf-8", Encoding.UTF8.GetBytes("The lot couldn't be opened. " + (w.Problem ?? "")));
+                        return;
+                    }
+                }
+                if (await Relay(req, stream, w.Port, "house " + house)) return;
+                // it was open but didn't answer (closing at that very moment): start it again
+                Log.Info("online: house " + house + " didn't answer - reopening it");
+                await Lots.WaitExit(w, TimeSpan.FromSeconds(30));
             }
-            await Relay(req, stream, w.Port, "house " + house);
+            Log.Warn("online: couldn't get a player (from " + req.From + ") onto house " + house);
+            await HttpServer.Send(stream, 503, "text/plain; charset=utf-8", Encoding.UTF8.GetBytes("The lot couldn't be opened right now - try again."));
         }
 
         private static bool IsWebSocket(Request req) =>
@@ -305,7 +322,8 @@ namespace SimsRedux.Server
         /// </summary>
         private Task RelayLot(Request req, Stream stream) => Relay(req, stream, Config.GameHostPort, null);
 
-        private async Task Relay(Request req, Stream stream, int port, string what)
+        /// <summary>Passes the connection through to a lot on this PC. False if nothing answered there (and nothing was sent yet for a town lot).</summary>
+        private async Task<bool> Relay(Request req, Stream stream, int port, string what)
         {
             using var game = new TcpClient();
             try
@@ -315,15 +333,11 @@ namespace SimsRedux.Server
             }
             catch
             {
-                if (what != null)
-                {
-                    await HttpServer.Send(stream, 503, "text/plain; charset=utf-8", Encoding.UTF8.GetBytes("The lot isn't answering."));
-                    return;
-                }
+                if (what != null) return false; // the caller decides what to do
                 Log.Info("online: someone tried to join (from " + req.From + "), but no lot is being hosted - open a lot in the Windows game and choose Host Online first");
                 await HttpServer.Send(stream, 503, "text/plain; charset=utf-8",
                     Encoding.UTF8.GetBytes("Nobody is hosting a lot right now."));
-                return;
+                return true;
             }
             if (what == null) Interlocked.Increment(ref LotConnections);
             if (what == null) Log.Info("online: a player joined the hosted lot (from " + req.From + ")");
@@ -345,6 +359,7 @@ namespace SimsRedux.Server
                     Log.Info("online: a player left the hosted lot");
                 }
             }
+            return true;
         }
     }
 }
