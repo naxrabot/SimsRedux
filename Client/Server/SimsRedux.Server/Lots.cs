@@ -222,11 +222,12 @@ namespace SimsRedux.Server
             }
             try
             {
+                Log.Reply("setting up the town from " + from + " - this can take a moment...");
                 if (Directory.Exists(TownDir))
                 {
                     // keep the old town (copied, so a file that's still open somewhere can't stop it)
                     var old = Path.Combine(Program.DataDir, "backups", "town-" + DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss"));
-                    Copy(TownDir, old);
+                    CopyTown(TownDir, old);
                     Log.Info("the old town was kept in " + old);
                     foreach (var f in Directory.EnumerateFiles(TownDir, "*", SearchOption.AllDirectories))
                     {
@@ -234,7 +235,7 @@ namespace SimsRedux.Server
                         catch (Exception e) { return "couldn't clear the old town (" + Path.GetFileName(f) + ": " + e.Message + ") - is something still using it?"; }
                     }
                 }
-                Copy(from, TownDir);
+                CopyTown(from, TownDir);
                 // a fresh copy gets fresh file times, so every player's game sees the town has changed
                 var now = DateTime.Now;
                 foreach (var f in Directory.EnumerateFiles(TownDir, "*", SearchOption.AllDirectories))
@@ -280,6 +281,23 @@ namespace SimsRedux.Server
             Log.Info("a fresh town was set up from " + source);
             return "fresh town set up from " + source + ": " + Houses().Count + " houses, " + sims + " Sims"
                 + (empty ? " (no families)" : " (the game's starting families - if your own old Sims 1 families show up, this Sims folder has been played in; use /town fresh empty)");
+        }
+
+        /// <summary>
+        /// Copies only what a neighbourhood is made of: the files at the top (Neighborhood.iff,
+        /// LotLocations.iff...), Houses and Characters. A game's UserData folder can also hold big
+        /// folders of downloads and exports, which the town doesn't need.
+        /// </summary>
+        private static void CopyTown(string from, string to)
+        {
+            Directory.CreateDirectory(to);
+            foreach (var f in Directory.EnumerateFiles(from))
+                File.Copy(f, Path.Combine(to, Path.GetFileName(f)), true);
+            foreach (var sub in new[] { "Houses", "Characters" })
+            {
+                var src = Path.Combine(from, sub);
+                if (Directory.Exists(src)) Copy(src, Path.Combine(to, sub));
+            }
         }
 
         private static void Copy(string from, string to)
