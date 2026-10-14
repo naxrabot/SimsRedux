@@ -197,6 +197,7 @@ const COMMANDS = [
     ["/town sources", "every neighbourhood found, with its families"],
     ["/town owners", "which account's family lives where"],
     ["/town disown <account>", "take a town family away from an account"],
+    ["/money <account> <amount>", "give a player's town family money (minus takes it away)"],
     ["/town import [folder]", "copy a neighbourhood in as the town — empty = your Neighborhood 1"],
     ["/lots", "lots open right now, with who's on them"],
     ["/lots open <house>", "open a lot (players can also just travel there)"],

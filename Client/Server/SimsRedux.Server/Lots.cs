@@ -25,6 +25,8 @@ namespace SimsRedux.Server
             public int MovedInFamily = -1;
             /// <summary>Set when a player's family was taken out of the town on this lot.</summary>
             public volatile bool MovedOut;
+            /// <summary>The family's money after the admin's /money (or -1 until then).</summary>
+            public volatile int MoneyNow = -1;
         }
 
         private readonly ServerConfig Config;
@@ -161,6 +163,7 @@ namespace SimsRedux.Server
                 return;
             }
             if (text.StartsWith("error")) { w.Problem = text; Log.Warn("lot " + w.House + ": " + text); return; }
+            if (text.StartsWith("money ") && int.TryParse(text.Substring(6).Trim(), out var cash)) { w.MoneyNow = cash; Log.Info("lot " + w.House + ": the family now has \u00a7" + cash); return; }
             if (text == "movedout") { w.MovedOut = true; Log.Info("lot " + w.House + ": the family moved out"); return; }
             if (text.StartsWith("movedin ") && int.TryParse(text.Substring(8).Trim(), out var fam)) { w.MovedInFamily = fam; Log.Info("lot " + w.House + ": a family moved in (family " + fam + ")"); return; }
             if (text.StartsWith("closing")) w.Closing = true; // new arrivals wait for it to finish, then it reopens

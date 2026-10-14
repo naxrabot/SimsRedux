@@ -31,6 +31,8 @@ namespace Simitone.Client.Utils
         public static string MoveInFile, MoveInOwner;
         /// <summary>A player's family leaving the town (their family number), or -1.</summary>
         public static int MoveOutFamily = -1;
+        /// <summary>The admin giving (or taking) money while the lot is closed: family number and amount.</summary>
+        public static int MoneyFamily = -1, MoneyAmount;
 
         /// <summary>How long an empty lot stays open (for someone coming back) before it saves and closes.</summary>
         private static readonly TimeSpan EmptyGrace = TimeSpan.FromMinutes(2);
@@ -56,6 +58,12 @@ namespace Simitone.Client.Utils
                 else if (s.StartsWith("port") && int.TryParse(s.Substring(4), out var p)) Port = p;
                 else if (s.StartsWith("town")) Town = s.Substring(4).Trim('"').Replace('\\', '/').TrimEnd('/') + "/";
                 else if (s.StartsWith("moveout") && int.TryParse(s.Substring(7), out var mo)) MoveOutFamily = mo;
+                else if (s.StartsWith("money"))
+                {
+                    // -money<family>:<amount>
+                    var parts = s.Substring(5).Split(':');
+                    if (parts.Length == 2 && int.TryParse(parts[0], out var mf) && int.TryParse(parts[1], out var ma)) { MoneyFamily = mf; MoneyAmount = ma; }
+                }
                 else if (s.StartsWith("movein")) MoveInFile = s.Substring(6).Trim('"');
                 else if (s.StartsWith("owner")) MoveInOwner = s.Substring(5).Trim('"');
             }
@@ -154,6 +162,20 @@ namespace Simitone.Client.Utils
                     catch (Exception e) { Say("error moveout " + e.Message); Environment.Exit(6); }
                     Environment.Exit(0);
                 }
+                if (MoneyFamily >= 0)
+                {
+                    // the admin gave (or took) money while the lot was closed: change it and close again
+                    try
+                    {
+                        var fam = hood.GetFamilyForHouse(House);
+                        if (fam == null || fam.ChunkID != MoneyFamily) { Say("error that family doesn't live in house " + House); Environment.Exit(7); }
+                        fam.Budget = Math.Max(0, fam.Budget + MoneyAmount);
+                        hood.SaveNeighbourhood(true);
+                        Say("money " + fam.Budget);
+                    }
+                    catch (Exception e) { Say("error money " + e.Message); Environment.Exit(7); }
+                    Environment.Exit(0);
+                }
                 if (!string.IsNullOrEmpty(MoveInFile))
                 {
                     // 2C: a player's family moves in here first (bought with their own money)
@@ -190,6 +212,7 @@ namespace Simitone.Client.Utils
 
             var cmd = Interlocked.Exchange(ref Command, null);
             if (cmd == "save") { SaveNow(); }
+            else if (cmd != null && cmd.StartsWith("money ")) { GiveMoney(cmd); }
             else if (cmd == "quit") { Quit("asked to close"); return; }
 
             if (host == null)
@@ -245,6 +268,43 @@ namespace Simitone.Client.Utils
             if (host.ConnectionCount > 0) EmptySince = now; // someone is still joining
             if (count == 0 && (EverHadPlayers ? now - EmptySince > EmptyGrace : now - Started > FirstPlayerWait))
                 Quit(EverHadPlayers ? "everyone left" : "nobody came");
+        }
+
+        /// <summary>
+        /// "money &lt;family&gt; &lt;amount&gt;" from the server (the admin's /money): changes the money of the
+        /// family living on this open lot, for everyone on it at once.
+        /// </summary>
+        private static void GiveMoney(string cmd)
+        {
+            try
+            {
+                var parts = cmd.Split(' ');
+                if (parts.Length != 3 || !int.TryParse(parts[1], out var famId) || !int.TryParse(parts[2], out var amount)) { Say("error money: bad command"); return; }
+                var vm = Screen.vm;
+                var fam = vm?.TS1State?.CurrentFamily;
+                if (fam == null || fam.ChunkID != famId) { Say("error money: that family doesn't live here"); return; }
+                if (fam.Budget + amount < 0) amount = -fam.Budget; // can't go below §0
+                var newBudget = fam.Budget + amount;
+
+                // the money cheat, sent by the lot itself (players can't send it), so everyone's game changes together
+                var sim = System.Linq.Enumerable.FirstOrDefault(System.Linq.Enumerable.OfType<FSO.SimAntics.VMAvatar>(vm.Context.ObjectQueries.Avatars), a => a.PersistID != 0);
+                if (sim != null)
+                {
+                    vm.SendCommand(new VMNetCheatCmd
+                    {
+                        ActorUID = sim.PersistID,
+                        Context = new FSO.SimAntics.Utils.VMCheatContext { CheatBehavior = FSO.SimAntics.Utils.VMCheatContext.VMCheatType.Budget, Amount = amount },
+                    });
+                }
+                else if ((Screen.Host?.GuestCount ?? 0) == 0)
+                {
+                    fam.Budget = newBudget; // nobody here to keep in step
+                }
+                else { Say("error money: no Sim on the lot to pay"); return; }
+                Say("money " + newBudget);
+                LastSave = DateTime.MinValue; // save soon
+            }
+            catch (Exception e) { Say("error money " + e.Message); }
         }
 
         private static void SaveNow()

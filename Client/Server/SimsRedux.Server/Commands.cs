@@ -46,6 +46,7 @@ namespace SimsRedux.Server
             new[] { "/town owners", "which account's family lives in which house" },
             new[] { "/town disown <account>", "the account no longer owns its town family (they stay as a town family)" },
             new[] { "/town import [folder]", "copy a neighbourhood in as the town (default: your Neighborhood 1)" },
+            new[] { "/money <account> <amount>", "give a player's town family money (a minus amount takes it away, e.g. /money joey -500)" },
             new[] { "/lots", "lots that are open right now, with who's on them" },
             new[] { "/lots open <house>", "open a lot (players can also just travel there)" },
             new[] { "/lots close <house|all>", "save and close a lot" },
@@ -214,6 +215,37 @@ namespace SimsRedux.Server
                         Log.Reply("town: " + Lots.TownDir + "\n" + IffPeek.Describe(Lots.TownDir) + "\n" + houses.Count + " houses: " +
                             string.Join(", ", houses.Select(h => h + (open.ContainsKey(h) ? (open[h].Ready ? " (open)" : " (opening)") : ""))) +
                             "\nPlayers travel to a house with the address  tsr-lot.mbrew.studio/lot/<house>");
+                    }
+                    break;
+
+                case "/money":
+                    {
+                        if (parts.Length != 3 || !int.TryParse(Arg(2).Replace(",", "").TrimStart('\u00a7', '$'), out var amount) || amount == 0 || Math.Abs(amount) > 10000000)
+                        { Log.Reply("usage: /money <account> <amount>   e.g. /money joey 5000  (or -500 to take some away)"); break; }
+                        var who = Arg(1);
+                        var owner = Owners.Of(Accounts.KeyOf(who));
+                        if (owner == null) { Log.Reply(who + " doesn't have a family in the town"); break; }
+                        var house = (short)owner.House;
+                        var what = (amount > 0 ? "\u00a7" + amount + " to " : "\u00a7" + (-amount) + " from ") + who + "'s family (" + owner.Name + ")";
+                        var open = Lots.Running().FirstOrDefault(x => x.House == house && x.Ready && !x.Closing && !x.Finished);
+                        if (open != null)
+                        {
+                            // their lot is open: the money changes right away for everyone on it
+                            Lots.Send(open, "money " + owner.Family + " " + amount);
+                            Log.Reply("giving " + what + " - house " + house + " is open, so it shows straight away");
+                            break;
+                        }
+                        if (Lots.Running().Any(x => x.House == house)) { Log.Reply("house " + house + " is opening or closing - try again in a few seconds"); break; }
+                        // closed: the lot opens just long enough to change it, then closes again
+                        Log.Reply("giving " + what + " (house " + house + " is closed - this takes a few seconds)");
+                        var famNo = owner.Family;
+                        _ = Task.Run(async () =>
+                        {
+                            var w = Lots.Get(house, out var err, new[] { "-money" + famNo + ":" + amount });
+                            if (w == null) { Log.Reply("couldn't give the money: " + err); return; }
+                            await Lots.WaitExit(w, TimeSpan.FromSeconds(90));
+                            Log.Reply(w.MoneyNow >= 0 ? who + "'s family now has \u00a7" + w.MoneyNow : "couldn't give the money: " + (w.Problem ?? "the lot didn't finish").Replace("error ", ""));
+                        });
                     }
                     break;
 

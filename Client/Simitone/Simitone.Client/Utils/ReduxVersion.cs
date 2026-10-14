@@ -12,12 +12,13 @@ namespace Simitone.Client.Utils
     /// </summary>
     public static class ReduxVersion
     {
-        public const string Number = "1.6";
+        public const string Number = "1.7";
         public const string Stage = "Beta";
 
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Admin: give a player's town family money from the server panel ( /money <account> <amount> ).",
             "Server: the grey window that popped up when a lot opened (Go Home, Visit) is now invisible for good.",
             "Walls: diagonal walls stay visible when walls are cut away, and doors in cut walls hide with them.",
             "Online: Leave Multiplayer (on lots in the town and on the town bar) takes you straight back to your own neighborhood.",
