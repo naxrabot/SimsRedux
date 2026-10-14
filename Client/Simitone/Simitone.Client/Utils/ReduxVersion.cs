@@ -12,15 +12,14 @@ namespace Simitone.Client.Utils
     /// </summary>
     public static class ReduxVersion
     {
-        public const string Number = "1.2";
+        public const string Number = "1.3";
         public const string Stage = "Beta";
 
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
-            "Online town: move one of your families in - click an empty lot or a house for sale and choose Move In.",
-            "Online, your family is yours alone: only you control them, and you can switch between all of them at home.",
-            "Click your house to Go Home, or another house to Visit with one of your family.",
+            "Online: make a brand-new family for the town (the family button, or Move In > Create a New Family), or bring one of yours from single player.",
+            "Every family starts the online town with §15,000.",
         };
 
         public static string Text { get { return "v" + Number; } }

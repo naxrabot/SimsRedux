@@ -30,6 +30,8 @@ namespace Simitone.Client.Utils
 
         public string Name = "";
         public int Budget;
+        /// <summary>Every family starts the online town with this much (made there or brought from single player).</summary>
+        public const int OnlineStartingMoney = 15000;
         public List<Member> Members = new List<Member>();
 
         // ------------------------------------------------------------------
@@ -54,7 +56,7 @@ namespace Simitone.Client.Utils
             return list;
         }
 
-        private static ReduxFamilyPackage Pack(FAMI fam)
+        public static ReduxFamilyPackage Pack(FAMI fam)
         {
             var neigh = Content.Get().Neighborhood;
             var objs = Content.Get().WorldObjects as TS1ObjectProvider;
@@ -148,6 +150,7 @@ namespace Simitone.Client.Utils
             var neigh = Content.Get().Neighborhood;
             if (neigh.GetFamilyForHouse(house) != null) throw new Exception("someone already lives there");
             if (neigh.IsCommunity(house)) throw new Exception("that's a community lot");
+            Budget = OnlineStartingMoney; // everyone starts the town with the same money
             var price = neigh.GetHouse(house)?.Get<SIMI>(1)?.PurchaseValue ?? 0;
             if (price > Budget) throw new Exception("the family has §" + Budget + " but the lot costs §" + price);
 

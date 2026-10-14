@@ -159,7 +159,7 @@ namespace Simitone.Client.UI.Panels
             // the town is for travelling for now: families, building and the other neighbourhoods come later
             if (town)
             {
-                family.Disabled = true;
+                // (the family button makes a new family for the online town)
                 downtown.Disabled = vacation.Disabled = studio.Disabled = magic.Disabled = true;
                 newHouse.Disabled = bulldoze.Disabled = rezone.Disabled = true;
             }
@@ -319,6 +319,11 @@ namespace Simitone.Client.UI.Panels
 
         private void GoToCAS()
         {
+            if (ReduxTown.Active && ReduxTown.MyFamily >= 0)
+            {
+                UIClassicDialog.Ok("Create a Family", "Your family already lives in the online town.");
+                return;
+            }
             new UITransDialog("cas", () => { GameController.EnterCAS(); });
         }
 

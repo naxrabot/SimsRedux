@@ -225,7 +225,13 @@ namespace Simitone.Client.UI.Screens
             UIElement switcher = classicBar ? null : new UINeighbourhoodSwitcher(TS1NeighPanel, nbd, mode != NeighSelectionMode.Normal);
             TS1NeighPanel.OnHouseSelect += (house) =>
             {
-                if (MoveInFamily != null)
+                if (ReduxTown.Active)
+                {
+                    // SimsRedux online: a family made in the town's Create-A-Family moves in through the server
+                    if (MoveInFamily != null) MoveIntoTown((short)house);
+                    else TravelToTownHouse((short)house);
+                }
+                else if (MoveInFamily != null)
                 {
                     //move them in first
                     //confirm it
@@ -248,10 +254,6 @@ namespace Simitone.Client.UI.Screens
                         (b) => confirmDialog.Close())
                     });
                     UIScreen.GlobalShowDialog(confirmDialog, true);
-                }
-                else if (ReduxTown.Active)
-                {
-                    TravelToTownHouse((short)house); // SimsRedux: a house in the online town
                 }
                 else
                 {
@@ -1510,30 +1512,62 @@ namespace Simitone.Client.UI.Screens
                 UIClassicDialog.Ok("Move In", "Your family already lives in the town. (Moving house comes later.)");
                 return;
             }
-            var families = ReduxTown.MyFamilies;
-            if (families.Count == 0)
-            {
-                UIClassicDialog.Ok("Move In", "You don't have a family of your own yet. Make one in your own neighborhood (Create-A-Family), then come back to move them in.");
-                return;
-            }
             int price = 0;
             try { price = Content.Get().Neighborhood.GetHouse(house)?.Get<SIMI>(1)?.PurchaseValue ?? 0; } catch { }
-            Action<ReduxFamilyPackage> confirm = (fam) =>
+            var money = ReduxFamilyPackage.OnlineStartingMoney;
+            Action<ReduxFamilyPackage, bool> confirm = (fam, made) =>
             {
-                if (fam.Budget < price)
+                if (money < price)
                 {
-                    UIClassicDialog.Ok("Move In", "The " + fam.Name + " family has §" + fam.Budget.ToString("##,#0") + ", but this lot costs §" + price.ToString("##,#0") + ".");
+                    UIClassicDialog.Ok("Move In", "Families start the online town with §" + money.ToString("##,#0") + ", but this lot costs §" + price.ToString("##,#0") + ". Pick a cheaper house or an empty lot.");
                     return;
                 }
                 UIClassicDialog.YesNo("Move In", "Move the " + fam.Name + " family (" + fam.Members.Count + " Sim" + (fam.Members.Count == 1 ? "" : "s") + ") in here for §" + price.ToString("##,#0") + "?\n\n"
-                    + "They're copied into the online town - your single-player family stays where it is. Online, only you can control them.",
-                    () => DoMoveIn(house, fam));
+                    + "They start the online town with §" + money.ToString("##,#0") + ", leaving §" + (money - price).ToString("##,#0") + ". "
+                    + (made ? "" : "They're copied from your own neighborhood - your single-player family stays where it is. ")
+                    + "Online, only you can control them.",
+                    () => { MoveInFamily = null; DoMoveIn(house, fam); });
             };
-            if (families.Count == 1) { confirm(families[0]); return; }
+
+            // a family just made in Create-A-Family (in the town)
+            if (MoveInFamily != null)
+            {
+                var made = Content.Get().Neighborhood.GetFamily((ushort)MoveInFamily.Value);
+                if (made == null || (made.Unknown & 8) == 0)
+                {
+                    UIClassicDialog.Ok("Move In", "That's one of the town's own families - make your own family to move in.");
+                    MoveInFamily = null;
+                    return;
+                }
+                var pack = ReduxFamilyPackage.Pack(made);
+                if (pack == null || pack.Members.Count == 0) { UIClassicDialog.Ok("Move In", "That family couldn't be read."); return; }
+                confirm(pack, true);
+                return;
+            }
+
+            // make a new online family, or bring one of your own families from single player
+            var families = ReduxTown.MyFamilies;
             var buttons = new List<Tuple<string, Action>>();
-            foreach (var f in families.Take(5)) { var ff = f; buttons.Add(Tuple.Create<string, Action>("The " + f.Name + " family", () => confirm(ff))); }
+            buttons.Add(Tuple.Create<string, Action>("Create a New Family", () =>
+                UIClassicDialog.Ok("Create a New Family", "Make your online family in Create-A-Family. When they're done, choose Move In there, then click this lot (or any empty lot or house for sale).",
+                    () => new UITransDialog("cas", () => { GameController.EnterCAS(); }))));
+            // families already made in the town's Create-A-Family (waiting in the family bin)
+            try
+            {
+                var neigh = Content.Get().Neighborhood;
+                foreach (var f in neigh.MainResource.List<FAMI>() ?? new List<FAMI>())
+                {
+                    if ((f.Unknown & 8) == 0 || f.HouseNumber != 0 || f.FamilyGUIDs == null || f.FamilyGUIDs.Length == 0) continue;
+                    var pack = ReduxFamilyPackage.Pack(f);
+                    if (pack == null || pack.Members.Count == 0) continue;
+                    buttons.Add(Tuple.Create<string, Action>("The " + pack.Name + " family (new)", () => confirm(pack, true)));
+                    if (buttons.Count >= 3) break;
+                }
+            }
+            catch (Exception e) { ReduxOnlineInfo.Log("[town] couldn't list new families: " + e.Message); }
+            foreach (var f in families.Take(5 - buttons.Count)) { var ff = f; buttons.Add(Tuple.Create<string, Action>("Bring the " + f.Name + " family", () => confirm(ff, false))); }
             buttons.Add(Tuple.Create<string, Action>("Cancel", null));
-            UIClassicDialog.Show("Move In", "Which of your families is moving into the town?", buttons.ToArray());
+            UIClassicDialog.Show("Move In", "Who's moving into the town?\n\nMake a brand-new family for the online town, or bring one of your families from your own neighborhood (they're copied - your single-player family stays).", buttons.ToArray());
         }
 
         private void DoMoveIn(short house, ReduxFamilyPackage fam)
