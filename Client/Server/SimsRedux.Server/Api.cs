@@ -273,6 +273,7 @@ namespace SimsRedux.Server
             }
             catch
             {
+                Log.Info("online: someone tried to join (from " + req.From + "), but no lot is being hosted - open a lot in the Windows game and choose Host Online first");
                 await HttpServer.Send(stream, 503, "text/plain; charset=utf-8",
                     Encoding.UTF8.GetBytes("Nobody is hosting a lot right now."));
                 return;

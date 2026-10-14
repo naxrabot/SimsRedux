@@ -688,19 +688,26 @@ namespace Simitone.Client.UI.Screens
             TimedReferenceController.Clear();
 
             if (ZoomLevel < 4) ZoomLevel = 5;
-            vm.Context.Ambience.Kill();
-            foreach (var ent in vm.Entities)
+            // SimsRedux: a lot that never finished loading (e.g. joining a friend failed) has no
+            // sounds or world yet, so each part is only cleaned up if it exists
+            vm.Context?.Ambience?.Kill();
+            foreach (var ent in vm.Entities ?? new List<VMEntity>())
             { //stop object sounds
                 var threads = ent.SoundThreads;
+                if (threads == null) continue;
                 for (int i = 0; i < threads.Count; i++)
                 {
-                    threads[i].Sound.RemoveOwner(ent.ObjectID);
+                    threads[i].Sound?.RemoveOwner(ent.ObjectID);
                 }
                 threads.Clear();
             }
-            vm.CloseNet(VMCloseNetReason.LeaveLot);
-            GameFacade.Scenes.Remove(World);
-            World.Dispose();
+            try { vm.CloseNet(VMCloseNetReason.LeaveLot); }
+            catch (Exception e) { ReduxOnlineInfo.Log("closing the lot's connection: " + e.Message); }
+            if (World != null)
+            {
+                GameFacade.Scenes.Remove(World);
+                World.Dispose();
+            }
             //LotControl.Dispose();
             if (LotControl != null) this.Remove(LotControl);
             if (Frontend != null) this.Remove(Frontend);
