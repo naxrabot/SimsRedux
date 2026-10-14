@@ -685,6 +685,21 @@ namespace Simitone.Client.UI.Screens
         public void CleanupLastWorld()
         {
             if (vm == null) return;
+            // SimsRedux: a lot that never finished loading (a failed online join) can be missing
+            // any part of this; leaving it must never stop the game
+            try { CleanupLastWorldParts(); }
+            catch (Exception e) { ReduxOnlineInfo.Log("leaving the lot: " + e.Message); }
+            try { if (LotControl != null) this.Remove(LotControl); } catch { }
+            try { if (Frontend != null) this.Remove(Frontend); } catch { }
+            Frontend = null;
+            vm = null;
+            World = null;
+            Driver = null;
+            LotControl = null;
+        }
+
+        private void CleanupLastWorldParts()
+        {
 
             //clear our cache too, if the setting lets us do that
             TimedReferenceController.Clear();
@@ -716,10 +731,6 @@ namespace Simitone.Client.UI.Screens
             if (Frontend != null) this.Remove(Frontend);
             Frontend = null;
             vm.SuppressBHAVChanges();
-            vm = null;
-            World = null;
-            Driver = null;
-            LotControl = null;
         }
 
         private VMMarshal SavedLot;
