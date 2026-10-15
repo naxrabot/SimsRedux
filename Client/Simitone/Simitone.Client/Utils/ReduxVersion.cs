@@ -12,12 +12,13 @@ namespace Simitone.Client.Utils
     /// </summary>
     public static class ReduxVersion
     {
-        public const string Number = "1.8";
+        public const string Number = "1.9";
         public const string Stage = "Beta";
 
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Online: games on different versions now say \"update your game\" instead of getting stuck on a grey screen.",
             "Online town: one clock for the whole town - every lot shows the same time, and it only moves while someone is playing (it can't be paused or sped up).",
             "Online town: a player's family only lives while their player is home - you can visit while they're there, and when they leave, visitors head back to the town.",
             "Online town: several lots can be open at once without undoing each other's saves (money, friendships, everything).",

@@ -1181,6 +1181,7 @@ namespace Simitone.Client.UI.Screens
         private void VMRefreshed()
         {
             RefreshCount++;
+            UILotControl.RefreshTally++;
             // SimsRedux online: a visitor's lot arrives before the lot controls exist
             if (vm == null || LotControl == null) return;
             LotControl.ActiveEntity = null;

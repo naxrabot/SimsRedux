@@ -332,9 +332,15 @@ namespace Simitone.Client.Utils
             var vm = Screen.vm;
             if (vm?.GlobalBlockingDialog != null)
             {
-                if (BlockedSince == default) BlockedSince = now;
+                if (BlockedSince == default)
+                {
+                    BlockedSince = now;
+                    var asker = vm.GlobalBlockingDialog;
+                    Say("waiting on a question from " + (asker?.ToString() ?? "?") + " (id " + (asker?.ObjectID ?? 0) + ")");
+                }
                 else if (now - BlockedSince > TimeSpan.FromSeconds(20))
                 {
+                    Say("nobody answered the question in 20 seconds - answering it so the lot carries on");
                     vm.SendCommand(new VMNetDialogResponseCmd { ResponseCode = 0, ResponseText = "" });
                     BlockedSince = default;
                 }

@@ -1007,7 +1007,12 @@ namespace Simitone.Client.UI.Panels
             
             if (ActiveEntity == null || ActiveEntity.Dead || ActiveEntity.PersistID != SelectedSimID)
             {
+                var before = ActiveEntity;
                 ActiveEntity = vm.Entities.FirstOrDefault(x => x is VMAvatar && x.PersistID == SelectedSimID); //try and hook onto a sim if we have none selected.
+                // SimsRedux online: note every change of who you're controlling (and why), to find Sims that flicker
+                if (before != ActiveEntity && vm.GlobalLink == null && ControlChanges++ < 200)
+                    Simitone.Client.Utils.ReduxOnlineInfo.Log("[control] " + (before == null ? "none" : before.Name + " (id " + before.PersistID + (before.Dead ? ", gone" : "") + ")")
+                        + " -> " + (ActiveEntity == null ? "none" : ActiveEntity.Name) + " | I'm " + SelectedSimID + " | selected-Sim setting " + vm.GetGlobalValue(3) + " | lot refreshes " + RefreshTally);
                 //if (ActiveEntity == null) ActiveEntity = vm.Entities.FirstOrDefault(x => x is VMAvatar);
 
                 // (a Sim who is off the lot - at work, say - has nowhere to look at: the lot is shown instead)
@@ -1242,6 +1247,9 @@ namespace Simitone.Client.UI.Panels
         // SimsRedux: doors. Walls up and roof: every door shows. Walls down: only doors that lead
         // outside show (inside doors would stand up like walls in the middle of rooms). Cutaway: a
         // door in a wall that's cut away is hidden with its wall.
+        private int ControlChanges;
+        /// <summary>How many times the whole lot has been re-sent to us (each one rebuilds every Sim).</summary>
+        public static int RefreshTally;
         private DateTime CameraWaitStart;
         private bool LotMiddleShown;
 

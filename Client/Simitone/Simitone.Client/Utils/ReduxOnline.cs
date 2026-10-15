@@ -47,7 +47,11 @@ namespace Simitone.Client.Utils
 
     public static class ReduxOnlineInfo
     {
-        public const int Version = 1;
+        /// <summary>
+        /// Both games must be the same version to play together (the lot's messages change between
+        /// updates): 1.8 -> 18, 1.9 -> 19... so an old game gets "update your game", not a grey screen.
+        /// </summary>
+        public static readonly int Version = int.TryParse(ReduxVersion.Number.Replace(".", ""), out var v) ? v : 1;
         public const int DefaultPort = 37564;
         /// <summary>Where the game hosts when the dedicated server is running on DefaultPort (it passes players along).</summary>
         public const int BehindServerPort = 37565;
@@ -598,7 +602,7 @@ namespace Simitone.Client.Utils
 
             if (version != ReduxOnlineInfo.Version)
             {
-                sock.Close("Your game is a different version from the host's. Both of you need the latest update.");
+                sock.Close("Your game is a different version (v" + VersionText(version) + ") from the server's (" + ReduxVersion.Text + ").\n\nOn the website, press Ctrl+F5 to get the latest version. On Windows, install the latest update.");
                 return;
             }
 
@@ -800,6 +804,8 @@ namespace Simitone.Client.Utils
         }
 
         /// <summary>2C: an owner without a Sim to control gets one of their family (when one is on the lot).</summary>
+        private static string VersionText(int v) { var t = v.ToString(); return t.Length < 2 ? t : t.Substring(0, t.Length - 1) + "." + t.Substring(t.Length - 1); }
+
         private void SendVisitorsHomeIfOwnerGone()
         {
             List<ReduxSocket> visitors;
