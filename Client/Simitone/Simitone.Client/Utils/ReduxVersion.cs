@@ -18,8 +18,7 @@ namespace Simitone.Client.Utils
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
-            "Website: making an account now asks for your real name (so the admin knows who you are) and your email (for password resets). Play offline is gone from the sign-in screen - an approved account is needed to play.",
-            "Server panel: Patch notes... edits what the website's launcher shows (fix a line, add a version, hide one).",
+            "Account sign-up: new accounts add your name and an email for password resets.",
             "Online: account levels and XP - earn XP playing in the online town (skill points, promotions, time played). Your level shows on the website's launcher.",
             "Online: messages from the server (announcements, events like Double XP, your level-ups) pop up while you're in the online town.",
             "Website launcher: pick the Live or Test server (green = online, red = offline), see the message of the day and any event, report a player, and it checks your game is up to date before you play.",

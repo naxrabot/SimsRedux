@@ -5,49 +5,39 @@
       "version": "3.6",
       "date": "Oct 15, 2026",
       "features": [
-        "New accounts ask for your real name and email."
+        "Account sign-up — new accounts add your name and an email for password resets."
       ],
       "updates": [
-        "The admin sees who's asking before approving an account.",
-        "Play offline removed: an approved account is needed to play."
+        "Sign-in screen — simplified to Log in and Create account."
       ]
-    },
-    {
-      "version": "3.5",
-      "date": "Oct 15, 2026",
-      "features": [
-        "Patch notes can be edited from the server panel."
-      ],
-      "updates": []
     },
     {
       "version": "3.4",
       "date": "Oct 15, 2026",
       "features": [
-        "Live and Test server choice on the launcher, with live status.",
-        "Message of the day and running events on the launcher.",
-        "Version check: the launcher updates the game before you play.",
-        "Account levels and XP for online play.",
-        "Report a player from the launcher.",
-        "Server announcements pop up in the online town."
+        "Server picker — choose the Live or Test server, with live online status.",
+        "Message of the day — server news and running events, right on the launcher.",
+        "Update check — the launcher makes sure your game is up to date before you play.",
+        "Levels and XP — earn XP playing online and level up your account.",
+        "Report a player — send a report to the admin from the launcher.",
+        "Town announcements — server messages and events pop up while you're in the online town."
       ],
       "updates": [
-        "Sims leave other Sims' plates alone.",
-        "Sims avoid chatting in doorways.",
-        "Online worlds are backed up automatically every day."
+        "Smarter Sims — Sims leave other Sims' plates alone.",
+        "Smarter Sims — Sims no longer stop to chat in doorways."
       ]
     },
     {
       "version": "3.3",
       "date": "Oct 15, 2026",
       "features": [
-        "New game launcher: patch notes, account and game folder in one place.",
-        "Server status and players online, live on the launcher.",
-        "The game now loads only when you press Play."
+        "Game launcher — patch notes, your account and game files in one place.",
+        "Server status — see whether the server is online and how many players are on.",
+        "Play button — the game only starts loading when you press Play."
       ],
       "updates": [
-        "Logged-in players go straight to the launcher.",
-        "Switch account, log out and change game folder moved to the launcher."
+        "Faster start — if you're logged in, you go straight to the launcher.",
+        "Account options — switch account, log out or change your game folder from the launcher."
       ]
     },
     {
@@ -55,33 +45,33 @@
       "date": "Oct 15, 2026",
       "features": [],
       "updates": [
-        "Fixed a crash while loading the website.",
-        "Mods with broken sound files no longer stop the game."
+        "Loading crash — fixed a crash while the website was loading.",
+        "Mod sounds — a mod with broken sound files no longer stops the game."
       ]
     },
     {
       "version": "3.1",
       "date": "Oct 15, 2026",
       "features": [
-        "Smarter Sims: a grown-up calls the fire department during a fire.",
-        "Smarter Sims: Sims call the repairman when nobody can fix things."
+        "Fire safety — a grown-up calls the fire department when there's a fire.",
+        "Repairman — Sims call the repairman when nobody at home can fix something."
       ],
       "updates": [
-        "Sims keep clear of fires.",
-        "Sims keep quiet around sleeping Sims."
+        "Fires — Sims keep clear of a fire.",
+        "Quiet hours — Sims keep it down around sleeping Sims."
       ]
     },
     {
       "version": "3.0",
       "date": "Oct 15, 2026",
       "features": [
-        "Sim Smarts: new Off setting for single player."
+        "Sim Smarts: Off — a new setting that turns off free will in single player."
       ],
       "updates": [
-        "Sims finish meals and get a full night's sleep.",
-        "Sims pay bills and repair objects when their needs are met.",
-        "Sims with low Cooking grab a snack instead of cooking.",
-        "Sims stop bouncing between the same activities."
+        "Meals and sleep — Sims finish their meals and sleep through the night.",
+        "Chores — Sims pay bills and fix things when their needs are met.",
+        "Snacks — Sims with low Cooking grab a snack instead of cooking.",
+        "Steadier Sims — Sims stop bouncing between the same activities."
       ]
     }
   ]
