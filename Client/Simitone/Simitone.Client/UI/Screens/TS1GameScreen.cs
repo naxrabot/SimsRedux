@@ -437,6 +437,7 @@ namespace Simitone.Client.UI.Screens
         }
 
         private DateTime JoinStarted;
+        private int JoinDrawFrames;
 
         /// <summary>While connecting: after a few seconds, explain the wait (the server may be opening the lot).</summary>
         private void UpdateJoinMessage()
@@ -457,7 +458,10 @@ namespace Simitone.Client.UI.Screens
         private void GuestReady()
         {
             if (vm == null || Guest == null || LotControl != null) return;
-            if (JoinScreen != null) { JoinScreen.Close(); JoinScreen = null; }
+            // the loading wallpaper stays up until the lot has actually been drawn for a moment
+            // (closing it now showed a grey screen while the lot's pictures were still loading)
+            JoinScreen?.SetWaiting("Arriving...", 0.95f);
+            JoinDrawFrames = 0;
             LotControl = new UILotControl(vm, World);
             this.AddAt(0, LotControl);
             m_ZoomLevel = 4;
@@ -743,6 +747,12 @@ namespace Simitone.Client.UI.Screens
             ReduxWorker.Tick();
             UpdateJoinMessage();
             if (Guest != null && !Guest.Process()) GuestLost();
+            // the lot is on screen: the loading wallpaper can go
+            if (JoinScreen != null && LotControl != null && World != null && World.Visible && vm != null && vm.Ready)
+            {
+                if (++JoinDrawFrames >= 45) { JoinScreen.Close(); JoinScreen = null; }
+                else JoinScreen.SetWaiting("Arriving...", 0.95f + JoinDrawFrames / 45f * 0.05f);
+            }
             if ((Host != null || IsGuest) && vm != null && ++OnlineStateLog >= 300)
             {
                 // SimsRedux online: a line every ~5 seconds about the lot, for tracking down problems
