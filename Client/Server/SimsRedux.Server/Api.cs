@@ -422,7 +422,7 @@ namespace SimsRedux.Server
         {
             if (Lots == null || !short.TryParse(req.Path.Substring(5).Trim('/'), out var house))
             {
-                await HttpServer.Send(stream, 404, "text/plain; charset=utf-8", Encoding.UTF8.GetBytes("No such lot."));
+                await Refuse(stream, 404, "No such lot.");
                 return;
             }
             // only approved accounts can travel to the town's lots
@@ -430,7 +430,7 @@ namespace SimsRedux.Server
             if (who == null)
             {
                 Log.Info("online: someone without an approved login (from " + req.From + ") tried to go to house " + house);
-                await HttpServer.Send(stream, 401, "text/plain; charset=utf-8", Encoding.UTF8.GetBytes("Log in with an approved account first."));
+                await Refuse(stream, 401, "Log in with an approved account first.");
                 return;
             }
             Log.Info("online: " + who.Name + " is travelling to house " + house);
@@ -441,7 +441,7 @@ namespace SimsRedux.Server
                 if (w == null)
                 {
                     Log.Info("online: someone (from " + req.From + ") tried to go to house " + house + ", but " + error);
-                    await HttpServer.Send(stream, 503, "text/plain; charset=utf-8", Encoding.UTF8.GetBytes(error));
+                    await Refuse(stream, 503, error);
                     return;
                 }
                 if (w.Closing)
@@ -457,7 +457,7 @@ namespace SimsRedux.Server
                     {
                         if (w.Closing || w.Finished) continue;
                         Log.Warn("online: house " + house + " didn't open in time" + (w.Problem != null ? " (" + w.Problem + ")" : ""));
-                        await HttpServer.Send(stream, 503, "text/plain; charset=utf-8", Encoding.UTF8.GetBytes("The lot couldn't be opened. " + (w.Problem ?? "")));
+                        await Refuse(stream, 503, "The lot couldn't be opened. " + (w.Problem ?? ""));
                         return;
                     }
                 }
@@ -467,7 +467,18 @@ namespace SimsRedux.Server
                 await Lots.WaitExit(w, TimeSpan.FromSeconds(30));
             }
             Log.Warn("online: couldn't get a player (from " + req.From + ") onto house " + house);
-            await HttpServer.Send(stream, 503, "text/plain; charset=utf-8", Encoding.UTF8.GetBytes("The lot couldn't be opened right now - try again."));
+            await Refuse(stream, 503, "The lot couldn't be opened right now - try again.");
+        }
+
+        /// <summary>
+        /// Turns a player away from a lot. The reason also goes in a header, because a game that's
+        /// connecting to a lot can read headers but not the page itself - so it can say why.
+        /// </summary>
+        private static Task Refuse(Stream stream, int status, string reason)
+        {
+            var oneLine = new string((reason ?? "").Where(c => c >= 32 && c < 127).ToArray());
+            return HttpServer.Send(stream, status, "text/plain; charset=utf-8", Encoding.UTF8.GetBytes(reason ?? ""),
+                new Dictionary<string, string> { ["X-Redux-Error"] = oneLine });
         }
 
         private static bool IsWebSocket(Request req) =>

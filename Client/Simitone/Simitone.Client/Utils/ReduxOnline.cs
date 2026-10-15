@@ -1096,13 +1096,18 @@ namespace Simitone.Client.Utils
                 return;
             }
             Connecting = true;
-            ReduxOnlineInfo.Log("[guest] Connecting to " + uri);
+            ReduxOnlineInfo.Log("[guest] Connecting to " + HideLogin(uri.ToString()));
             Task.Run(async () =>
             {
+                ClientWebSocket ws = null;
                 try
                 {
-                    var ws = new ClientWebSocket();
-                    if (!OperatingSystem.IsBrowser()) ws.Options.KeepAliveInterval = TimeSpan.FromSeconds(20); // browsers manage this themselves
+                    ws = new ClientWebSocket();
+                    if (!OperatingSystem.IsBrowser())
+                    {
+                        ws.Options.KeepAliveInterval = TimeSpan.FromSeconds(20); // browsers manage this themselves
+                        ws.Options.CollectHttpResponseDetails = true; // so a refusal from the server can say why
+                    }
                     // up to 90 seconds: a lot on the dedicated server may be starting up for us
                     using (var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(90)))
                         await ws.ConnectAsync(uri, timeout.Token);
@@ -1113,11 +1118,41 @@ namespace Simitone.Client.Utils
                 }
                 catch (Exception e)
                 {
-                    Failure = "Couldn't reach the host at " + uri + ".\n\n" + e.Message;
-                    ReduxOnlineInfo.Log("[guest] Connect failed: " + e);
+                    Failure = ConnectFailure(ws, uri, e);
+                    ReduxOnlineInfo.Log("[guest] Connect failed (" + HideLogin(uri.ToString()) + "): " + e.Message);
                 }
                 Connecting = false;
             });
+        }
+
+        /// <summary>An address without the login code in it (that code works like a password - never show it).</summary>
+        public static string HideLogin(string address)
+        {
+            return System.Text.RegularExpressions.Regex.Replace(address ?? "", @"([?&]t=)[^&\s]+", "$1...");
+        }
+
+        /// <summary>Why we couldn't get onto the lot, in plain words (the server's own reason when it gave one).</summary>
+        private static string ConnectFailure(ClientWebSocket ws, Uri uri, Exception e)
+        {
+            string reason = null;
+            int status = 0;
+            try
+            {
+                if (ws != null && !OperatingSystem.IsBrowser())
+                {
+                    status = (int)ws.HttpStatusCode;
+                    if (ws.HttpResponseHeaders != null && ws.HttpResponseHeaders.TryGetValue("X-Redux-Error", out var vals))
+                        reason = string.Join(" ", vals);
+                }
+            }
+            catch { }
+            if (!string.IsNullOrWhiteSpace(reason)) return reason;
+            if (status == 401) return "Your login has run out - log out and back in (Online), then try again.";
+            if (status == 503) return "The server couldn't open that lot right now. Wait a moment and try again - if it keeps happening, the server's log says why.";
+            if (status == 404) return "That lot isn't in the town.";
+            if (status == 502 || status == 530) return "The server isn't reachable right now - it (or its tunnel) may be off.";
+            return "Couldn't reach the server (" + HideLogin(uri.ToString()) + ").\n\n" + e.Message
+                + "\n\nThe server, or its tunnel, may be off - or still starting up.";
         }
 
         /// <summary>Called every frame before the lot ticks. Returns false once the connection is over (see Failure).</summary>
