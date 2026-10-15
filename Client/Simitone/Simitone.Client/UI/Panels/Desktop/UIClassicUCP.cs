@@ -202,7 +202,7 @@ namespace Simitone.Client.UI.Panels.Desktop
             // clicking the open page again closes it
             if (OptionPages.Current == page) page = UIClassicOptionsPages.Page.None;
             OptionPages.Show(page);
-            GraphicsBtn.Selected = page == UIClassicOptionsPages.Page.Graphics;
+            GraphicsBtn.Selected = page == UIClassicOptionsPages.Page.Graphics || page == UIClassicOptionsPages.Page.Interface;
             SoundBtn.Selected = page == UIClassicOptionsPages.Page.Sound;
             PlayBtn.Selected = page == UIClassicOptionsPages.Page.Play;
         }
@@ -260,7 +260,7 @@ namespace Simitone.Client.UI.Panels.Desktop
 
         private void Reposition()
         {
-            UIScale = Math.Max(1f, (float)Math.Floor(GlobalSettings.Default.GraphicsHeight / 768f * 4) / 4f);
+            UIScale = ReduxTheme.PanelScale(GlobalSettings.Default.GraphicsHeight);
             ScaleX = ScaleY = UIScale;
             Position = new Vector2(0, GlobalSettings.Default.GraphicsHeight - WingH * UIScale);
         }
@@ -308,19 +308,31 @@ namespace Simitone.Client.UI.Panels.Desktop
         public override void Draw(UISpriteBatch batch)
         {
             if (!Visible) return;
-            // bottom bar: draw the original 804px bar, then stretch its right edge to the screen edge
-            DrawLocalTexture(batch, BarBack, new Vector2(BarX, BarY));
             float screenRight = (GlobalSettings.Default.GraphicsWidth / UIScale) + 4;
-            float extra = screenRight - (BarX + BarBack.Width);
-            if (extra > 0)
-                DrawLocalTexture(batch, BarBack, new Rectangle(BarBack.Width - 8, 0, 4, BarBack.Height),
-                    new Vector2(BarX + BarBack.Width - 4, BarY), new Vector2((extra + 4) / 4f, 1));
+            bool redux = ReduxTheme.Redux;
+            if (redux)
+            {
+                // Redux: one smooth bar in the UI colour, running behind the wing to the screen edge
+                var px = TextureGenerator.GetPxWhite(GameFacade.GraphicsDevice);
+                DrawLocalTexture(batch, px, null, new Vector2(0, BarY - 4), new Vector2(screenRight, 4), Color.Black * 0.22f);
+                DrawLocalTexture(batch, px, null, new Vector2(0, BarY - 1), new Vector2(screenRight, 1), ReduxTheme.Edge);
+                DrawLocalTexture(batch, ReduxTheme.BarGradient(BarH), null, new Vector2(0, BarY), new Vector2(screenRight, 1));
+            }
+            else
+            {
+                // bottom bar: draw the original 804px bar, then stretch its right edge to the screen edge
+                DrawLocalTexture(batch, BarBack, new Vector2(BarX, BarY));
+                float extra = screenRight - (BarX + BarBack.Width);
+                if (extra > 0)
+                    DrawLocalTexture(batch, BarBack, new Rectangle(BarBack.Width - 8, 0, 4, BarBack.Height),
+                        new Vector2(BarX + BarBack.Width - 4, BarY), new Vector2((extra + 4) / 4f, 1));
+            }
 
-            // the wing, then the white arc that points at the current mode
-            DrawLocalTexture(batch, WingBack, Vector2.Zero);
+            // the wing, then the white arc that points at the current mode (Redux: recoloured to the UI colour)
+            DrawLocalTexture(batch, redux ? ReduxTheme.Tinted(WingBack) : WingBack, Vector2.Zero);
             var patch = ModePatches[ModeIndex(CurrentMode)];
             if (patch.Width > 1)
-                DrawLocalTexture(batch, patch, new Vector2(WingW - patch.Width, WingH - patch.Height));
+                DrawLocalTexture(batch, redux ? ReduxTheme.Tinted(patch) : patch, new Vector2(WingW - patch.Width, WingH - patch.Height));
 
             if (CurrentMode == UIMainPanelMode.OPTIONS)
             {

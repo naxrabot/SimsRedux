@@ -23,10 +23,11 @@ namespace Simitone.Client.UI.Panels.Desktop
     ///   Graphics: Lighting, Smooth Zoom, Anti-Aliasing, Screen (window / full screen)
     ///   Sound:    Music, Sound Effects, Voices, Ambience
     ///   Play:     Camera controls, Screen-edge scrolling
+    ///   Interface (a tab on the Graphics page): Classic / Redux look, UI colour, UI size
     /// </summary>
     public class UIClassicOptionsPages : UIContainer
     {
-        public enum Page { None, Graphics, Sound, Play }
+        public enum Page { None, Graphics, Sound, Play, Interface }
         public Page Current { get; private set; } = Page.None;
 
         private TS1GameScreen Game;
@@ -53,6 +54,31 @@ namespace Simitone.Client.UI.Panels.Desktop
             Px = TextureGenerator.GetPxWhite(GameFacade.GraphicsDevice);
             Label = TextStyle.DefaultLabel.Clone(); Label.Size = 11; Label.Color = TextColor;
             Small = TextStyle.DefaultLabel.Clone(); Small.Size = 9; Small.Color = new Color(170, 170, 220);
+
+            // Graphics / Interface tabs (shown on those two pages, above the picture)
+            for (int i = 0; i < 2; i++)
+            {
+                var tab = (i == 0) ? Page.Graphics : Page.Interface;
+                ListenForMouse(new Rectangle(PictureX, TabY + i * (TabH + 2), TabW, TabH), (type, state) =>
+                {
+                    if (!Visible || (Current != Page.Graphics && Current != Page.Interface)) return;
+                    if (type == UIMouseEventType.MouseDown && Current != tab)
+                    {
+                        HITVM.Get().PlaySoundEvent(UISounds.Click);
+                        TabPending = tab;
+                    }
+                });
+            }
+        }
+
+        private const int TabY = 86, TabW = 104, TabH = 15;
+        private Page TabPending = Page.None;
+
+        public override void Update(FSO.Common.Rendering.Framework.Model.UpdateState state)
+        {
+            // switch tabs outside the click itself (the rows are rebuilt)
+            if (TabPending != Page.None) { var p = TabPending; TabPending = Page.None; Show(p); }
+            base.Update(state);
         }
 
         public void Show(Page page)
@@ -68,6 +94,7 @@ namespace Simitone.Client.UI.Panels.Desktop
                 case Page.Graphics: BuildGraphics(); break;
                 case Page.Sound: BuildSound(); break;
                 case Page.Play: BuildPlay(); break;
+                case Page.Interface: BuildInterface(); break;
             }
         }
 
@@ -97,6 +124,23 @@ namespace Simitone.Client.UI.Panels.Desktop
                     () => g.Windowed ? 0 : 1, (v) => SetFullScreen(v == 1));
                 Note = "Screen changes start next time you open the game.";
             }
+        }
+
+        private void BuildInterface()
+        {
+            AddChoices("Look", "PopupOptTransUI", new[] { "Redux", "Classic" },
+                () => ReduxTheme.Redux ? 0 : 1, (v) => ReduxTheme.Redux = v == 0);
+            var row = NewRow("UI Colour", "PopupOptTransUI");
+            var sw = new UIReduxSwatches();
+            sw.Position = new Vector2(RowX + LabelW, row.Y + 2);
+            sw.OnHover = () => HoverRow = row;
+            Add(sw); Controls.Add(sw);
+            var sizes = new List<string>();
+            foreach (var v in ReduxTheme.ScaleChoices) sizes.Add(v == 0 ? "Auto" : v + "%");
+            AddChoices("UI Size", "PopupOptTransUI", sizes.ToArray(),
+                () => Math.Max(0, Array.IndexOf(ReduxTheme.ScaleChoices, ReduxTheme.Scale)),
+                (v) => ReduxTheme.Scale = ReduxTheme.ScaleChoices[v]);
+            Note = "Auto fits the panel to your screen. Classic uses the original art as it was.";
         }
 
         private void BuildSound()
@@ -265,13 +309,30 @@ namespace Simitone.Client.UI.Panels.Desktop
 
             // picture of the setting under the mouse (or the first one)
             var row = HoverRow ?? (Rows.Count > 0 ? Rows[0] : null);
+            bool tabs = Current == Page.Graphics || Current == Page.Interface;
             if (row != null)
             {
                 var pic = TS1UIGraphics.Get("cpanel/" + row.Popup + ".bmp");
                 if (pic != null && pic.Width > 1)
                 {
-                    float s = 92f / pic.Height;
-                    DrawLocalTexture(batch, pic, null, new Vector2(PictureX, BarY + 4), new Vector2(s, s));
+                    // with the tabs showing, the picture sits under them, smaller
+                    float top = tabs ? TabY + TabH * 2 + 6 : BarY + 4;
+                    float s = (tabs ? 58f : 92f) / pic.Height;
+                    DrawLocalTexture(batch, pic, null, new Vector2(PictureX, top), new Vector2(s, s));
+                }
+            }
+            if (tabs)
+            {
+                for (int i = 0; i < 2; i++)
+                {
+                    var page = (i == 0) ? Page.Graphics : Page.Interface;
+                    bool on = Current == page;
+                    var y = TabY + i * (TabH + 2);
+                    DrawLocalTexture(batch, Px, null, new Vector2(PictureX, y), new Vector2(TabW, TabH), on ? new Color(0, 160, 200) : new Color(0, 0, 60) * 0.8f);
+                    DrawLocalTexture(batch, Px, null, new Vector2(PictureX, y), new Vector2(TabW, 1), on ? Color.Cyan : new Color(60, 60, 140));
+                    Label.Color = on ? Color.White : TextColor;
+                    DrawLocalString(batch, (i == 0) ? "Graphics" : "Interface", new Vector2(PictureX, y), Label, new Rectangle(0, 0, TabW, TabH), TextAlignment.Center | TextAlignment.Middle);
+                    Label.Color = TextColor;
                 }
             }
 
@@ -389,6 +450,70 @@ namespace Simitone.Client.UI.Panels.Desktop
             }
             // "off" mark at the start
             DrawLocalTexture(batch, px, null, new Vector2(-4, H - 3), new Vector2(8, 3), value == 0 ? Color.White : new Color(40, 40, 110));
+        }
+    }
+}
+
+namespace Simitone.Client.UI.Panels.Desktop
+{
+    /// <summary>SimsRedux: the UI colour choices - a row of colour squares, click one to use it.</summary>
+    public class UIReduxSwatches : UIElement
+    {
+        public Action OnHover;
+        private const int Size = 16, Step = 22;
+        private int Hover = -1;
+        private bool Inside;
+
+        public UIReduxSwatches()
+        {
+            int n = ReduxTheme.Presets.Length;
+            ListenForMouse(new Rectangle(0, 0, n * Step, Size), (type, state) =>
+            {
+                if (type == UIMouseEventType.MouseOut) { Hover = -1; Inside = false; return; }
+                if (type == UIMouseEventType.MouseOver) { Inside = true; OnHover?.Invoke(); }
+                var local = GlobalPoint(new Vector2(state.MouseState.X, state.MouseState.Y));
+                int i = (int)(local.X / Step);
+                Hover = (i >= 0 && i < n) ? i : -1;
+                if (type == UIMouseEventType.MouseDown && Hover >= 0)
+                {
+                    HITVM.Get().PlaySoundEvent(UISounds.Click);
+                    ReduxTheme.Base = ReduxTheme.Presets[Hover];
+                }
+            });
+        }
+
+        public override void Update(FSO.Common.Rendering.Framework.Model.UpdateState state)
+        {
+            base.Update(state);
+            // follow the mouse while it is over the squares (there's no "mouse moved" event)
+            if (Inside)
+            {
+                var local = GlobalPoint(new Vector2(state.MouseState.X, state.MouseState.Y));
+                if (local.Y < 0 || local.Y > Size || local.X < 0 || local.X >= ReduxTheme.Presets.Length * Step) Hover = -1;
+                else Hover = Math.Min(ReduxTheme.Presets.Length - 1, (int)(local.X / Step));
+            }
+        }
+
+        public override void Draw(UISpriteBatch batch)
+        {
+            if (!Visible) return;
+            var px = TextureGenerator.GetPxWhite(GameFacade.GraphicsDevice);
+            var current = ReduxTheme.Base;
+            for (int i = 0; i < ReduxTheme.Presets.Length; i++)
+            {
+                var c = ReduxTheme.Presets[i];
+                bool on = c == current;
+                int x = i * Step;
+                var ring = on ? Color.White : (i == Hover ? Color.Cyan : new Color(20, 20, 60));
+                DrawLocalTexture(batch, px, null, new Vector2(x - 2, -2), new Vector2(Size + 4, Size + 4), ring);
+                DrawLocalTexture(batch, px, null, new Vector2(x, 0), new Vector2(Size, Size), c);
+                DrawLocalTexture(batch, px, null, new Vector2(x, 0), new Vector2(Size, Size / 3), ReduxTheme.Shade(c, 0.25f));
+            }
+            if (Hover >= 0)
+            {
+                var style = TextStyle.DefaultLabel.Clone(); style.Size = 9; style.Color = Color.White;
+                DrawLocalString(batch, ReduxTheme.PresetNames[Hover], new Vector2(ReduxTheme.Presets.Length * Step + 6, 0), style, new Rectangle(0, 0, 90, Size), TextAlignment.Left | TextAlignment.Middle);
+            }
         }
     }
 }

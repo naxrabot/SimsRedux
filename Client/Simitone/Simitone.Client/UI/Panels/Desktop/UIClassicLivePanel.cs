@@ -208,6 +208,7 @@ namespace Simitone.Client.UI.Panels.Desktop
 
         private void DrawGadget(UISpriteBatch batch)
         {
+            if (ReduxTheme.Redux) { DrawReduxGadget(batch); return; }
             var g = new Vector2(GX, GY);
             // dark slots behind the frame (unlit bars, empty face slots)
             Fill(batch, new Rectangle(GX + 9, GY + 4, 29, 92), SlotBack);
@@ -234,8 +235,12 @@ namespace Simitone.Client.UI.Panels.Desktop
                 if (OtherHeads[i] != null) DrawFace(batch, OtherHeads[i], Offset(FamilySlots[i]));
 
             DrawLocalTexture(batch, Gadget, g);
+            DrawHoverName(batch);
+        }
 
-            // name of the Sim under the mouse
+        /// <summary>The name of the family member under the mouse.</summary>
+        private void DrawHoverName(UISpriteBatch batch)
+        {
             if (HoverSlot >= 0 && HoverSlot < Others.Count)
             {
                 var r = Offset(FamilySlots[HoverSlot]);
@@ -249,6 +254,51 @@ namespace Simitone.Client.UI.Panels.Desktop
                 Fill(batch, box, new Color(0, 0, 82));
                 DrawLocalString(batch, name, new Vector2(box.X, box.Y), Small, new Rectangle(0, 0, box.Width, box.Height), TextAlignment.Center | TextAlignment.Middle);
             }
+        }
+
+        /// <summary>
+        /// Redux: the same mood meter and family faces as the original, on smooth panels in the UI colour.
+        /// Mood: up to 4 green bars above the face (good mood) or 4 red bars below (bad mood).
+        /// </summary>
+        private void DrawReduxGadget(UISpriteBatch batch)
+        {
+            // soft dark backing behind the meter and faces
+            DrawLocalTexture(batch, ReduxTheme.Box(152, 95, 8, Color.Black * 0.2f, Color.Black * 0.2f, Color.Transparent, 0), new Vector2(GX + 6, GY + 2));
+
+            // mood meter well
+            DrawLocalTexture(batch, ReduxTheme.Box(29, 92, 6, ReduxTheme.Deeper, ReduxTheme.Edge, Color.Transparent, 0, true), new Vector2(GX + 9, GY + 4));
+            int mood = (Selected == null) ? 0 : Selected.GetMotiveData(VMMotive.Mood);
+            int lit = (int)Math.Ceiling(Math.Min(100, Math.Abs(mood)) / 25.0);
+            var green = new Color(123, 224, 107);
+            var red = new Color(240, 102, 79);
+            var off = Color.White * 0.08f;
+            for (int i = 0; i < 4; i++)
+            {
+                // green: the bars nearest the face light first (bottom up); red: top down
+                bool g = mood > 0 && i >= 4 - lit;
+                bool r = mood < 0 && i < lit;
+                Fill(batch, new Rectangle(GX + 13, GY + 7 + i * 6, 21, 5), g ? green : off);
+                Fill(batch, new Rectangle(GX + 13, GY + 71 + i * 6, 21, 5), r ? red : off);
+            }
+
+            // the selected Sim: a glowing frame
+            var sel = Offset(SelectedSlot);
+            DrawLocalTexture(batch, ReduxTheme.Box(sel.Width, sel.Height, 6, ReduxTheme.Gloss, ReduxTheme.Deep, ReduxTheme.Glow, 2), new Vector2(sel.X, sel.Y));
+            if (SelectedHead != null) DrawFace(batch, SelectedHead, new Rectangle(sel.X + 2, sel.Y + 2, sel.Width - 4, sel.Height - 4));
+
+            // the rest of the family
+            for (int i = 0; i < FamilySlots.Length; i++)
+            {
+                var r = Offset(FamilySlots[i]);
+                bool here = i < OtherHeads.Count && OtherHeads[i] != null;
+                var box = here
+                    ? ReduxTheme.Box(r.Width, r.Height, 5, ReduxTheme.Gloss, ReduxTheme.Deep, ReduxTheme.Rim, 1)
+                    : ReduxTheme.Box(r.Width, r.Height, 5, ReduxTheme.Deeper * 0.5f, ReduxTheme.Deeper * 0.5f, ReduxTheme.Rim * 0.35f, 1);
+                DrawLocalTexture(batch, box, new Vector2(r.X, r.Y));
+                if (here) DrawFace(batch, OtherHeads[i], new Rectangle(r.X + 1, r.Y + 1, r.Width - 2, r.Height - 2));
+            }
+
+            DrawHoverName(batch);
         }
 
         private void DrawFace(UISpriteBatch batch, Texture2D head, Rectangle slot)
@@ -428,6 +478,21 @@ namespace Simitone.Client.UI.Panels.Desktop
         private void DrawMotiveBar(UISpriteBatch batch, Rectangle r, int value)
         {
             value = Math.Max(-100, Math.Min(100, value));
+            if (ReduxTheme.Redux)
+            {
+                // Redux: a sunken groove with a glossy fill
+                DrawLocalTexture(batch, ReduxTheme.Box(r.Width + 2, r.Height + 1, 3, ReduxTheme.Deeper, ReduxTheme.Edge, Color.Transparent, 0, true), new Vector2(r.X - 1, r.Y - 1));
+                var inside = new Rectangle(r.X + 1, r.Y + 1, r.Width - 2, r.Height - 3);
+                int fw = (int)Math.Round(inside.Width * (value + 100) / 200f);
+                if (fw <= 0) return;
+                float k = value / 100f;
+                Color fc = (k >= 0) ? Color.Lerp(new Color(242, 207, 62), new Color(123, 224, 107), k)
+                                    : Color.Lerp(new Color(242, 207, 62), new Color(240, 102, 79), -k);
+                Fill(batch, new Rectangle(inside.X, inside.Y, fw, inside.Height), fc);
+                Fill(batch, new Rectangle(inside.X, inside.Y, fw, inside.Height / 2), Color.Lerp(fc, Color.White, 0.35f));
+                Fill(batch, new Rectangle(inside.X, inside.Bottom - 2, fw, 2), Color.Lerp(fc, Color.Black, 0.35f));
+                return;
+            }
             Fill(batch, r, new Color(0, 0, 30));
             Fill(batch, new Rectangle(r.X, r.Y, r.Width, 1), new Color(40, 40, 120));
             var inner = new Rectangle(r.X + 1, r.Y + 1, r.Width - 2, r.Height - 2);

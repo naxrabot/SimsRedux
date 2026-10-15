@@ -2,6 +2,15 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "3.8",
+      "date": "Oct 15, 2026",
+      "features": [
+        "New look — a smoother control panel in the classic Sims blue, with the original icons.",
+        "Interface options — choose the Redux or Classic look, a UI colour and a UI size."
+      ],
+      "updates": []
+    },
+    {
       "version": "3.7",
       "date": "Oct 15, 2026",
       "features": [

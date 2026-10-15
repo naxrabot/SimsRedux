@@ -18,6 +18,8 @@ namespace Simitone.Client.Utils
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "New look: smoother control panel in the classic Sims blue, with the original icons.",
+            "Interface options: pick the Redux or Classic look, a UI colour and a UI size (Options > Graphics > Interface).",
             "Server warnings: you're told before the server restarts or shuts down.",
             "Maintenance: the server can close for upkeep - you'll see it on the launcher.",
             "Moderator tools: moderators can help run the town from the launcher.",
