@@ -45,6 +45,7 @@
     <button id="bStart" class="go">▶ START</button>
     <button id="bStop" class="stop" disabled>■ STOP</button>
     <button id="bRestart" disabled>↻ RESTART</button>
+    <button id="bMaint" class="maint" title="Maintenance: only Admin accounts can log in and be online">MAINTENANCE</button>
   </div>
   <div class="grp">
     <button data-open="data">Data folder</button>
@@ -55,6 +56,7 @@
     <button id="bAccounts">Accounts…</button>
     <button id="bFiles">Game files…</button>
     <button id="bNotes">Patch notes…</button>
+    <button id="bTools">Server tools…</button>
   </div>
   <div class="grp right">
     <button id="bCmds">Commands</button>
@@ -63,6 +65,17 @@
   </div>
 </div>
 
+<!-- STOP / RESTART with a countdown everyone online is told about -->
+<div id="stopPop" class="pop hidden">
+  <b id="spTitle">STOP THE SERVER</b>
+  <p class="lh" id="spNote">Everyone online sees "Server shutting down in … seconds", with reminders, and their games are saved.</p>
+  <div class="row"><label>Countdown <input id="spSecs" type="number" min="5" max="3600" step="5"> seconds</label></div>
+  <div class="row btns">
+    <button id="spGo" class="stop">SHUT DOWN IN 60s</button>
+    <button id="spNow">Right now</button>
+    <button id="spCancel" class="x">Cancel</button>
+  </div>
+</div>
 <main>
   <section id="consolePane">
     <div id="console" tabindex="0" aria-live="polite"></div>
@@ -110,6 +123,22 @@
   </div>
 </div>
 
+<!-- ============ SERVER TOOLS ============
+     Reports, flags, events, XP and backups: read from the server's files,
+     changed by sending it console commands. -->
+<div id="tl" class="hidden ovl">
+  <div class="ovlBox">
+    <div class="sideHead">
+      <b id="tlTitle">SERVER TOOLS</b>
+      <span class="tabs" id="tlTabs">
+        <button data-t="reports">Reports</button><button data-t="flags">Cheat flags</button><button data-t="events">Events</button><button data-t="xp">XP &amp; levels</button><button data-t="backups">Backups</button>
+      </span>
+      <span id="tlNote" class="lh"></span>
+      <button id="tlClose" class="x">CLOSE</button>
+    </div>
+    <div id="tlBody" class="ovlBody tlBody"></div>
+  </div>
+</div>
 <!-- ============ PATCH NOTES ============
      What the website's launcher shows under PATCH NOTES. Saved in the server's
      data folder; the shipped notes come with each update. -->

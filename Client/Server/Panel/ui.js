@@ -55,12 +55,77 @@ function paintLocal(){
   const h = LOCAL[ACTIVE] || {};
   const el = $("stGame");
   if (h.foreign)                   setStat(el, "warn", "running outside this panel");
-  else if (h.state === "up")       setStat(el, "up",   (h.players|0) + " on a lot · " + (h.online|0) + " active · v" + (h.version||"?"));
+  else if (h.state === "up")       setStat(el, h.shutdownIn >= 0 || h.maintenance ? "warn" : "up",
+    (h.shutdownIn >= 0 ? (h.shutdownRestart ? "restarting in " : "stopping in ") + h.shutdownIn + "s · " : "") +
+    (h.maintenance ? "MAINTENANCE · " : "") + (h.players|0) + " on a lot · " + (h.online|0) + " active · v" + (h.version||"?"));
   else if (h.state === "strained") setStat(el, "warn", h.detail || "unhappy");
   else if (h.state === "starting") setStat(el, "busy warn", h.detail || "starting…");
   else                             setStat(el, "", "stopped");
   chips();
+  paintControls();
 }
+
+/* ---------- maintenance and the stop countdown ---------- */
+const MAINT_FILE = { live: false, test: false };
+function maintOn(){ const L = LOCAL[ACTIVE] || {}; return RUN[ACTIVE] && L.state === "up" ? !!L.maintenance : !!MAINT_FILE[ACTIVE]; }
+function paintControls(){
+  const m = maintOn(), b = $("bMaint");
+  b.classList.toggle("on", m);
+  b.textContent = m ? "MAINTENANCE ON" : "MAINTENANCE";
+  b.title = m ? "Only Admin accounts can log in and be online. Click to open the server to everyone again."
+              : "Maintenance: only Admin accounts can log in and be online (everyone else is sent off)";
+  const L = LOCAL[ACTIVE] || {};
+  const counting = RUN[ACTIVE] && L.state === "up" && L.shutdownIn >= 0;
+  $("bStop").textContent = counting ? "✕ CANCEL (" + L.shutdownIn + "s)" : "■ STOP";
+  $("bStop").classList.toggle("counting", counting);
+}
+async function loadMaint(ch){
+  try { const d = await P.tools(ch); MAINT_FILE[ch] = !!(d && d.maintenance); } catch (e) { }
+  if (ch === ACTIVE) paintControls();
+}
+$("bMaint").addEventListener("click", async () => {
+  const on = !maintOn();
+  const r = await P.tool(ACTIVE, "maintenance", { on });
+  if (!r || !r.ok) { say((r && r.error) || "that didn't go through"); return; }
+  if (RUN[ACTIVE]) { LOCAL[ACTIVE] = Object.assign({}, LOCAL[ACTIVE], { maintenance: on }); }
+  else { MAINT_FILE[ACTIVE] = on; say(on ? "The " + ACTIVE + " server will start in maintenance." : "Maintenance is off for the " + ACTIVE + " server."); }
+  paintLocal();
+});
+let STOP_RESTART = false;
+function stopDelay(){ try { const v = parseInt(localStorage.getItem("stopDelay"), 10); return v >= 5 && v <= 3600 ? v : 60; } catch (e) { return 60; } }
+function openStop(restart){
+  STOP_RESTART = restart;
+  const L = LOCAL[ACTIVE] || {};
+  $("spTitle").textContent = (restart ? "RESTART" : "STOP") + " THE " + ACTIVE.toUpperCase() + " SERVER";
+  $("spSecs").value = stopDelay();
+  $("spNote").textContent = ((L.online|0) + (L.players|0) === 0 ? "Nobody seems to be online right now. " : "") +
+    "Everyone online sees \"Server " + (restart ? "restarting" : "shutting down") + " in … seconds\" with reminders, and their games are saved.";
+  paintStopGo();
+  const r = $(restart ? "bRestart" : "bStop").getBoundingClientRect();
+  $("stopPop").style.top = Math.round(r.bottom + 8) + "px";
+  $("stopPop").style.left = Math.round(Math.max(8, r.left)) + "px";
+  $("stopPop").classList.remove("hidden");
+  $("spSecs").focus(); $("spSecs").select();
+}
+function paintStopGo(){
+  const n = parseInt($("spSecs").value, 10) || 0;
+  $("spGo").textContent = (STOP_RESTART ? "RESTART" : "SHUT DOWN") + " IN " + n + "s";
+}
+$("spSecs").addEventListener("input", paintStopGo);
+$("spSecs").addEventListener("keydown", e => { if (e.key === "Enter") $("spGo").click(); if (e.key === "Escape") $("spCancel").click(); });
+$("spCancel").addEventListener("click", () => $("stopPop").classList.add("hidden"));
+$("spGo").addEventListener("click", async () => {
+  const n = Math.max(5, Math.min(3600, parseInt($("spSecs").value, 10) || 60));
+  try { localStorage.setItem("stopDelay", String(n)); } catch (e) { }
+  const r = await P.tool(ACTIVE, "shutdown", { seconds: n, restart: STOP_RESTART });
+  $("stopPop").classList.add("hidden");
+  if (!r || !r.ok) say((r && r.error) || "that didn't go through");
+});
+$("spNow").addEventListener("click", async () => {
+  $("stopPop").classList.add("hidden");
+  const r = STOP_RESTART ? await P.restart(ACTIVE) : await P.stop(ACTIVE, false);
+  if (r && !r.ok) say(r.error);
+});
 function paintPublic(){
   const p = PUBLIC[ACTIVE] || {};
   const el = $("stEdge");
@@ -121,6 +186,8 @@ function switchTo(ch){
   setRunning(); redrawConsole(); paintLocal(); paintPublic(); say("");
   if (!$("acc").classList.contains("hidden")) loadAccounts();
   if (!$("pn").classList.contains("hidden")) loadNotes();
+  if (!$("tl").classList.contains("hidden")) loadTools();
+  loadMaint(ch);
 }
 
 /* ---------- commands panel ---------- */
@@ -235,6 +302,11 @@ async function loadAccounts(){
     const row = document.createElement("div"); row.className = "arow";
     const n = document.createElement("span"); n.className = "an" + (a.suspended ? " sus" : "") + (a.pending ? " pend" : "");
     n.textContent = a.name + (a.suspended ? " (suspended)" : "") + (a.pending ? " (waiting for approval)" : "");
+    if (a.powers && a.powers.length) {
+      const m = document.createElement("span"); m.className = "mod";
+      m.textContent = "MODERATOR: " + a.powers.join(", ");
+      n.appendChild(m);
+    }
     if (a.realName || a.email) {
       /* who it is (given when they signed up on the website) */
       const who = document.createElement("span"); who.className = "who";
@@ -261,6 +333,27 @@ async function loadAccounts(){
       i.addEventListener("keydown", e => { if (e.key === "Enter") ok.click(); if (e.key === "Escape") no.click(); });
       box.appendChild(i); box.appendChild(ok); box.appendChild(no); acts.appendChild(box); i.focus();
     });
+    if (a.role !== "admin") btn("Mod powers", async () => {
+      /* checkboxes right in the row: what this account can do on the website's moderator page */
+      acts.innerHTML = "";
+      const box = document.createElement("span"); box.className = "pw pows";
+      const T = await P.tools(ACTIVE);
+      const picks = [];
+      for (const [k, what] of (T.powers || [])) {
+        const l = document.createElement("label"); l.title = what;
+        const c = document.createElement("input"); c.type = "checkbox"; c.checked = (a.powers || []).indexOf(k) >= 0;
+        l.appendChild(c); l.appendChild(document.createTextNode(k)); box.appendChild(l); picks.push([k, c]);
+      }
+      const ok = document.createElement("button"); ok.textContent = "SET"; ok.className = "go";
+      const no = document.createElement("button"); no.textContent = "×";
+      ok.addEventListener("click", async () => {
+        const r = await P.tool(ACTIVE, "powers", { name: a.name, powers: picks.filter(p => p[1].checked).map(p => p[0]) });
+        if (!r || !r.ok) { $("accNote").textContent = (r && r.error) || "that didn't go through"; return; }
+        setTimeout(loadAccounts, 500);
+      });
+      no.addEventListener("click", loadAccounts);
+      box.appendChild(ok); box.appendChild(no); acts.appendChild(box);
+    });
     btn(a.suspended ? "Unsuspend" : "Suspend", () => act(a.suspended ? "unsuspend" : "suspend", a.name));
     const del = btn("Delete", () => {
       if (del.dataset.sure) { act("delete", a.name); return; }
@@ -272,6 +365,142 @@ async function loadAccounts(){
   }
 }
 $("bAccounts").addEventListener("click", () => { $("acc").classList.remove("hidden"); loadAccounts(); });
+
+/* ---------- server tools: reports, cheat flags, events, XP, backups ---------- */
+let TL = null, TL_TAB = "reports", TL_ALL = false;
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+async function loadTools(){
+  $("tlTitle").textContent = "SERVER TOOLS · " + ACTIVE.toUpperCase();
+  TL = await P.tools(ACTIVE);
+  MAINT_FILE[ACTIVE] = !!TL.maintenance;
+  $("tlNote").textContent = TL.running ? "" : "start the " + ACTIVE + " server to make changes";
+  for (const b of $("tlTabs").children) b.classList.toggle("sel", b.dataset.t === TL_TAB);
+  drawTools();
+}
+async function tool(action, args, okText){
+  const r = await P.tool(ACTIVE, action, args);
+  const m = $("tlBody").querySelector(".tmsg");
+  if (!r || !r.ok) { if (m) { m.className = "tmsg err"; m.textContent = (r && r.error) || "that didn't go through"; } return false; }
+  if (m) { m.className = "tmsg"; m.textContent = okText || "done ✓"; }
+  setTimeout(loadTools, 700);
+  return true;
+}
+function tbtn(text, fn, cls){ const b = el("button", cls, text); b.disabled = !TL.running; b.addEventListener("click", fn); return b; }
+function trow(when, main, sub, acts, done){
+  const r = el("div", "trow" + (done ? " done" : ""));
+  r.appendChild(el("span", "when", when));
+  const m = el("span", "main", main); if (sub) m.appendChild(el("span", "sub", sub)); r.appendChild(m);
+  const a = el("span", "acts"); for (const x of acts || []) a.appendChild(x); r.appendChild(a);
+  return r;
+}
+function field(label, input){ const l = el("label", null, label); l.appendChild(input); return l; }
+function inp(type, value, cls){ const i = el("input", cls); i.type = type; if (value != null) i.value = value; i.spellcheck = false; return i; }
+function drawTools(){
+  const B = $("tlBody"); B.innerHTML = "";
+  const msg = el("div", "tmsg");
+  const T = TL || {};
+  if (TL_TAB === "reports" || TL_TAB === "flags") {
+    const isR = TL_TAB === "reports";
+    const list = (isR ? T.reports : T.flags) || [];
+    const open = list.filter(x => isR ? !x.done : !x.ok);
+    B.appendChild(el("div", "tnote", isR ? "What players reported about other players from the website's launcher. Mark each one dealt with once you've handled it."
+      : "Things the cheat checks saw in online play that the game can't do on its own (a big money jump, skills or careers leaping ahead). Nothing happens to the player by itself - look, then mark it."));
+    const tools = el("div", "tform");
+    const all = el("label", "chk"); const cb = inp("checkbox"); cb.checked = TL_ALL; cb.style.width = "auto";
+    cb.addEventListener("change", () => { TL_ALL = cb.checked; drawTools(); });
+    all.appendChild(cb); all.appendChild(document.createTextNode(isR ? " show dealt-with ones too" : " show looked-at ones too"));
+    tools.appendChild(all);
+    if (open.length > 1) tools.appendChild(tbtn(isR ? "Mark all dealt with" : "Mark all looked at", () => tool(isR ? "reportDone" : "flagOk", { id: "all" })));
+    B.appendChild(tools); B.appendChild(msg);
+    const show = TL_ALL ? list : open;
+    if (!show.length) B.appendChild(el("div", "empty2", isR ? "No reports waiting." : "Nothing flagged."));
+    for (const x of show) {
+      const done = isR ? x.done : x.ok;
+      B.appendChild(isR
+        ? trow(fmtDate(x.time), x.from + " reported " + x.about, x.reason, done ? [] : [tbtn("Dealt with", () => tool("reportDone", { id: x.id }), "go")], done)
+        : trow(fmtDate(x.time), x.account + " — " + x.what, x.detail, done ? [] : [tbtn("Looked at", () => tool("flagOk", { id: x.id }), "go")], done));
+    }
+    return;
+  }
+  if (TL_TAB === "events") {
+    const kinds = T.eventKinds || [];
+    const sel = () => { const s = el("select"); for (const [k, t] of kinds) { const o = el("option", null, t); o.value = k; s.appendChild(o); } return s; };
+    B.appendChild(el("div", "sect", "START AN EVENT NOW"));
+    const f1 = el("div", "tform"); const k1 = sel(), h1 = inp("number", 2), t1 = inp("text", "", "wide");
+    h1.min = 1; h1.max = 336; t1.placeholder = "title (optional)";
+    f1.appendChild(field("TYPE", k1)); f1.appendChild(field("HOURS", h1)); f1.appendChild(field("TITLE", t1));
+    f1.appendChild(tbtn("START", () => tool("eventStart", { kind: k1.value, hours: h1.value, title: t1.value }, "started ✓ - everyone online is told"), "go"));
+    B.appendChild(f1);
+    B.appendChild(el("div", "sect", "SCHEDULE ONE"));
+    const f2 = el("div", "tform"); const d2 = inp("date"), tm2 = inp("time", "18:00"), k2 = sel(), h2 = inp("number", 3), t2 = inp("text", "", "wide");
+    h2.min = 1; h2.max = 336; t2.placeholder = "title (optional)";
+    const tomorrow = new Date(Date.now() + 86400000); d2.value = tomorrow.toISOString().slice(0, 10);
+    f2.appendChild(field("DATE", d2)); f2.appendChild(field("TIME (this PC)", tm2)); f2.appendChild(field("TYPE", k2)); f2.appendChild(field("HOURS", h2)); f2.appendChild(field("TITLE", t2));
+    f2.appendChild(tbtn("SCHEDULE", () => tool("eventAt", { date: d2.value, time: tm2.value, kind: k2.value, hours: h2.value, title: t2.value }, "scheduled ✓"), "go"));
+    B.appendChild(f2); B.appendChild(msg);
+    B.appendChild(el("div", "sect", "ON NOW AND COMING UP"));
+    const evs = (T.events || []).slice().sort((a, b) => String(a.start).localeCompare(String(b.start)));
+    if (!evs.length) B.appendChild(el("div", "empty2", "No events on or coming up."));
+    const now = Date.now();
+    for (const e of evs) {
+      const on = new Date(e.start).getTime() <= now;
+      B.appendChild(trow(on ? "ON NOW" : fmtDate(e.start), e.title + " (" + e.kind + ")", (on ? "until " : "runs until ") + fmtDate(e.end),
+        [tbtn(on ? "End now" : "Cancel", () => tool("eventStop", { kind: e.kind }), "danger")]));
+    }
+    return;
+  }
+  if (TL_TAB === "xp") {
+    B.appendChild(el("div", "tnote", "What everything is worth in XP (online play). Change a number and press SAVE."));
+    const g = el("div", "tgrid"); const ins = {};
+    const label = { PerMinute: "Each minute on a lot", PerSkillLevel: "Each skill point", SkillMaxBonus: "Bonus: skill reaches 10", PerPromotion: "Each promotion",
+      JobTopBonus: "Bonus: top of a career", LevelBase: "XP from level 1 to 2", LevelStep: "Extra XP each level" };
+    for (const k of T.xpSettings || []) { const i = inp("number", (T.settings || {})[k]); i.min = 0; ins[k] = i; g.appendChild(field(label[k] || k, i)); }
+    B.appendChild(g);
+    const f = el("div", "tform");
+    f.appendChild(tbtn("SAVE", async () => {
+      let n = 0;
+      for (const k of Object.keys(ins)) if (String(ins[k].value) !== String((T.settings || {})[k])) { if (!await tool("xpSet", { name: k, value: Number(ins[k].value) })) return; n++; }
+      msg.textContent = n ? "saved ✓" : "nothing changed";
+    }, "go"));
+    B.appendChild(f);
+    B.appendChild(el("div", "sect", "GIVE XP"));
+    const f2 = el("div", "tform"); const nm = inp("text"), am = inp("number", 100); nm.placeholder = "player's account";
+    f2.appendChild(field("PLAYER", nm)); f2.appendChild(field("XP (minus takes away)", am));
+    f2.appendChild(tbtn("GIVE", () => tool("xpGive", { name: nm.value, amount: Number(am.value) }, "given ✓"), "go"));
+    B.appendChild(f2); B.appendChild(msg);
+    B.appendChild(el("div", "sect", "PLAYERS"));
+    const ps = T.players || [];
+    if (!ps.length) B.appendChild(el("div", "empty2", "Nobody has earned XP yet."));
+    for (const p of ps.slice(0, 100)) B.appendChild(trow("LEVEL " + p.level, p.name, p.xp.toLocaleString() + " XP · " + Math.round(p.minutes / 6) / 10 + " hours played online", []));
+    return;
+  }
+  if (TL_TAB === "backups") {
+    B.appendChild(el("div", "tnote", "A backup is a copy of everything: accounts, the online town, XP, reports and settings. One is made automatically every day."));
+    const f = el("div", "tform");
+    const hr = el("select"); const off = el("option", null, "Off"); off.value = "off"; hr.appendChild(off);
+    for (let h = 0; h < 24; h++) { const o = el("option", null, (h % 12 || 12) + ":00 " + (h < 12 ? "AM" : "PM")); o.value = String(h); hr.appendChild(o); }
+    hr.value = T.backupHour < 0 ? "off" : String(T.backupHour);
+    const keep = inp("number", T.keepBackups); keep.min = 1; keep.max = 365;
+    f.appendChild(field("DAILY BACKUP AT", hr)); f.appendChild(field("KEEP THE LAST", keep));
+    f.appendChild(tbtn("SAVE", () => tool("backupAuto", { hour: hr.value === "off" ? "off" : Number(hr.value), keep: Number(keep.value) }, "saved ✓")));
+    f.appendChild(tbtn("BACK UP NOW", () => tool("backupNow", {}, "backing up… ✓"), "go"));
+    B.appendChild(f); B.appendChild(msg);
+    B.appendChild(el("div", "sect", "BACKUPS (NEWEST FIRST)"));
+    const bs = T.backups || [];
+    if (!bs.length) B.appendChild(el("div", "empty2", "No backups yet."));
+    for (const b of bs) {
+      const rb = tbtn("Restore", () => {
+        if (!rb.dataset.sure) { rb.dataset.sure = "1"; rb.textContent = "Really? Everything goes back"; setTimeout(() => { if (rb.isConnected) { delete rb.dataset.sure; rb.textContent = "Restore"; } }, 5000); return; }
+        tool("restore", { name: b.name }, "restoring - the server restarts (a copy of now is kept first)");
+      }, "danger");
+      const when = b.name.slice(0, 16).replace("_", " ").replace(/-(\d\d)$/, ":$1");
+      B.appendChild(trow(when, b.name, (b.mb < 0.1 ? "under 0.1" : b.mb) + " MB" + (b.auto ? " · automatic" : ""), [rb]));
+    }
+  }
+}
+for (const b of $("tlTabs").children) b.addEventListener("click", () => { TL_TAB = b.dataset.t; TL_ALL = false; for (const x of $("tlTabs").children) x.classList.toggle("sel", x === b); drawTools(); });
+$("bTools").addEventListener("click", () => { $("tl").classList.remove("hidden"); loadTools(); });
+$("tlClose").addEventListener("click", () => $("tl").classList.add("hidden"));
 
 /* ---------- patch notes (what the website's launcher shows) ---------- */
 let NOTES = [], PN_SEL = null;
@@ -383,6 +612,7 @@ async function boot(){
   }
   ACTIVE = CH.indexOf(SET.active) >= 0 ? SET.active : "live";
   setRunning(); redrawConsole(); fillCfg(); chips(); drawCommands("");
+  for (const ch of CH) loadMaint(ch);
   if (!EXE) say("Build the solution in Visual Studio first, or choose SimsRedux.Server.exe in Settings.");
 }
 
@@ -417,8 +647,17 @@ $("bTunnel").addEventListener("click", async () => {
 
 document.querySelectorAll(".srv").forEach(b => b.addEventListener("click", () => switchTo(b.dataset.ch)));
 $("bStart").addEventListener("click", async () => { say(""); const r = await P.start(ACTIVE); if (r && !r.ok) { note("err", r.error); say(r.error); } });
-$("bStop").addEventListener("click", async () => { const r = await P.stop(ACTIVE, false); if (r && !r.ok) say(r.error); });
-$("bRestart").addEventListener("click", async () => { const r = await P.restart(ACTIVE); if (r && !r.ok) say(r.error); });
+$("bStop").addEventListener("click", async () => {
+  const L = LOCAL[ACTIVE] || {};
+  if (L.state === "up" && L.shutdownIn >= 0) { const r = await P.tool(ACTIVE, "shutdown", { cancel: true }); if (r && !r.ok) say(r.error); return; }
+  if (L.state !== "up") { const r = await P.stop(ACTIVE, false); if (r && !r.ok) say(r.error); return; } // (not answering: just stop it)
+  openStop(false);
+});
+$("bRestart").addEventListener("click", async () => {
+  const L = LOCAL[ACTIVE] || {};
+  if (L.state !== "up") { const r = await P.restart(ACTIVE); if (r && !r.ok) say(r.error); return; }
+  openStop(true);
+});
 document.querySelectorAll("[data-open]").forEach(b =>
   b.addEventListener("click", async () => { const r = await P.open(ACTIVE, b.dataset.open); if (r && !r.ok) say(r.error); }));
 $("bSite").addEventListener("click", () => P.site());
@@ -472,7 +711,8 @@ $("cmd").addEventListener("keydown", e => {
 });
 document.addEventListener("keydown", e => {
   if (e.key !== "Escape") return;
-  for (const id of ["acc", "pn", "gf", "cfg"]) if (!$(id).classList.contains("hidden")) { $(id).classList.add("hidden"); return; }
+  if (!$("stopPop").classList.contains("hidden")) { $("stopPop").classList.add("hidden"); return; }
+  for (const id of ["acc", "pn", "tl", "gf", "cfg"]) if (!$(id).classList.contains("hidden")) { $(id).classList.add("hidden"); return; }
   if (!$("side").classList.contains("hidden")) toggleSide(false);
 });
 

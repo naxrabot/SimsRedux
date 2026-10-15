@@ -94,6 +94,8 @@ namespace SimsRedux.Server
                 try { Progress.PlayMinute(api.PlayingNow()); Progress.Save(); }
                 catch (Exception e) { Log.Warn("xp: " + e.Message); }
             }, null, 60000, 60000);
+            // a /shutdown countdown: reminders, then stop (or restart)
+            var shutdownTimer = new Timer(_ => { try { Shutdown.Tick(code => { Log.Info(code == 75 ? "restarting now" : "shutting down now"); ExitCode = code; Done.Set(); }); } catch { } }, null, 1000, 1000);
             // one automatic backup a day (checked every 10 minutes)
             var backupTimer = new Timer(_ => { try { Backups.Tick(Config, () => { Accounts.SaveAll(); Config.Save(); Progress.Save(); }); } catch (Exception e) { Log.Warn("backup: " + e.Message); } }, null, 120000, 600000);
 

@@ -52,6 +52,12 @@ namespace SimsRedux.Server
             new[] { "/lots open <house>", "open a lot (players can also just travel there)" },
             new[] { "/lots close <house|all>", "save and close a lot" },
             new[] { "/lots game <path>", "the game program that runs lots (Simitone.exe, or its folder)" },
+            new[] { "/shutdown <seconds> [restart]", "stop (or restart) the server after a countdown everyone online is told about" },
+            new[] { "/shutdown cancel", "call off a countdown" },
+            new[] { "/maintenance on|off", "maintenance: only Admin accounts can log in and be online (others are sent off)" },
+            new[] { "/mod <name> <powers|none>", "moderator powers for an account: say, kick, reports, flags, events (comma-separated)" },
+            new[] { "/mods", "accounts with moderator powers" },
+            new[] { "/backups auto <hour|off> [keep]", "when the daily backup runs (0-23, this PC's time) and how many are kept" },
             new[] { "/say <text>", "a message on every online player's screen (on a lot or the town map)" },
             new[] { "/kick <name> [minutes]", "send a player off the town's lots (default: they can't come back for 10 minutes)" },
             new[] { "/unkick <name>", "let a kicked player back in now" },
@@ -350,6 +356,62 @@ namespace SimsRedux.Server
                     Quit?.Invoke(75);
                     break;
 
+                case "/shutdown":
+                    {
+                        if (Arg(1)?.ToLowerInvariant() == "cancel") { Log.Reply(Shutdown.Cancel() ? "countdown called off" : "no countdown running"); break; }
+                        if (Arg(1) == null || !int.TryParse(Arg(1), out var secs) || secs < 0 || secs > 3600) { Log.Reply("usage: /shutdown <seconds 0-3600> [restart]   or   /shutdown cancel"); break; }
+                        var restart = Arg(2)?.ToLowerInvariant() == "restart";
+                        if (secs == 0) { Lots.CloseAll(); Log.Info(restart ? "restarting..." : "stopping..."); Quit?.Invoke(restart ? 75 : 0); break; }
+                        Log.Reply(Shutdown.Start(secs, restart) + "  (/shutdown cancel to call it off)");
+                    }
+                    break;
+
+                case "/maintenance":
+                    {
+                        var on = Arg(1)?.ToLowerInvariant();
+                        if (on != "on" && on != "off") { Log.Reply("maintenance is " + (Config.Maintenance ? "ON" : "off") + " - usage: /maintenance on|off"); break; }
+                        Config.Maintenance = on == "on";
+                        Config.Save();
+                        if (Config.Maintenance)
+                        {
+                            Notices.Add("Maintenance", "The server is going into maintenance. Online play will be back soon!");
+                            int sent = 0;
+                            foreach (var key in Api.PlayingNow())
+                            {
+                                var acc = Accounts.Find(key);
+                                if (acc != null && acc.Role == Roles.Admin) continue;
+                                Moderation.Kick(Lots, Accounts, acc?.Name ?? key, 0, "The server is in maintenance - online play will be back soon.");
+                                sent++;
+                            }
+                            Log.Reply("maintenance ON: only Admin accounts can log in and be online" + (sent > 0 ? " (" + sent + " player(s) sent off)" : ""));
+                        }
+                        else
+                        {
+                            Notices.Add("Maintenance over", "The server is back - welcome back!");
+                            Log.Reply("maintenance off: everyone can play again");
+                        }
+                    }
+                    break;
+
+                case "/mod":
+                    {
+                        if (Arg(2) == null) { Log.Reply("usage: /mod <name> <powers|none>   powers: " + string.Join(", ", Powers.All)); break; }
+                        var modLine = Rest(1);
+                        var last = modLine.LastIndexOf(' ');
+                        var modName = modLine.Substring(0, last).Trim();
+                        var modList = modLine.Substring(last + 1).ToLowerInvariant();
+                        Log.Reply(Accounts.SetPowers(modName, modList == "none" ? new string[0] : modList.Split(',', StringSplitOptions.RemoveEmptyEntries)));
+                    }
+                    break;
+
+                case "/mods":
+                    {
+                        var mods = Accounts.All().Where(a => (a.Powers?.Count ?? 0) > 0).ToList();
+                        Log.Reply(mods.Count == 0 ? "no moderators yet (Admins can do everything anyway) - give powers with /mod <name> <powers>" :
+                            "moderators:\n" + string.Join("\n", mods.Select(a => "  " + a.Name.PadRight(20) + string.Join(", ", a.Powers))));
+                    }
+                    break;
+
                 case "/say":
                     if (Rest(1).Length == 0) { Log.Reply("usage: /say <text>"); break; }
                     Notices.Add("Message from " + Config.Name, Rest(1));
@@ -362,12 +424,7 @@ namespace SimsRedux.Server
                         if (kWho == null) { Log.Reply("usage: /kick <name> [minutes]"); break; }
                         var kMin = 10;
                         if (Arg(2) != null && (!int.TryParse(Arg(2), out kMin) || kMin < 0 || kMin > 100000)) { Log.Reply("usage: /kick <name> [minutes]"); break; }
-                        var kAcc = Accounts.Find(kWho);
-                        var kName = kAcc?.Name ?? kWho;
-                        if (kMin > 0) Kicks.Add(Accounts.KeyOf(kName), kMin);
-                        foreach (var w in Lots.Running()) Lots.Send(w, "kick " + kName);
-                        Log.Reply("kicked " + kName + (kMin > 0 ? " - they can come back in " + kMin + " minute(s) (/unkick to let them in sooner)" : "") +
-                            (kAcc == null ? "  (no account called that - check the name with /who)" : ""));
+                        Log.Reply(Moderation.Kick(Lots, Accounts, kWho, kMin, null) + (kMin > 0 ? "  (/unkick to let them in sooner)" : ""));
                     }
                     break;
 
@@ -482,6 +539,17 @@ namespace SimsRedux.Server
                     break;
 
                 case "/backups":
+                    if (Arg(1)?.ToLowerInvariant() == "auto")
+                    {
+                        var h = Arg(2)?.ToLowerInvariant();
+                        if (h == "off") Config.BackupHour = -1;
+                        else if (h != null && int.TryParse(h, out var hr) && hr >= 0 && hr <= 23) Config.BackupHour = hr;
+                        else { Log.Reply("usage: /backups auto <hour 0-23|off> [how many to keep]"); break; }
+                        if (Arg(3) != null && int.TryParse(Arg(3), out var keep) && keep >= 1 && keep <= 365) Config.KeepBackups = keep;
+                        Config.Save();
+                        Log.Reply(Config.BackupHour < 0 ? "automatic backups are off" : "automatic backup every day at " + Config.BackupHour + ":00, keeping " + Config.KeepBackups);
+                        break;
+                    }
                     {
                         var bs = Backups.List();
                         Log.Reply(bs.Count == 0 ? "no backups yet" :

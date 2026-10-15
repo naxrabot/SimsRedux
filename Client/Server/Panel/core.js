@@ -103,12 +103,131 @@ function readAccounts(dataDir) {
     suspended: !!a.suspended,
     pending: !!a.pending,
     realName: String(a.realName || ""),
+    powers: Array.isArray(a.powers) ? a.powers.map(String).filter(p => POWERS.some(x => x[0] === p)) : [],
     email: String(a.email || ""),
     created: a.created || "",
     lastLogin: a.lastLogin || ""
   })).sort((x, y) => (y.pending - x.pending) || x.name.localeCompare(y.name, undefined, { sensitivity: "base" }));
 }
 function readServerConfig(dataDir) { return readJSON(dataPaths(dataDir).config) || {}; }
+
+/* ---------- server tools (reports, flags, events, XP, backups, moderators) ----------
+   Read straight from the server's own files; every change is a console command,
+   built here from checked values only. */
+const EVENT_KINDS = [["doublexp", "Double XP"], ["triplexp", "Triple XP"], ["party", "Town Party"], ["holiday", "Holiday Celebration"], ["contest", "Contest"]];
+const POWERS = [
+  ["say", "Send a message to everyone online"],
+  ["kick", "Kick players off the town's lots (up to an hour)"],
+  ["reports", "Read players' reports and close them"],
+  ["flags", "Read the cheat-check flags and clear them"],
+  ["events", "Start and end events (up to a day)"]
+];
+const XP_SETTINGS = ["PerMinute", "PerSkillLevel", "SkillMaxBonus", "PerPromotion", "JobTopBonus", "LevelBase", "LevelStep"];
+
+function dirSize(dir, depth) {
+  let n = 0;
+  try {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) { if ((depth || 0) < 6) n += dirSize(p, (depth || 0) + 1); }
+      else { try { n += fs.statSync(p).size; } catch (x) { } }
+    }
+  } catch (x) { }
+  return n;
+}
+function readTools(dataDir) {
+  const D = dataPaths(dataDir);
+  const rep = readJSON(path.join(dataDir, "reports.json")) || {};
+  const fl = readJSON(path.join(dataDir, "flags.json")) || {};
+  const ev = readJSON(path.join(dataDir, "events.json")) || {};
+  const xp = readJSON(path.join(dataDir, "xp.json")) || {};
+  const cfg = readServerConfig(dataDir);
+  const str = v => String(v == null ? "" : v);
+  const reports = (Array.isArray(rep.Reports) ? rep.Reports : []).map(r => ({ id: r.Id | 0, time: str(r.Time), from: str(r.From), about: str(r.About), reason: str(r.Reason), done: !!r.Done })).reverse();
+  const flags = (Array.isArray(fl.Flags) ? fl.Flags : []).map(f => ({ id: f.Id | 0, time: str(f.Time), account: str(f.Account), what: str(f.What), detail: str(f.Detail), ok: !!f.Reviewed })).reverse();
+  const events = (Array.isArray(ev.Events) ? ev.Events : []).map(e => ({ kind: str(e.Kind), title: str(e.Title), start: str(e.Start), end: str(e.End) }));
+  const players = Object.entries(xp.Players || {}).map(([k, p]) => ({ name: k, xp: Number(p.Xp) || 0, level: p.Level | 0, minutes: Number(p.Minutes) || 0 }))
+    .sort((a, b) => b.xp - a.xp);
+  const settings = {};
+  const def = { PerMinute: 2, PerSkillLevel: 20, SkillMaxBonus: 250, PerPromotion: 100, JobTopBonus: 500, LevelBase: 100, LevelStep: 50 };
+  for (const k of XP_SETTINGS) settings[k] = (xp.Settings && typeof xp.Settings[k] === "number") ? xp.Settings[k] : def[k];
+  let backups = [];
+  try {
+    backups = fs.readdirSync(D.backups, { withFileTypes: true }).filter(e => e.isDirectory()).map(e => e.name).sort().reverse().slice(0, 60)
+      .map(name => ({ name, mb: Math.round(dirSize(path.join(D.backups, name)) / 104857.6) / 10, auto: /_auto$/.test(name) }));
+  } catch (x) { }
+  return {
+    reports, flags, events, players, settings, backups,
+    eventKinds: EVENT_KINDS, xpSettings: XP_SETTINGS,
+    backupHour: typeof cfg.backupHour === "number" ? cfg.backupHour : 4,
+    keepBackups: typeof cfg.keepBackups === "number" ? cfg.keepBackups : 14,
+    maintenance: !!cfg.maintenance
+  };
+}
+/** Turns a button press into the console command that does it (or { error }). Nothing unchecked gets through. */
+function toolCommand(action, a) {
+  a = a || {};
+  const id = v => /^(\d{1,9}|all)$/.test(String(v)) ? String(v) : null;
+  const name = v => { const n = oneLine(String(v || "")).trim(); return /^[A-Za-z0-9 _-]{2,20}$/.test(n) ? n : null; };
+  const int = (v, lo, hi) => { const n = Number(v); return Number.isInteger(n) && n >= lo && n <= hi ? n : null; };
+  const kind = v => EVENT_KINDS.some(k => k[0] === v) ? v : null;
+  const title = v => oneLine(String(v || "")).replace(/^\//, "").slice(0, 60).trim();
+  switch (action) {
+    case "reportDone": return id(a.id) ? { cmd: "/reports done " + id(a.id) } : { error: "no such report" };
+    case "flagOk": return id(a.id) ? { cmd: "/flags ok " + id(a.id) } : { error: "no such flag" };
+    case "eventStart": {
+      const h = Number(a.hours);
+      if (!kind(a.kind)) return { error: "pick an event type" };
+      if (!(h > 0 && h <= 336)) return { error: "hours: between a few minutes and 14 days" };
+      return { cmd: ("/event start " + a.kind + " " + h + " " + title(a.title)).trim() };
+    }
+    case "eventAt": {
+      const h = Number(a.hours);
+      if (!kind(a.kind)) return { error: "pick an event type" };
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(a.date))) return { error: "pick a date" };
+      if (!/^\d{1,2}:\d{2}$/.test(String(a.time))) return { error: "pick a time" };
+      if (!(h > 0 && h <= 336)) return { error: "hours: between a few minutes and 14 days" };
+      return { cmd: ("/event at " + a.date + " " + a.time + " " + a.kind + " " + h + " " + title(a.title)).trim() };
+    }
+    case "eventStop": return (a.kind === "all" || kind(a.kind)) ? { cmd: "/event stop " + a.kind } : { error: "no such event" };
+    case "xpSet": {
+      const v = int(a.value, 0, 1000000);
+      return XP_SETTINGS.indexOf(a.name) >= 0 && v !== null ? { cmd: "/xp set " + a.name + " " + v } : { error: "a whole number from 0 to 1,000,000" };
+    }
+    case "xpGive": {
+      const n = name(a.name), v = int(a.amount, -10000000, 10000000);
+      return n && v ? { cmd: "/xp give " + n + " " + v } : { error: "a player's name and an amount" };
+    }
+    case "backupNow": return { cmd: "/backup" };
+    case "restore": return /^[\w.-]{1,80}$/.test(String(a.name)) ? { cmd: "/restore " + a.name + " confirm" } : { error: "no such backup" };
+    case "backupAuto": {
+      const h = a.hour === "off" ? "off" : int(a.hour, 0, 23), k = int(a.keep, 1, 365);
+      return h !== null && k !== null ? { cmd: "/backups auto " + h + " " + k } : { error: "hour 0-23 (or off) and how many to keep (1-365)" };
+    }
+    case "powers": {
+      const n = name(a.name);
+      const list = (Array.isArray(a.powers) ? a.powers : []).filter(p => POWERS.some(x => x[0] === p));
+      return n ? { cmd: "/mod " + n + " " + (list.length ? list.join(",") : "none") } : { error: "no account given" };
+    }
+    case "maintenance": return { cmd: "/maintenance " + (a.on ? "on" : "off") };
+    case "shutdown": {
+      if (a.cancel) return { cmd: "/shutdown cancel" };
+      const s = int(a.seconds, 0, 3600);
+      return s !== null ? { cmd: "/shutdown " + s + (a.restart ? " restart" : "") } : { error: "seconds: 0 to 3600" };
+    }
+  }
+  return { error: "unknown action" };
+}
+/** Maintenance while the server is stopped: saved in its settings, so it starts in maintenance. */
+function setMaintenanceFile(dataDir, on) {
+  const file = dataPaths(dataDir).config;
+  const cfg = readJSON(file) || {};
+  cfg.maintenance = !!on;
+  fs.mkdirSync(dataDir, { recursive: true });
+  fs.writeFileSync(file + ".tmp", JSON.stringify(cfg, null, 2));
+  fs.renameSync(file + ".tmp", file);
+  return { ok: true };
+}
 
 /* ---------- patch notes ----------
    Each update ships its patch notes with the website (Simitone.Web/wwwroot/patchnotes.json).
@@ -225,6 +344,7 @@ function readHealth(r, running) {
     channel: h.channel || "", version: h.version || "",
     players: h.players | 0, online: h.online | 0, accounts: h.accounts | 0, lots: h.lots | 0, town: !!h.town,
     registration: !!h.registration,
+    maintenance: !!h.maintenance, shutdownIn: typeof h.shutdownIn === "number" ? h.shutdownIn : -1, shutdownRestart: !!h.shutdownRestart,
     uptime: h.uptime | 0, rssMB: h.rssMB | 0,
     files: h.files || { ready: false }
   };
@@ -287,6 +407,8 @@ const COMMANDS = [
     ["/say <text>", "a message on every online player's screen"],
     ["/kick <name> [minutes]", "send a player off the town's lots (10 minutes before they can return)"],
     ["/unkick <name>", "let a kicked player back in now"],
+    ["/mod <name> <powers|none>", "moderator powers: say, kick, reports, flags, events"],
+    ["/mods", "accounts with moderator powers"],
     ["/reports [all]", "players' reports about other players"],
     ["/reports done <id|all>", "mark reports as dealt with"],
     ["/flags [all]", "cheat-check flags (online only) waiting for a look"],
@@ -313,6 +435,10 @@ const COMMANDS = [
     ["/save", "save everything now"],
     ["/backup", "save and keep a dated copy in backups/"],
     ["/backups", "the backups (one is made automatically every day)"],
+    ["/backups auto <hour|off> [keep]", "when the daily backup runs and how many are kept"],
+    ["/shutdown <seconds> [restart]", "stop or restart after a countdown everyone online is told about"],
+    ["/shutdown cancel", "call off a countdown"],
+    ["/maintenance on|off", "only Admin accounts can log in and be online"],
     ["/restore <backup> confirm", "put a backup back (restarts the server)"],
     ["/restart", "restart the server"],
     ["/quit", "save and stop the server"],
@@ -362,6 +488,7 @@ module.exports = { readServiceState, safeServiceName,
   CHANNELS, DEFAULTS,
   guessServerExe, serverCommand, isFile,
   defaultDataDir, dataPaths, readAccounts, readServerConfig,
+  EVENT_KINDS, POWERS, XP_SETTINGS, readTools, toolCommand, setMaintenanceFile,
   shippedNotesFile, verCmp, cleanPatch, mergePatchNotes, readPatchNotes, savePatch, hidePatch, resetPatch,
   loadSettings, saveSettings, profile, serverArgs,
   getJSON, readHealth, readPublic,

@@ -291,6 +291,23 @@ ipcMain.handle("panel:settings", (e, patch) => {
   return { ok: true, settings: S, servers };
 });
 
+/* ---------- server tools: read from the server's files, changed through its console ---------- */
+ipcMain.handle("panel:tools", (e, c) => {
+  c = ch(c);
+  return Object.assign({ ok: true, running: running(c), powers: C.POWERS }, C.readTools(C.profile(S, c, __dirname).dataDir));
+});
+ipcMain.handle("panel:tool", (e, c, action, args) => {
+  c = ch(c);
+  const r = C.toolCommand(String(action), args && typeof args === "object" ? args : {});
+  if (r.error) return { ok: false, error: r.error };
+  // maintenance can be switched while stopped: the server starts in it
+  if (action === "maintenance" && !running(c)) {
+    try { return C.setMaintenanceFile(C.profile(S, c, __dirname).dataDir, !!(args && args.on)); }
+    catch (err) { return { ok: false, error: String(err && err.message || err) }; }
+  }
+  return sendCommand(c, r.cmd);
+});
+
 /* ---------- patch notes: the panel's changes, kept in the server's data folder ---------- */
 ipcMain.handle("panel:notes", (e, c) => C.readPatchNotes(C.profile(S, ch(c), __dirname).dataDir, __dirname));
 ipcMain.handle("panel:note", (e, c, action, entry) => {

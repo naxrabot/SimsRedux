@@ -5,7 +5,7 @@ namespace Simitone.Client.Utils
 {
     /// <summary>
     /// SimsRedux online: messages from the server (an admin's /say, events starting and ending, your
-    /// own level-ups) pop up on screen. Checked every 15 seconds while you're in the online town -
+    /// own level-ups) pop up on screen. Checked every 5 seconds while you're in the online town -
     /// on a lot or on the town map. Never in single player.
     /// </summary>
     public static class ReduxNotices
@@ -19,7 +19,7 @@ namespace Simitone.Client.Utils
             if (ReduxWorker.Active || !ReduxTown.Active || !ReduxTown.LoggedIn || Busy) return;
             var now = DateTime.UtcNow;
             if (now < Next) return;
-            Next = now + TimeSpan.FromSeconds(15);
+            Next = now + TimeSpan.FromSeconds(5);
             Busy = true;
             ReduxTown.FetchNotices(Last, (last, list) =>
             {

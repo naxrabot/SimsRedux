@@ -34,6 +34,8 @@ namespace SimsRedux.Server
         private readonly RateLimiter RegisterByAddress = new RateLimiter(5, TimeSpan.FromHours(1));
         private readonly RateLimiter Everything = new RateLimiter(3000, TimeSpan.FromMinutes(1));
         private readonly RateLimiter ReportsByAccount = new RateLimiter(5, TimeSpan.FromHours(1));
+        private readonly RateLimiter ModActions = new RateLimiter(30, TimeSpan.FromMinutes(10));
+        public const string MaintenanceText = "The server is down for maintenance - online play will be back soon.";
 
         /// <summary>Accounts on a town lot right now (key -> connections), for XP while playing.</summary>
         private readonly Dictionary<string, int> OnLots = new Dictionary<string, int>();
@@ -68,6 +70,9 @@ namespace SimsRedux.Server
                 online = Accounts.RecentlyActive(TimeSpan.FromMinutes(5)).Count,
                 accounts = Accounts.Count,
                 registration = Config.Registration,
+                maintenance = Config.Maintenance,
+                shutdownIn = Shutdown.SecondsLeft,
+                shutdownRestart = Shutdown.Restarting,
                 uptime = (int)(DateTime.UtcNow - Started).TotalSeconds,
                 rssMB = (int)(proc.WorkingSet64 / 1048576),
                 files = new { ready = Files.Ready, count = Files.Count, mb = (int)(Files.TotalBytes / 1048576), problem = Files.Problem },
@@ -122,6 +127,7 @@ namespace SimsRedux.Server
                         {
                             ok = true,
                             channel = Config.Channel,
+                            maintenance = Config.Maintenance,
                             game = Simitone.Client.Utils.ReduxBuild.Number,
                             servers = new { live = Config.LiveUrl, test = Config.TestUrl },
                             town = Lots.TownReady,
@@ -149,6 +155,8 @@ namespace SimsRedux.Server
                         return;
                     }
                     break;
+                case "/api/mod": if (req.Method == "GET") { await ModInfo(req, stream, cors); return; } break;
+                case "/api/mod/do": if (req.Method == "POST") { await ModDo(req, stream, cors); return; } break;
                 case "/api/notices": if (req.Method == "GET") { await GetNotices(req, stream, cors); return; } break;
                 case "/api/report": if (req.Method == "POST") { await PostReport(req, stream, cors); return; } break;
                 case "/api/register": if (req.Method == "POST") { await Register(req, stream, cors); return; } break;
@@ -252,8 +260,14 @@ namespace SimsRedux.Server
                 await HttpServer.SendJson(stream, 401, new { error }, cors);
                 return;
             }
+            if (Config.Maintenance && a.Role != Roles.Admin)
+            {
+                Accounts.Logout(token);
+                await HttpServer.SendJson(stream, 503, new { error = MaintenanceText }, cors);
+                return;
+            }
             Log.Info(a.Name + " logged in (" + a.Role + ", from " + req.From + ")");
-            await HttpServer.SendJson(stream, 200, new { ok = true, token, name = a.Name, role = a.Role, files = Roles.GetsGameFiles(a.Role) && Files.Ready, motd = Config.Motd }, cors);
+            await HttpServer.SendJson(stream, 200, new { ok = true, token, name = a.Name, role = a.Role, files = Roles.GetsGameFiles(a.Role) && Files.Ready, motd = Config.Motd, powers = Accounts.PowersOf(a) }, cors);
         }
 
         private async Task Me(Request req, Stream stream, Dictionary<string, string> cors)
@@ -262,7 +276,89 @@ namespace SimsRedux.Server
             if (a == null) { await HttpServer.SendJson(stream, 401, new { error = "Not logged in." }, cors); return; }
             var lv = Progress.Where(a.Key);
             await HttpServer.SendJson(stream, 200, new { ok = true, name = a.Name, role = a.Role, files = Roles.GetsGameFiles(a.Role) && Files.Ready, motd = Config.Motd,
-                level = lv.level, xp = lv.into, next = lv.need }, cors);
+                level = lv.level, xp = lv.into, next = lv.need, powers = Accounts.PowersOf(a), maintenance = Config.Maintenance }, cors);
+        }
+
+        // ---------- moderators (the website's moderator page) ----------
+
+        /// <summary>What a moderator can see: their powers, and the lists those powers cover.</summary>
+        private async Task ModInfo(Request req, Stream stream, Dictionary<string, string> cors)
+        {
+            var a = Accounts.Check(req.BearerToken());
+            var powers = Accounts.PowersOf(a);
+            if (a == null || powers.Count == 0) { await HttpServer.SendJson(stream, 403, new { error = "You don't have moderator powers." }, cors); return; }
+            await HttpServer.SendJson(stream, 200, new
+            {
+                ok = true,
+                powers,
+                online = powers.Contains("kick") ? Accounts.RecentlyActive(TimeSpan.FromMinutes(5)) : null,
+                reports = powers.Contains("reports") ? Reports.List(false).Select(r => new { id = r.Id, time = r.Time.ToString("o"), from = r.From, about = r.About, reason = r.Reason }) : null,
+                flags = powers.Contains("flags") ? AntiCheat.List(false).Select(f => new { id = f.Id, time = f.Time.ToString("o"), account = f.Account, what = f.What, detail = f.Detail }) : null,
+                events = powers.Contains("events") ? Events.All().Select(e => new { kind = e.Kind, title = e.Title, start = e.Start.ToString("o"), end = e.End.ToString("o") }) : null,
+                kinds = powers.Contains("events") ? Events.Kinds.Select(k => new { kind = k.Key, title = k.Value.Title, about = k.Value.About }) : null,
+            }, cors);
+        }
+
+        /// <summary>A moderator's action: say, kick, report done, flag ok, event start/stop. Checked against their powers and logged.</summary>
+        private async Task ModDo(Request req, Stream stream, Dictionary<string, string> cors)
+        {
+            var a = Accounts.Check(req.BearerToken());
+            var powers = Accounts.PowersOf(a);
+            if (a == null || powers.Count == 0) { await HttpServer.SendJson(stream, 403, new { error = "You don't have moderator powers." }, cors); return; }
+            if (!ModActions.Allow(a.Key)) { await HttpServer.SendJson(stream, 429, new { error = "That's a lot of actions - wait a few minutes." }, cors); return; }
+            var body = req.JsonBody();
+            var action = (Str(body, "action") ?? "").ToLowerInvariant();
+            string clean(string t, int max)
+            {
+                var c = new string((t ?? "").Where(ch => ch >= 32).ToArray()).Trim();
+                return c.Length > max ? c.Substring(0, max) : c;
+            }
+            int num(string n)
+            {
+                if (body is JsonElement b && b.ValueKind == JsonValueKind.Object && b.TryGetProperty(n, out var e))
+                {
+                    if (e.ValueKind == JsonValueKind.Number && e.TryGetInt32(out var v)) return v;
+                    if (e.ValueKind == JsonValueKind.String && int.TryParse(e.GetString(), out var v2)) return v2;
+                }
+                return 0;
+            }
+            string need = action switch { "say" => "say", "kick" => "kick", "report" => "reports", "flag" => "flags", "event" => "events", "endevent" => "events", _ => null };
+            if (need == null || !powers.Contains(need)) { await HttpServer.SendJson(stream, 403, new { error = "You can't do that." }, cors); return; }
+            string result;
+            switch (action)
+            {
+                case "say":
+                    var text = clean(Str(body, "text"), 300);
+                    if (text.Length == 0) { result = "Type a message first."; break; }
+                    Notices.Add("Message from " + a.Name, text);
+                    result = "Sent to everyone online.";
+                    break;
+                case "kick":
+                    var who = clean(Str(body, "name"), 40);
+                    var target = Accounts.Find(who);
+                    if (target == null) { result = "No account called " + who + "."; break; }
+                    if (target.Role == Roles.Admin) { result = "Admins can't be kicked."; break; }
+                    var mins = Math.Clamp(num("minutes"), 0, 60);
+                    Moderation.Kick(Lots, Accounts, target.Name, mins, "A moderator removed you from the online town.");
+                    result = "Kicked " + target.Name + (mins > 0 ? " for " + mins + " minutes." : ".");
+                    break;
+                case "report":
+                    result = Reports.Close(num("id").ToString()) > 0 ? "Marked as dealt with." : "That report was already dealt with.";
+                    break;
+                case "flag":
+                    result = AntiCheat.Review(num("id").ToString()) > 0 ? "Marked as looked at." : "That flag was already looked at.";
+                    break;
+                case "event":
+                    var hours = Math.Clamp(num("hours"), 1, 24);
+                    result = Events.Add(clean(Str(body, "kind"), 20), DateTime.UtcNow, hours, clean(Str(body, "title"), 60));
+                    break;
+                default: // endevent
+                    var n = Events.Stop(clean(Str(body, "kind"), 20).ToLowerInvariant());
+                    result = n == 0 ? "No such event running." : "Ended.";
+                    break;
+            }
+            Log.Info("moderator " + a.Name + ": " + action + " - " + result);
+            await HttpServer.SendJson(stream, 200, new { ok = true, message = result }, cors);
         }
 
         /// <summary>The online town's announcements for this player (their game asks every 15 seconds).</summary>
@@ -364,6 +460,7 @@ namespace SimsRedux.Server
         {
             var a = Accounts.Check(req.BearerToken());
             if (a == null) { await HttpServer.SendJson(stream, 401, new { error = "Log in first." }, cors); return; }
+            if (Config.Maintenance && a.Role != Roles.Admin) { await HttpServer.SendJson(stream, 503, new { error = MaintenanceText }, cors); return; }
             if (!Lots.TownReady) { await HttpServer.SendJson(stream, 503, new { error = "The server's town isn't set up yet (/town import)." }, cors); return; }
             await HttpServer.SendJson(stream, 200, new
             {
@@ -382,6 +479,7 @@ namespace SimsRedux.Server
         {
             var a = Accounts.Check(req.BearerToken());
             if (a == null) { await HttpServer.SendJson(stream, 401, new { error = "Log in first." }, cors); return; }
+            if (Config.Maintenance && a.Role != Roles.Admin) { await HttpServer.SendJson(stream, 503, new { error = MaintenanceText }, cors); return; }
             if (!Lots.TownReady) { await HttpServer.SendJson(stream, 503, new { error = "The server's town isn't set up yet (/town import)." }, cors); return; }
             byte[] bundle;
             string stamp;
@@ -408,6 +506,7 @@ namespace SimsRedux.Server
         {
             var a = Accounts.Check(req.BearerToken());
             if (a == null) { await HttpServer.SendJson(stream, 401, new { error = "Log in first." }, cors); return; }
+            if (Config.Maintenance && a.Role != Roles.Admin) { await HttpServer.SendJson(stream, 503, new { error = MaintenanceText }, cors); return; }
             if (!short.TryParse(req.QueryValue("house"), out var house)) { await HttpServer.SendJson(stream, 400, new { error = "Which house?" }, cors); return; }
             if (Owners.Of(a.Key) is Owners.Owner mine) { await HttpServer.SendJson(stream, 409, new { error = "Your family already lives in the town (house " + mine.House + ")." }, cors); return; }
             if (req.Body.Length < 16 || req.Body[0] != 'S' || req.Body[1] != 'R' || req.Body[2] != 'X' || req.Body[3] != 'F')
@@ -450,6 +549,7 @@ namespace SimsRedux.Server
         {
             var a = Accounts.Check(req.BearerToken());
             if (a == null) { await HttpServer.SendJson(stream, 401, new { error = "Log in first." }, cors); return; }
+            if (Config.Maintenance && a.Role != Roles.Admin) { await HttpServer.SendJson(stream, 503, new { error = MaintenanceText }, cors); return; }
             var mine = Owners.Of(a.Key);
             if (mine == null) { await HttpServer.SendJson(stream, 409, new { error = "You don't have a family in the town." }, cors); return; }
             var house = (short)mine.House;
@@ -517,6 +617,11 @@ namespace SimsRedux.Server
             {
                 Log.Info("online: someone without an approved login (from " + req.From + ") tried to go to house " + house);
                 await Refuse(stream, 401, "Log in with an approved account first.");
+                return;
+            }
+            if (Config.Maintenance && who.Role != Roles.Admin)
+            {
+                await Refuse(stream, 503, MaintenanceText);
                 return;
             }
             var kicked = Kicks.MinutesLeft(who.Key);

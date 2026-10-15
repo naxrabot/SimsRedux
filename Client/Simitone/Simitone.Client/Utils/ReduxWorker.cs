@@ -89,7 +89,7 @@ namespace Simitone.Client.Utils
                 try
                 {
                     string line;
-                    while ((line = Console.ReadLine()) != null) Commands.Enqueue(line.Trim().ToLowerInvariant());
+                    while ((line = Console.ReadLine()) != null) Commands.Enqueue(line.Trim()); // (kick keeps its message as typed)
                 }
                 catch { }
             }) { IsBackground = true, Name = "worker console" };
@@ -318,16 +318,21 @@ namespace Simitone.Client.Utils
             var now = DateTime.UtcNow;
             var host = Screen.Host;
 
-            while (Commands.TryDequeue(out var cmd))
+            while (Commands.TryDequeue(out var raw))
             {
+                var cmd = raw.ToLowerInvariant();
                 if (cmd == "save") { SaveNow(); }
-                else if (cmd.StartsWith("money ")) { if (host != null) GiveMoney(cmd); else Commands.Enqueue(cmd); break; }
+                else if (cmd.StartsWith("money ")) { if (host != null) GiveMoney(cmd); else Commands.Enqueue(raw); break; }
                 else if (cmd.StartsWith("time ") && long.TryParse(cmd.Substring(5), out var townNow)) { TownMinutes = townNow; if (host != null) KeepTownTime(false); }
                 else if (cmd == "quit") { Quit("asked to close"); return; }
                 else if (cmd.StartsWith("kick "))
                 {
-                    var who = cmd.Substring(5).Trim();
-                    var n = host?.Kick(who, "An admin removed you from the online town.") ?? 0;
+                    // "kick <account>|<message the player sees>"
+                    var rest = raw.Substring(5).Trim();
+                    var bar = rest.IndexOf('|');
+                    var who = (bar < 0 ? rest : rest.Substring(0, bar)).Trim();
+                    var why = bar < 0 ? "An admin removed you from the online town." : rest.Substring(bar + 1).Trim();
+                    var n = host?.Kick(who, why) ?? 0;
                     Say("kicked " + who + (n == 0 ? " (not on this lot)" : ""));
                 }
             }

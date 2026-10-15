@@ -85,6 +85,22 @@ C.hidePatch(nd, "3.4"); C.resetPatch(nd, "3.6");
 const back = JSON.parse(fs.readFileSync(path.join(nd, "patchnotes.json"), "utf8")).patches;
 ok(back.length === 1 && back[0].version === "3.4" && back[0].hidden, "hide and back-to-original are kept as changes");
 
+// server tools: only checked values become commands
+const T = C.toolCommand;
+ok(T("reportDone", { id: 3 }).cmd === "/reports done 3" && T("reportDone", { id: "3; /quit" }).error, "report ids are checked");
+ok(T("eventStart", { kind: "doublexp", hours: 2, title: "Weekend" }).cmd === "/event start doublexp 2 Weekend", "event start");
+ok(T("eventStart", { kind: "nuke", hours: 2 }).error && T("eventStart", { kind: "party", hours: 999 }).error, "bad event types and lengths refused");
+ok(T("eventAt", { date: "2026-12-24", time: "18:00", kind: "holiday", hours: 30 }).cmd === "/event at 2026-12-24 18:00 holiday 30", "scheduled event");
+ok(T("eventStart", { kind: "party", hours: 1, title: "x\n/quit" }).cmd.indexOf("\n") < 0, "titles stay on one line");
+ok(T("xpSet", { name: "PerMinute", value: 3 }).cmd === "/xp set PerMinute 3" && T("xpSet", { name: "Hack", value: 3 }).error, "XP settings checked");
+ok(T("powers", { name: "mia", powers: ["say", "kick", "root"] }).cmd === "/mod mia say,kick" && T("powers", { name: "mia", powers: [] }).cmd === "/mod mia none", "moderator powers");
+ok(T("restore", { name: "2026-10-15_04-00-00_auto" }).cmd === "/restore 2026-10-15_04-00-00_auto confirm" && T("restore", { name: "../x y" }).error, "restore names checked");
+ok(T("backupAuto", { hour: "off", keep: 14 }).cmd === "/backups auto off 14" && T("backupAuto", { hour: 25, keep: 14 }).error, "automatic backup settings");
+ok(T("shutdown", { seconds: 60 }).cmd === "/shutdown 60" && T("shutdown", { seconds: 30, restart: true }).cmd === "/shutdown 30 restart" && T("shutdown", { cancel: true }).cmd === "/shutdown cancel", "shutdown countdown");
+const md = path.join(tmp, "maint");
+C.setMaintenanceFile(md, true);
+ok(C.readServerConfig(md).maintenance === true && C.readTools(md).maintenance === true, "maintenance saved while stopped");
+
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(failed ? "\n" + failed + " FAILED" : "\nall passed");
 process.exit(failed ? 1 : 0);

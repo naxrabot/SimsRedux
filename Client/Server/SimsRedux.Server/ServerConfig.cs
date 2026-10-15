@@ -22,6 +22,8 @@ namespace SimsRedux.Server
         public string Motd { get; set; } = "Welcome to The Sims Redux!";
         /// <summary>The hour (0-23, this PC's time) for the daily automatic backup; -1 = no automatic backups.</summary>
         public int BackupHour { get; set; } = 4;
+        /// <summary>Maintenance: only Admin accounts can log in and be online.</summary>
+        public bool Maintenance { get; set; }
         /// <summary>How many automatic backups to keep (the oldest go).</summary>
         public int KeepBackups { get; set; } = 14;
         /// <summary>The public addresses of the Live and Test servers (the website's launcher offers both).</summary>

@@ -20,6 +20,8 @@ contextBridge.exposeInMainWorld("panel", {
   settings:   patch         => ipcRenderer.invoke("panel:settings", patch),
   accounts:   c             => ipcRenderer.invoke("panel:accounts", String(c)),
   notes:      c             => ipcRenderer.invoke("panel:notes", String(c)),
+  tools:      c             => ipcRenderer.invoke("panel:tools", String(c)),
+  tool:       (c, action, args) => ipcRenderer.invoke("panel:tool", String(c), String(action), JSON.parse(JSON.stringify(args || {}))),
   note:       (c, action, entry) => ipcRenderer.invoke("panel:note", String(c), String(action), {
                 version: String((entry && entry.version) || ""), date: String((entry && entry.date) || ""),
                 features: String((entry && entry.features) || ""), updates: String((entry && entry.updates) || "") }),

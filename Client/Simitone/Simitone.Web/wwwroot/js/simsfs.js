@@ -167,7 +167,9 @@
 #srx-setup .ver b { color: #fff; font-weight: 600; }
 #srx-setup .ver .stage { color: #04102a; background: #78ff8c; font-weight: 700; padding: 1px 6px; margin-right: 8px; letter-spacing: .1em; }
 #srx-setup .l-acct { margin: 0 30px; padding: 14px 16px; border: 1px solid rgba(143,180,255,.2); background: rgba(0,0,0,.25);
-  display: grid; grid-template-columns: auto 1fr auto; gap: 4px 14px; align-items: center; }
+  display: grid; grid-template-columns: auto minmax(150px, 1fr) auto; gap: 4px 14px; align-items: center; }
+#srx-setup .lstatus { white-space: nowrap; }
+#srx-setup .lbtns { max-width: 400px; }
 #srx-setup .avatar { grid-row: span 2; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 19px;
   color: #04102a; background: linear-gradient(135deg, #9fffb0, #3bc25a); }
 #srx-setup .avatar.off { background: #2a335e; color: #9fb4ff; }
@@ -210,6 +212,25 @@
 #srx-setup .smotd { margin: 12px 30px 0; font-size: 13.5px; color: #e4e9ff; padding: 10px 14px; border-left: 3px solid #78ff8c; background: rgba(120,255,140,.06); }
 #srx-setup .smotd .mevent { margin-top: 6px; font-weight: 700; color: #ffd36b; letter-spacing: .04em; }
 #srx-setup .smotd .k { font-size: 10px; letter-spacing: .16em; font-weight: 700; color: #78ff8c; margin-bottom: 4px; }
+#srx-setup .modbox { margin: 16px 30px 0; flex: 1 1 auto; min-height: 120px; overflow: auto; border-top: 1px solid rgba(143,180,255,.2); padding-top: 14px; }
+#srx-setup .modbox.hidden { display: none; }
+#srx-setup .modbox .nhead button.link { font-size: 11px; letter-spacing: 0; font-weight: 400; }
+#srx-setup .mtabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+#srx-setup .mtabs button { font-size: 12px; padding: 5px 11px; background: transparent; border: 1px solid rgba(143,180,255,.35); color: #c8d4ff; font-weight: 600; }
+#srx-setup .mtabs button.sel { border-color: #78ff8c; color: #78ff8c; background: rgba(120,255,140,.08); }
+#srx-setup .mbody textarea, #srx-setup .mbody input, #srx-setup .mbody select { font: inherit; font-size: 13px; color: #fff; background: #000052; border: 1px solid #5a5aa8; padding: 7px 9px; }
+#srx-setup .mbody textarea { width: 100%; box-sizing: border-box; resize: vertical; }
+#srx-setup .mbody .mrow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+#srx-setup .mbody .mrow input { flex: 1 1 140px; min-width: 0; }
+#srx-setup .mbody .mrow input.short { flex: 0 0 80px; }
+#srx-setup .mbody button { font-size: 13px; padding: 7px 14px; margin: 0; }
+#srx-setup .mitem { border: 1px solid rgba(143,180,255,.15); background: rgba(0,0,0,.2); padding: 9px 12px; margin-bottom: 8px; display: flex; gap: 12px; align-items: flex-start; }
+#srx-setup .mitem .t { flex: 1; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+#srx-setup .mitem .t small { display: block; color: #8a96d0; font-size: 11.5px; }
+#srx-setup .mitem button { font-size: 11px; padding: 4px 9px; }
+#srx-setup .mempty { color: #8a96d0; font-size: 13px; padding: 6px 0; }
+#srx-setup .mmsg { font-size: 12px; color: #78ff8c; min-height: 16px; margin-top: 8px; }
+#srx-setup .mmsg.error { color: #ff9a8a; }
 #srx-setup .notes { margin: 16px 30px 0; flex: 1 1 auto; min-height: 120px; overflow: auto; border-top: 1px solid rgba(143,180,255,.2); padding-top: 14px; }
 #srx-setup .nhead { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; letter-spacing: .16em; font-weight: 700; color: #fff; margin-bottom: 10px; }
 #srx-setup .nhead span { color: #8a96d0; font-weight: 400; letter-spacing: .06em; }
@@ -264,6 +285,12 @@
     <button class="sitem srv" data-ch="test"><div class="k">TEST SERVER</div><div class="v"><i class="dot"></i><span class="sstate">Checking...</span><small class="scount"></small></div></button>
   </div>
   <div class="smotd hidden"><div class="k">MESSAGE OF THE DAY</div><div class="mtext"></div></div>
+  <div class="modbox hidden">
+    <div class="nhead">MODERATOR TOOLS <button class="link mback">Back to patch notes</button></div>
+    <div class="mtabs"></div>
+    <div class="mbody"></div>
+    <div class="mmsg"></div>
+  </div>
   <div class="notes">
     <div class="nhead">PATCH NOTES <span class="ndate"></span></div>
     <div class="nbody"></div>
@@ -457,7 +484,7 @@
                 alert(r.message || 'Please wait for admin approval before connecting.');
                 return;
             }
-            store({ token: r.token, name: r.name, role: r.role, files: !!r.files });
+            store({ token: r.token, name: r.name, role: r.role, files: !!r.files, powers: Array.isArray(r.powers) ? r.powers : [] });
             msg(register ? 'Account made. Welcome, ' + r.name + '!' : (r.motd || ''));
             if (choose) { const c = choose; choose = null; c('account'); }
         }
@@ -470,7 +497,7 @@
         async function refresh() {
             if (!load()) { paint(); return; }
             const r = await call('/api/me');
-            if (r.ok) store({ token: session.token, name: r.name, role: r.role, files: !!r.files, level: r.level | 0, xp: r.xp | 0, next: r.next | 0 });
+            if (r.ok) store({ token: session.token, name: r.name, role: r.role, files: !!r.files, level: r.level | 0, xp: r.xp | 0, next: r.next | 0, powers: Array.isArray(r.powers) ? r.powers : [] });
             else if (r.status === 401) { store(null); msg('Please log in again.'); }
             else paint(); // server offline: keep the remembered login
         }
@@ -835,7 +862,8 @@
                 const dot = card.querySelector('.dot'), state = card.querySelector('.sstate'), count = card.querySelector('.scount');
                 dot.className = 'dot';
                 if (!st) { dot.classList.add('down'); state.textContent = 'Offline'; count.textContent = ''; continue; }
-                if (st.town) { dot.classList.add('on'); state.textContent = 'Online'; }
+                if (st.maintenance) { dot.classList.add('warn'); state.textContent = 'Maintenance'; }
+                else if (st.town) { dot.classList.add('on'); state.textContent = 'Online'; }
                 else { dot.classList.add('warn'); state.textContent = 'Maintenance'; }
                 count.textContent = (st.online | 0) + ' online' + ((st.playing | 0) > 0 ? ' \u00b7 ' + (st.playing | 0) + ' in a lot' : '');
             }
@@ -882,8 +910,12 @@
 
         return new Promise(done => {
             const btns = L.querySelector('.lbtns');
-            btns.innerHTML = on ? '<button class="ghost lrep">Report a player</button><button class="ghost lswitch">Switch account</button><button class="ghost llogout">Log out</button>'
+            const isMod = on && Array.isArray(acc.powers) && acc.powers.length > 0;
+            btns.innerHTML = on ? (isMod ? '<button class="ghost lmod">Moderator tools</button>' : '') + '<button class="ghost lrep">Report a player</button><button class="ghost lswitch">Switch account</button><button class="ghost llogout">Log out</button>'
                 : '<button class="ghost llogin">Log in</button>';
+            const modbox = L.querySelector('.modbox'), notesBox = L.querySelector('.notes');
+            modbox.classList.add('hidden'); notesBox.classList.remove('hidden');
+            if (isMod) btns.querySelector('.lmod').onclick = () => openMod(L);
             const rep = L.querySelector('.lreport'), rmsg = L.querySelector('.rmsg');
             rep.classList.add('hidden');
             if (on) {
@@ -942,6 +974,83 @@
             };
             document.addEventListener('keydown', onKey);
         });
+    }
+
+    // ---------- moderator tools (accounts given powers in the server panel) ----------
+    // Everything here is checked again by the server against the account's powers.
+    let MOD_TAB = null;
+    async function openMod(L) {
+        const box = L.querySelector('.modbox'), notes = L.querySelector('.notes');
+        notes.classList.add('hidden'); box.classList.remove('hidden');
+        L.querySelector('.mback').onclick = () => { box.classList.add('hidden'); notes.classList.remove('hidden'); };
+        await drawMod(L);
+    }
+    async function drawMod(L) {
+        const tabs = L.querySelector('.mtabs'), body = L.querySelector('.mbody'), msg = L.querySelector('.mmsg');
+        const d = await Account.call('/api/mod');
+        if (!d.ok) { body.innerHTML = ''; msg.className = 'mmsg error'; msg.textContent = d.error || "Couldn't load the moderator tools."; return; }
+        const names = { say: 'Message', kick: 'Kick', reports: 'Reports', flags: 'Cheat flags', events: 'Events' };
+        const powers = d.powers || [];
+        if (!MOD_TAB || powers.indexOf(MOD_TAB) < 0) MOD_TAB = powers[0];
+        tabs.innerHTML = '';
+        for (const p of powers) {
+            const b = document.createElement('button'); b.textContent = names[p] || p; b.classList.toggle('sel', p === MOD_TAB);
+            b.onclick = () => { MOD_TAB = p; msg.textContent = ''; drawMod(L); };
+            tabs.appendChild(b);
+        }
+        body.innerHTML = '';
+        const mk = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+        const act = async (payload, then) => {
+            msg.className = 'mmsg'; msg.textContent = 'Working...';
+            const r = await Account.call('/api/mod/do', payload);
+            if (!r.ok) { msg.className = 'mmsg error'; msg.textContent = r.error || 'That did not go through.'; return; }
+            msg.textContent = r.message || 'Done.';
+            if (then) then();
+            setTimeout(() => drawMod(L).then(() => { msg.textContent = r.message || 'Done.'; }), 300);
+        };
+        const item = (text, sub, btnText, fn) => {
+            const it = mk('div', 'mitem'); const t = mk('div', 't', text); if (sub) t.appendChild(mk('small', null, sub)); it.appendChild(t);
+            if (btnText) { const b = mk('button', 'ghost', btnText); b.onclick = fn; it.appendChild(b); }
+            body.appendChild(it);
+        };
+        const when = s => { try { return new Date(s).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; } };
+        if (MOD_TAB === 'say') {
+            body.appendChild(mk('div', 'mempty', 'Pops up for everyone in the online town, signed with your name.'));
+            const ta = mk('textarea'); ta.rows = 3; ta.maxLength = 300; ta.placeholder = 'Your message'; body.appendChild(ta);
+            const row = mk('div', 'mrow'); const b = mk('button', null, 'Send to everyone'); row.appendChild(b); body.appendChild(row);
+            b.onclick = () => act({ action: 'say', text: ta.value }, () => { ta.value = ''; });
+        } else if (MOD_TAB === 'kick') {
+            body.appendChild(mk('div', 'mempty', 'Sends a player off the online town. Admins can\'t be kicked.'));
+            const row = mk('div', 'mrow');
+            const nm = mk('input'); nm.placeholder = "Player's account name"; nm.setAttribute('list', 'srx-online');
+            const dl = mk('datalist'); dl.id = 'srx-online'; for (const n of d.online || []) { const o = mk('option'); o.value = n; dl.appendChild(o); }
+            const mins = mk('input', 'short'); mins.type = 'number'; mins.min = 0; mins.max = 60; mins.value = 10; mins.title = 'Minutes before they can come back (0-60)';
+            const b = mk('button', null, 'Kick');
+            row.appendChild(nm); row.appendChild(dl); row.appendChild(mins); row.appendChild(mk('span', 'mempty', 'min')); row.appendChild(b);
+            body.appendChild(row);
+            if ((d.online || []).length) body.appendChild(mk('div', 'mempty', 'Online now: ' + d.online.join(', ')));
+            b.onclick = () => act({ action: 'kick', name: nm.value.trim(), minutes: Number(mins.value) || 0 }, () => { nm.value = ''; });
+        } else if (MOD_TAB === 'reports') {
+            const list = d.reports || [];
+            if (!list.length) body.appendChild(mk('div', 'mempty', 'No reports waiting.'));
+            for (const r of list) item(r.from + ' reported ' + r.about, r.reason + ' \u00b7 ' + when(r.time), 'Dealt with', () => act({ action: 'report', id: r.id }));
+        } else if (MOD_TAB === 'flags') {
+            const list = d.flags || [];
+            if (!list.length) body.appendChild(mk('div', 'mempty', 'Nothing flagged.'));
+            for (const f of list) item(f.account + ' \u2014 ' + f.what, f.detail + ' \u00b7 ' + when(f.time), 'Looked at', () => act({ action: 'flag', id: f.id }));
+        } else if (MOD_TAB === 'events') {
+            const row = mk('div', 'mrow');
+            const sel = mk('select'); for (const k of d.kinds || []) { const o = mk('option', null, k.title); o.value = k.kind; o.title = k.about; sel.appendChild(o); }
+            const hrs = mk('input', 'short'); hrs.type = 'number'; hrs.min = 1; hrs.max = 24; hrs.value = 2; hrs.title = 'Hours (1-24)';
+            const ttl = mk('input'); ttl.placeholder = 'Title (optional)'; ttl.maxLength = 60;
+            const b = mk('button', null, 'Start');
+            row.appendChild(sel); row.appendChild(hrs); row.appendChild(mk('span', 'mempty', 'hours')); row.appendChild(ttl); row.appendChild(b);
+            body.appendChild(row);
+            b.onclick = () => act({ action: 'event', kind: sel.value, hours: Number(hrs.value) || 2, title: ttl.value });
+            const evs = d.events || [];
+            body.appendChild(mk('div', 'mempty', evs.length ? 'On now and coming up:' : 'No events on or coming up.'));
+            for (const e of evs) item(e.title, when(e.start) + ' \u2013 ' + when(e.end), 'End', () => act({ action: 'endevent', kind: e.kind }));
+        }
     }
 
     // Shows the setup screen as needed; resolves once the game can start.

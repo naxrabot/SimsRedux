@@ -670,4 +670,106 @@ namespace SimsRedux.Server
             foreach (var d in Directory.GetDirectories(from)) CopyDir(d, Path.Combine(to, Path.GetFileName(d)));
         }
     }
+
+    // =====================================================================================
+    //  Moderators: powers given per account in the panel, used from the website's moderator page.
+    // =====================================================================================
+    public static class Powers
+    {
+        public static readonly string[] All = { "say", "kick", "reports", "flags", "events" };
+        public static readonly Dictionary<string, string> About = new Dictionary<string, string>
+        {
+            ["say"] = "send a message to everyone online",
+            ["kick"] = "send a player off the town's lots (up to an hour)",
+            ["reports"] = "read players' reports and mark them dealt with",
+            ["flags"] = "read the cheat-check flags and mark them looked at",
+            ["events"] = "start and end events (up to a day)",
+        };
+    }
+
+    public static class Moderation
+    {
+        /// <summary>Sends a player off every town lot with a reason; they can't come back for `minutes`.</summary>
+        public static string Kick(Lots lots, Accounts accounts, string name, int minutes, string reason)
+        {
+            var acc = accounts.Find(name);
+            var shown = acc?.Name ?? name;
+            if (minutes > 0) Kicks.Add(Accounts.KeyOf(shown), minutes);
+            var why = string.IsNullOrWhiteSpace(reason) ? "An admin removed you from the online town." : reason;
+            why = new string(why.Where(c => c >= 32 && c != '|').ToArray());
+            foreach (var w in lots.Running()) lots.Send(w, "kick " + shown + "|" + why);
+            return "kicked " + shown + (minutes > 0 ? " - they can come back in " + minutes + " minute(s)" : "") + (acc == null ? "  (no account called that)" : "");
+        }
+    }
+
+    // =====================================================================================
+    //  Shutting down (or restarting) with a countdown everyone online hears about.
+    // =====================================================================================
+    public static class Shutdown
+    {
+        private static DateTime At;
+        private static bool Restart;
+        private static int From;
+        private static readonly HashSet<int> Said = new HashSet<int>();
+        private static readonly int[] Marks = { 600, 300, 120, 60, 30, 10, 5 };
+
+        /// <summary>Seconds until the server stops, or -1.</summary>
+        public static int SecondsLeft => At == default ? -1 : Math.Max(0, (int)Math.Ceiling((At - DateTime.UtcNow).TotalSeconds));
+        public static bool Restarting => At != default && Restart;
+
+        public static string Text(int seconds, bool restart)
+        {
+            var what = restart ? "Server restarting" : "Server shutting down";
+            if (seconds >= 120 && seconds % 60 == 0) return what + " in " + seconds / 60 + " minutes";
+            return what + " in " + seconds + " second" + (seconds == 1 ? "" : "s");
+        }
+
+        public static string Start(int seconds, bool restart)
+        {
+            lock (Said)
+            {
+                At = DateTime.UtcNow.AddSeconds(seconds);
+                Restart = restart;
+                From = seconds;
+                Said.Clear();
+            }
+            var msg = Text(seconds, restart);
+            Notices.Add(restart ? "Server restarting" : "Server shutting down", msg + ". Please finish up - your game is saved.");
+            Log.Info(msg);
+            return msg;
+        }
+
+        public static bool Cancel()
+        {
+            if (At == default) return false;
+            At = default;
+            Notices.Add("All clear", (Restart ? "The restart" : "The shutdown") + " was called off. Carry on!");
+            Log.Info("shutdown called off");
+            return true;
+        }
+
+        /// <summary>Every second: a reminder at 10 min, 5 min, 2 min, 60, 30, 10 and 5 seconds left, then stop.</summary>
+        public static void Tick(Action<int> stop)
+        {
+            if (At == default) return;
+            var left = SecondsLeft;
+            if (left <= 0)
+            {
+                At = default;
+                stop(Restart ? 75 : 0);
+                return;
+            }
+            lock (Said)
+            {
+                foreach (var m in Marks)
+                {
+                    if (m >= From || left > m || Said.Contains(m)) continue;
+                    foreach (var bigger in Marks) if (bigger >= m) Said.Add(bigger); // (one reminder per step, never a pile-up)
+                    Notices.Add(Restart ? "Server restarting" : "Server shutting down", Text(m, Restart) + ".");
+                    Log.Info(Text(m, Restart));
+                    break;
+                }
+            }
+        }
+    }
 }

@@ -22,6 +22,8 @@ namespace SimsRedux.Server
         public string Email { get; set; } = "";
         /// <summary>The person's real name, given when they made the account on the website (so the owner knows who it is).</summary>
         public string RealName { get; set; } = "";
+        /// <summary>Moderator powers given in the panel (say, kick, reports, flags, events). Admins have them all.</summary>
+        public List<string> Powers { get; set; } = new List<string>();
         public string Salt { get; set; }
         public string Hash { get; set; }
         public int Iterations { get; set; }
@@ -75,6 +77,28 @@ namespace SimsRedux.Server
         }
 
         public static string KeyOf(string name) => (name ?? "").Trim().ToLowerInvariant();
+
+        /// <summary>Gives an account moderator powers (or takes them away with an empty list).</summary>
+        public string SetPowers(string name, IEnumerable<string> powers)
+        {
+            lock (Lock)
+            {
+                var a = Find(name);
+                if (a == null) return "No account called " + name;
+                var list = (powers ?? Enumerable.Empty<string>()).Select(p => p.Trim().ToLowerInvariant()).Where(p => SimsRedux.Server.Powers.All.Contains(p)).Distinct().ToList();
+                a.Powers = list;
+                SaveAccounts();
+                return a.Name + (list.Count == 0 ? " has no moderator powers" : " can now: " + string.Join(", ", list));
+            }
+        }
+
+        /// <summary>What this account may do on the website's moderator page (admins: everything).</summary>
+        public static List<string> PowersOf(Account a)
+        {
+            if (a == null) return new List<string>();
+            if (a.Role == Roles.Admin) return SimsRedux.Server.Powers.All.ToList();
+            return (a.Powers ?? new List<string>()).Where(p => SimsRedux.Server.Powers.All.Contains(p)).ToList();
+        }
 
         public int Count { get { lock (Lock) return ByKey.Count; } }
 

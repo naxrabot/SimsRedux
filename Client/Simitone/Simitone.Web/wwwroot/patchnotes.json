@@ -2,6 +2,17 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "3.7",
+      "date": "Oct 15, 2026",
+      "features": [
+        "Moderator tools — moderators can help run the town from the launcher.",
+        "Server warnings — you're told before the server restarts or shuts down."
+      ],
+      "updates": [
+        "Maintenance — the launcher shows when the server is closed for upkeep."
+      ]
+    },
+    {
       "version": "3.6",
       "date": "Oct 15, 2026",
       "features": [
