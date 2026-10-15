@@ -18,6 +18,8 @@ namespace Simitone.Client.Utils
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Online: coming home after visiting a friend brings your Sim back (in at the mailbox if they were away), and the camera never shows an empty grey screen.",
+            "Online: buying something takes the money off straight away.",
             "Admin: give a player's town family money from the server panel ( /money <account> <amount> ).",
             "Server: the grey window that popped up when a lot opened (Go Home, Visit) is now invisible for good.",
             "Walls: diagonal walls stay visible when walls are cut away, and doors in cut walls hide with them.",
