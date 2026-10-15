@@ -267,6 +267,15 @@ namespace Simitone.Client.UI.Panels
         }
         void vm_OnDialog(FSO.SimAntics.Model.VMDialogInfo info)
         {
+            // SimsRedux: the game's nag popups (Help System, expansion announcements) never show -
+            // the game running the lot answers them at once; players on someone else's lot just skip them
+            var auto = Simitone.Client.Utils.ReduxDialogs.AutoAnswer(info);
+            if (auto != null)
+            {
+                DialogLog("(answered automatically) " + info.Title);
+                if (vm.GlobalLink != null) vm.SendCommand(new VMNetDialogResponseCmd { ResponseCode = auto.Value, ResponseText = "" });
+                return;
+            }
             // SimsRedux online: only show the questions for this player's own Sims
             if (info != null && !OwnsDialog(info))
             {
@@ -719,6 +728,9 @@ namespace Simitone.Client.UI.Panels
 
         private void TryAutoSelectSim()
         {
+            // never on a lot run by the server: its own copy of the game must not take a Sim away
+            // from the player controlling it (it did, once a second - the flickering Sim)
+            if (Simitone.Client.Utils.ReduxWorker.Active) return;
             if ((Parent as TS1GameScreen)?.IsVisitor == true) return; // a visitor only ever has their own Sim
             if (AutoSelectCooldown > 0) { AutoSelectCooldown--; return; }
             AutoSelectCooldown = 60; // try about once a second, not every frame
