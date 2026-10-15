@@ -287,8 +287,7 @@
         <input class="areal" type="text" autocomplete="name" placeholder="Your real name" maxlength="60" spellcheck="false">
         <input class="aemail" type="email" autocomplete="email" placeholder="Email (for password resets)" maxlength="120" spellcheck="false"></div>
       <button class="login">Log in</button> <button class="second register">Create account</button>
-      <button class="link offline" style="margin-left:10px">Play offline</button>
-      <div class="small">An account keeps your homes and families yours online. Offline, you play on your own.</div>
+      <div class="small">You need an approved account to play. New accounts wait for the admin to approve them.</div>
     </div>
     <div class="in hidden">
       <div class="who">Logged in as <b class="aname2"></b> <span class="arole"></span></div>
@@ -403,7 +402,7 @@
                 r = await fetch(SERVER + path, { method: method || (body ? 'POST' : 'GET'), headers, body: body ? JSON.stringify(body) : undefined });
             } catch (e) {
                 reachable = false;
-                return { ok: false, status: 0, error: "Couldn't reach the server. It may be offline right now - you can still play without an account." };
+                return { ok: false, status: 0, error: "Couldn't reach the server. It may be offline right now - try again in a moment." };
             }
             reachable = true;
             let j = null;
@@ -475,7 +474,8 @@
             else if (r.status === 401) { store(null); msg('Please log in again.'); }
             else paint(); // server offline: keep the remembered login
         }
-        // The first step on every visit: resolves once the player is logged in or chose to play offline.
+        // The first step on every visit: resolves once the player is logged in with an approved account
+        // (there's no playing without one - accounts are approved by the admin).
         let choose = null;
         async function step() {
             await refresh();
@@ -484,7 +484,6 @@
         }
         function attach(el) {
             root = el.querySelector('.acct');
-            root.querySelector('.offline').onclick = () => { msg(''); if (choose) { const c = choose; choose = null; c('offline'); } };
             root.querySelector('.login').onclick = () => login(false);
             root.querySelector('.register').onclick = () => login(true);
             root.querySelector('.logout').onclick = logout;
@@ -963,7 +962,7 @@
 
         const contentReady = loadSiteContent();
 
-        // 1. log in, make an account, or play offline (skipped when a login is remembered),
+        // 1. log in or make an account (skipped when a login is remembered),
         //    then the launcher - nothing loads until Play
         let how;
         for (;;) {

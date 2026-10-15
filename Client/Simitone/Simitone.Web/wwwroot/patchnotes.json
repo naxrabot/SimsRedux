@@ -8,7 +8,8 @@
         "New accounts ask for your real name and email."
       ],
       "updates": [
-        "The admin sees who's asking before approving an account."
+        "The admin sees who's asking before approving an account.",
+        "Play offline removed: an approved account is needed to play."
       ]
     },
     {
