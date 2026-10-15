@@ -117,9 +117,11 @@
         if (ui) return ui;
         const style = document.createElement('style');
         style.textContent = `
-#srx-setup { position: fixed; inset: 0; z-index: 1000; background: #000052; color: #d7d7f5;
+#srx-setup { position: fixed; inset: 0; z-index: 1000; color: #d7d7f5;
+  /* the Sims Redux wallpaper (the same one as the online loading screen), blue around it */
+  background: #002b87 url(img/redux-wallpaper.jpg) center / contain no-repeat; overflow: auto;
   font-family: 'Segoe UI', Tahoma, sans-serif; display: flex; align-items: center; justify-content: center; padding: 16px; }
-#srx-setup .box { width: 100%; max-width: 560px; background: #00003a; border: 2px solid #7878c8; border-right-color: #000028;
+#srx-setup .box { width: 100%; max-width: 560px; background: rgba(0, 0, 58, .92); max-height: calc(100vh - 32px); overflow: auto; border: 2px solid #7878c8; border-right-color: #000028;
   border-bottom-color: #000028; box-shadow: 6px 6px 0 rgba(0,0,0,.35); padding: 24px 26px; }
 #srx-setup h1 { font-size: 26px; margin: 0 0 4px; color: #fff; font-weight: 600; }
 #srx-setup h2 { font-size: 15px; margin: 0 0 18px; color: #78ff8c; font-weight: 600; }

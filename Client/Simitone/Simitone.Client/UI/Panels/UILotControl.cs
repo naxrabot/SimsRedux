@@ -1106,14 +1106,17 @@ namespace Simitone.Client.UI.Panels
                 // SimsRedux debug menu: Ctrl + Left Shift + right-click a Sim (after the "debugredux" cheat)
                 bool rightDown = state.MouseState.RightButton == ButtonState.Pressed;
                 if (!rightDown) DebugRightHeld = false;
-                else if (!DebugRightHeld && !RMBScroll && MouseIsOn && Simitone.Client.Utils.ReduxDebug.Enabled && LiveMode
+                else if (!DebugRightHeld && !RMBScroll && MouseIsOn && Simitone.Client.Utils.ReduxDebug.Enabled
                     && state.CtrlDown && state.KeyboardState.IsKeyDown(Keys.LeftShift))
                 {
                     DebugRightHeld = true;
                     var dbgPt = ToWorldScreen(new Vector2(state.MouseState.X, state.MouseState.Y));
                     var dbgId = World.GetObjectIDAtScreenPos((int)dbgPt.X, (int)dbgPt.Y, GameFacade.GraphicsDevice);
-                    if (dbgId > 0 && vm.GetObjectById(dbgId) is VMAvatar dbgSim)
+                    var dbgObj = dbgId > 0 ? vm.GetObjectById(dbgId) : null;
+                    if (dbgObj is VMAvatar dbgSim)
                         Simitone.Client.Utils.ReduxDebug.ShowMenu(vm, dbgSim);
+                    else if (dbgObj is VMGameObject dbgThing)
+                        Simitone.Client.Utils.ReduxDebug.ShowObjectMenu(vm, dbgThing);
                     else
                         HITVM.Get().PlaySoundEvent(UISounds.Error);
                 }

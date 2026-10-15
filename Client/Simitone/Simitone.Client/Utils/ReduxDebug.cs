@@ -36,7 +36,7 @@ namespace Simitone.Client.Utils
             if (t != "debugredux" && t != "debugredux on" && t != "debugredux off") return false;
             Enabled = t != "debugredux off";
             UIClassicDialog.Ok("Redux Debug", Enabled
-                ? "Debug menu is ON.\n\nHold Ctrl + Left Shift and right-click a Sim to open it.\nType \"debugredux off\" to turn it off."
+                ? "Debug menu is ON.\n\nHold Ctrl + Left Shift and right-click a Sim or an object to open it (objects work in Buy and Build mode too).\nType \"debugredux off\" to turn it off."
                 : "Debug menu is OFF.");
             return true;
         }
@@ -49,6 +49,25 @@ namespace Simitone.Client.Utils
                 Tuple.Create<string, Action>("Move to free spot", () => vm.SendCommand(new VMNetDebugSimCmd { ObjectID = sim.ObjectID, Action = VMNetDebugSimCmd.DebugAction.MoveToFreeSpot })),
                 Tuple.Create<string, Action>("Fill needs", () => vm.SendCommand(new VMNetDebugSimCmd { ObjectID = sim.ObjectID, Action = VMNetDebugSimCmd.DebugAction.FillNeeds })),
                 Tuple.Create<string, Action>("Sim info", () => UIClassicDialog.Ok("Sim info: " + sim.Name, Info(sim))),
+                Tuple.Create<string, Action>("Cancel", (Action)null));
+        }
+
+        /// <summary>
+        /// An object that got stuck (moved somewhere it can't be reached, "a rock" that can't be picked
+        /// up, used or deleted). Online, only the family living on the lot can use this.
+        /// </summary>
+        public static void ShowObjectMenu(VM vm, VMGameObject obj)
+        {
+            if (vm == null || obj == null) return;
+            var name = obj.ToString();
+            var leader = obj.MultitileGroup.GetInteractionGroupLeader(obj) ?? obj;
+            Action<VMNetDebugSimCmd.DebugAction> send = (a) => vm.SendCommand(new VMNetDebugSimCmd { ObjectID = leader.ObjectID, Action = a });
+            UIClassicDialog.Show("Redux Debug: " + name, "What do you want to do with this object?\n\n"
+                + "Reset: stops whatever it (and anyone using it) is doing.\nMove: puts it on the nearest free spot.\nDelete: removes it whatever state it's in - you get its value back (\u00a7" + obj.MultitileGroup.Price + ").",
+                Tuple.Create<string, Action>("Reset", () => send(VMNetDebugSimCmd.DebugAction.ResetObject)),
+                Tuple.Create<string, Action>("Move", () => send(VMNetDebugSimCmd.DebugAction.MoveObject)),
+                Tuple.Create<string, Action>("Delete", () => UIClassicDialog.YesNo("Delete " + name, "Remove this object for good? You get \u00a7" + obj.MultitileGroup.Price + " back.",
+                    () => send(VMNetDebugSimCmd.DebugAction.DeleteObject))),
                 Tuple.Create<string, Action>("Cancel", (Action)null));
         }
 
