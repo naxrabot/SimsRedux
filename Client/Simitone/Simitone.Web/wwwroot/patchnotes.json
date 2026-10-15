@@ -2,6 +2,14 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "4.0",
+      "date": "Oct 15, 2026",
+      "features": [],
+      "updates": [
+        "Control panel — money is centred, and the clock and money text is smaller and tidier."
+      ]
+    },
+    {
       "version": "3.9",
       "date": "Oct 15, 2026",
       "features": [],

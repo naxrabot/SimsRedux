@@ -18,6 +18,7 @@ namespace Simitone.Client.Utils
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Control panel: money is centred, and the clock and money text is smaller and tidier.",
             "Neighborhood bar: the top bar gets the new look, with the buttons sitting smoothly in it.",
             "New look: smoother control panel in the classic Sims blue, with the original icons.",
             "Interface options: pick the Redux or Classic look, a UI colour and a UI size (Options > Graphics > Interface).",

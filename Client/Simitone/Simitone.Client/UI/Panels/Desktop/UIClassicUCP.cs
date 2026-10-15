@@ -157,9 +157,9 @@ namespace Simitone.Client.UI.Panels.Desktop
             HelpBtn.OnButtonExit += (b) => GameFacade.Cursor.SetCursor(FSO.Common.Rendering.Framework.CursorType.Normal);
 
             // text: clock, friends, money (Simitone's labels are reused for money)
-            ClockLabel = Lcd(86, 117, 74, 15, TextAlignment.Center | TextAlignment.Middle, 12);
-            FriendsCount = Lcd(84, 159, 30, 17, TextAlignment.Center | TextAlignment.Middle, 13);
-            MoneyLabel = Lcd(110, 159, 86, 17, TextAlignment.Right | TextAlignment.Middle, 13);
+            ClockLabel = Lcd(86, 117, 74, 15, TextAlignment.Center | TextAlignment.Middle, 10);
+            FriendsCount = Lcd(84, 159, 30, 17, TextAlignment.Center | TextAlignment.Middle, 11); // family friends (as in the original)
+            MoneyLabel = Lcd(112, 159, 82, 17, TextAlignment.Center | TextAlignment.Middle, 11);
 
             // Simitone's own clock/floor labels stay hidden (the logic still writes to them)
             TimeLabel = Lcd(0, 0, 1, 1, TextAlignment.Left, 10); TimeLabel.Visible = false;

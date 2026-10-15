@@ -404,9 +404,9 @@ namespace Simitone.Client.UI.Panels.Desktop
             newLabel.Position = MoneyLabel.Position;
             newLabel.Y += -20f;
             newLabel.CaptionStyle = MoneyLabel.CaptionStyle.Clone();
-            newLabel.CaptionStyle.Size = 15;
+            newLabel.CaptionStyle.Size = 12;
             newLabel.CaptionStyle.Color = (change > 0) ? UIStyle.Current.Text : UIStyle.Current.NegMoney;
-            newLabel.Alignment = FSO.Client.UI.Framework.TextAlignment.Right | FSO.Client.UI.Framework.TextAlignment.Middle;
+            newLabel.Alignment = FSO.Client.UI.Framework.TextAlignment.Center | FSO.Client.UI.Framework.TextAlignment.Middle; // SimsRedux: lined up with the centred money
             newLabel.Size = MoneyLabel.Size;
 
             newLabel.Caption = ((change > 0) ? "+" : "-") + "§" + Math.Abs(change);
