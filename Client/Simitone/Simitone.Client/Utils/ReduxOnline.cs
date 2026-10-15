@@ -185,6 +185,7 @@ namespace Simitone.Client.Utils
         public bool IsOwner;
         public short OwnerFamily = -1;
         public DateTime LastControlTry;
+        public int ControlTries;
 
         private Task SendChain = Task.CompletedTask;
         private readonly object SendLock = new object();
@@ -763,12 +764,35 @@ namespace Simitone.Client.Utils
             sock.LastControlTry = DateTime.UtcNow;
             var id = sock.Client.PersistID;
             if (vm.GetAvatarByPersist(id) != null) return;
-            var sim = vm.Context.ObjectQueries.Avatars.OfType<VMAvatar>().FirstOrDefault(x => !x.Dead && !x.IsPet
+            sock.ControlTries++;
+
+            // players here right now: the Sims they're directing are theirs (an id left over from a
+            // player who has gone - an earlier visit home - doesn't count)
+            HashSet<uint> here;
+            lock (Sockets) here = new HashSet<uint>(Sockets.Where(x => x.Client != null && !x.Closed && x != sock).Select(x => x.Client.PersistID));
+            var family = vm.Context.ObjectQueries.Avatars.OfType<VMAvatar>().Where(x => !x.Dead && !x.IsPet
                 && x.GetPersonData(VMPersonDataVariable.TS1FamilyNumber) == sock.OwnerFamily
-                && x.PersistID < ReduxOnlineInfo.FirstGuestID
-                && x.Position != FSO.LotView.Model.LotTilePos.OUT_OF_WORLD
-                && (x.GetValue(VMStackObjectVariable.MovementFlags) & (short)VMMovementFlags.FSOExcludeUserSave) == 0);
-            if (sim == null) return;
+                && (x.GetValue(VMStackObjectVariable.MovementFlags) & (short)VMMovementFlags.FSOExcludeUserSave) == 0
+                && !here.Contains(x.PersistID)).ToList();
+
+            // someone at home first; otherwise someone who is away (they walk back in at the mailbox)
+            var sim = family.FirstOrDefault(x => x.Position != FSO.LotView.Model.LotTilePos.OUT_OF_WORLD) ?? family.FirstOrDefault();
+            if (sim == null)
+            {
+                if (sock.ControlTries == 2 && vm.TS1State?.CurrentFamily != null && vm.TS1State.CurrentFamily.ChunkID == sock.OwnerFamily)
+                {
+                    // nobody of the family is on the lot at all: everyone comes home
+                    ReduxOnlineInfo.Log("[home] none of family " + sock.OwnerFamily + " is on the lot - bringing them all home");
+                    Driver.SendCommand(new FSO.SimAntics.NetPlay.Model.Commands.VMNetChangeControlCmd() { ActorUID = ReduxOnlineInfo.HostID, TargetID = FSO.SimAntics.NetPlay.Model.Commands.VMNetChangeControlCmd.EveryoneHome });
+                }
+                else if (sock.ControlTries == 5)
+                    ReduxOnlineInfo.Log("[home] still no Sim for " + sock.PlayerName + " (family " + sock.OwnerFamily + "). Sims here: "
+                        + string.Join("; ", vm.Context.ObjectQueries.Avatars.OfType<VMAvatar>().Select(a => a.Name + " family " + a.GetPersonData(VMPersonDataVariable.TS1FamilyNumber) + " id " + a.PersistID
+                            + (a.Position == FSO.LotView.Model.LotTilePos.OUT_OF_WORLD ? " away" : ""))));
+                return;
+            }
+            ReduxOnlineInfo.Log("[home] " + sock.PlayerName + " gets " + sim.Name + (sim.Position == FSO.LotView.Model.LotTilePos.OUT_OF_WORLD ? " (coming back in from away)" : "")
+                + (sim.PersistID >= ReduxOnlineInfo.FirstGuestID ? " (was left with old player id " + sim.PersistID + ")" : ""));
             Driver.SendCommand(new FSO.SimAntics.NetPlay.Model.Commands.VMNetChangeControlCmd() { ActorUID = id, TargetID = sim.ObjectID });
         }
 

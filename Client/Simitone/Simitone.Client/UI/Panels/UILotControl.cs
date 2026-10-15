@@ -1010,13 +1010,31 @@ namespace Simitone.Client.UI.Panels
                 ActiveEntity = vm.Entities.FirstOrDefault(x => x is VMAvatar && x.PersistID == SelectedSimID); //try and hook onto a sim if we have none selected.
                 //if (ActiveEntity == null) ActiveEntity = vm.Entities.FirstOrDefault(x => x is VMAvatar);
 
-                if (!FoundMe && ActiveEntity != null)
+                // (a Sim who is off the lot - "away" - has nowhere to look at yet: wait until they're back)
+                if (!FoundMe && ActiveEntity != null && ActiveEntity.Position != LotTilePos.OUT_OF_WORLD)
                 {
                     vm.Context.World.State.CenterTile = new Vector2(ActiveEntity.VisualPosition.X, ActiveEntity.VisualPosition.Y);
                     vm.Context.World.State.ScrollAnchor = null;
                     FoundMe = true;
                 }
                 Queue.QueueOwner = ActiveEntity;
+            }
+
+            // SimsRedux: never leave the camera looking at nothing - if there's still no Sim to look at
+            // a few seconds after arriving, look at the middle of the lot
+            if (!FoundMe)
+            {
+                if (CameraWaitStart == default) CameraWaitStart = DateTime.UtcNow;
+                else if ((DateTime.UtcNow - CameraWaitStart).TotalSeconds > 3 && !LotMiddleShown)
+                {
+                    LotMiddleShown = true;
+                    var size = vm.Context.Architecture.Width;
+                    vm.Context.World.State.CenterTile = new Vector2(size / 2f, size / 2f);
+                    vm.Context.World.State.ScrollAnchor = null;
+                    Simitone.Client.Utils.ReduxOnlineInfo.Log("[camera] no Sim to look at yet - showing the middle of the lot. "
+                        + string.Join("; ", vm.Context.ObjectQueries.Avatars.OfType<VMAvatar>().Select(a => a.Name + " id " + a.PersistID + (a.Position == LotTilePos.OUT_OF_WORLD ? " (away)" : " at " + a.Position.TileX + "," + a.Position.TileY)))
+                        + " | I'm " + SelectedSimID);
+                }
             }
 
             // SimsRedux: no Sim is under the player's control (this can happen with a save where the
@@ -1224,6 +1242,9 @@ namespace Simitone.Client.UI.Panels
         // SimsRedux: doors. Walls up and roof: every door shows. Walls down: only doors that lead
         // outside show (inside doors would stand up like walls in the middle of rooms). Cutaway: a
         // door in a wall that's cut away is hidden with its wall.
+        private DateTime CameraWaitStart;
+        private bool LotMiddleShown;
+
         private HashSet<VMEntity> HiddenDoors = new HashSet<VMEntity>();
         private int DoorCheckTimer;
         private int LastDoorWallsMode = -1;
