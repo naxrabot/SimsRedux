@@ -110,7 +110,7 @@ namespace SimsRedux.Server
                     CreateNoWindow = true,
                     WindowStyle = ProcessWindowStyle.Hidden, // the lot's game window is never shown on the server PC
                 };
-                foreach (var a in new[] { "-path" + Config.GameFolder.TrimEnd('\\', '/'), "-worker", "-house" + house, "-port" + port, "-town" + TownDir })
+                foreach (var a in new[] { "-path" + Config.GameFolder.TrimEnd('\\', '/'), "-worker", "-house" + house, "-port" + port, "-town" + TownDir, "-time" + TownClock.Now })
                     psi.ArgumentList.Add(a);
                 if (extraArgs != null) foreach (var a in extraArgs) psi.ArgumentList.Add(a);
                 try { w.Process = Process.Start(psi); }
@@ -250,6 +250,7 @@ namespace SimsRedux.Server
                     }
                 }
                 CopyTown(from, TownDir);
+                TownClock.Reset(); // a new town starts a new clock (day 1, 8:00 AM)
                 // a fresh copy gets fresh file times, so every player's game sees the town has changed
                 var now = DateTime.Now;
                 foreach (var f in Directory.EnumerateFiles(TownDir, "*", SearchOption.AllDirectories))

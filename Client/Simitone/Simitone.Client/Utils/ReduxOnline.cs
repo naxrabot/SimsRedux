@@ -42,6 +42,7 @@ namespace Simitone.Client.Utils
         Hood = 12,       // host -> guest: the host's neighbourhood files
         AddVisitor = 13, // host -> guests: another friend's Sim (character file + neighbour data)
         Bye = 14,        // either way: leaving / refused, with a reason
+        Alive = 15,      // guest -> host every few seconds from the game itself: "my game is still running"
     }
 
     public static class ReduxOnlineInfo
@@ -179,6 +180,8 @@ namespace Simitone.Client.Utils
         public VMNetClient Client;
         public string PlayerName = "";
         public DateTime Opened = DateTime.UtcNow;
+        /// <summary>When anything last arrived from them (a game that crashed or froze goes quiet).</summary>
+        public DateTime LastHeard = DateTime.UtcNow;
         /// <summary>The account the dedicated server says this is (town lots only), or null.</summary>
         public string Account;
         /// <summary>2C: this player owns the family living on this lot (and controls them).</summary>
@@ -218,6 +221,7 @@ namespace Simitone.Client.Utils
                     if (message.Length > ReduxOnlineInfo.MaxMessage) throw new Exception("Message too big.");
                     if (result.EndOfMessage)
                     {
+                        LastHeard = DateTime.UtcNow;
                         Incoming.Enqueue(message.ToArray());
                         message = new MemoryStream();
                     }
@@ -249,6 +253,18 @@ namespace Simitone.Client.Utils
                     }
                 }).Unwrap();
             }
+        }
+
+        /// <summary>If it hasn't closed politely within the time given, it's cut off (a game that's stuck can't answer).</summary>
+        public void CloseHard(int ms)
+        {
+            Task.Delay(ms).ContinueWith(_ =>
+            {
+                if (Closed) return;
+                Closed = true;
+                if (CloseReason.Length == 0) CloseReason = "closed";
+                try { Socket.Abort(); } catch { }
+            });
         }
 
         /// <summary>Sends a goodbye (if a reason is given), then closes once everything queued has gone.</summary>
@@ -284,6 +300,9 @@ namespace Simitone.Client.Utils
         public int ConnectionCount { get { lock (Sockets) return Sockets.Count(x => !x.Closed) + Pending.Count; } }
         public List<string> GuestNames { get { lock (Sockets) return Sockets.Where(x => x.Client != null).Select(x => x.PlayerName).ToList(); } }
         public event Action<string> OnNotice;
+
+        /// <summary>Seconds without hearing from a player before they're taken off (a crashed or frozen game).</summary>
+        public const int SilentLimit = 90;
 
         private VM vm;
         private VMServerDriver Driver;
@@ -496,6 +515,14 @@ namespace Simitone.Client.Utils
                 if (sock.IsOwner && sock.Client != null && !sock.Closed) GiveOwnerASim(sock);
                 if (sock.Client == null && !sock.Closed && (DateTime.UtcNow - sock.Opened).TotalSeconds > 60)
                     sock.Close("Took too long to join.");
+                // a player whose game crashed or froze stops saying it's alive: they (and their Sim)
+                // are taken off the lot instead of their Sim carrying on by itself
+                if (sock.Client != null && !sock.Closed && (DateTime.UtcNow - sock.LastHeard).TotalSeconds > SilentLimit)
+                {
+                    ReduxOnlineInfo.Log("[host] " + sock.PlayerName + "'s game hasn't answered for " + SilentLimit + " seconds - taking them off the lot");
+                    sock.Close("Your game stopped answering, so you were taken off the lot.");
+                    sock.CloseHard(3000);
+                }
                 if (sock.Closed)
                 {
                     lock (Sockets) Sockets.Remove(sock);
@@ -506,6 +533,9 @@ namespace Simitone.Client.Utils
                         OnNotice?.Invoke(sock.PlayerName + " left.");
                         ReduxOnlineInfo.Log(sock.PlayerName + " left (" + sock.CloseReason + ")");
                     }
+                    // 2D: the family's player has gone - their family doesn't carry on without them,
+                    // so anyone visiting heads back to the town and the lot saves and closes
+                    if (sock.IsOwner && ReduxWorker.Active) SendVisitorsHomeIfOwnerGone();
                 }
             }
         }
@@ -538,6 +568,8 @@ namespace Simitone.Client.Utils
                 case ReduxPacket.Bye:
                     sock.Close();
                     break;
+                case ReduxPacket.Alive:
+                    break; // (LastHeard is already updated)
             }
         }
 
@@ -605,6 +637,16 @@ namespace Simitone.Client.Utils
                 if (vm.Entities.Any(x => x is VMAvatar && x.Object?.OBJ?.GUID == guid))
                 {
                     sock.Close("That Sim is already here.");
+                    return;
+                }
+                // 2D: a player's family only lives while their player is there - so it can only be
+                // visited while they're home (the town's own families can be visited any time)
+                var ownerName = (homeFamily == null) ? null : ReduxWorker.FamilyOwnerName(homeFamily.ChunkID);
+                bool ownerHome;
+                lock (Sockets) ownerHome = Sockets.Any(x => x.IsOwner && x.Client != null && !x.Closed);
+                if (ownerName != null && !ownerHome)
+                {
+                    sock.Close("Nobody's home at the " + ownerName + " house right now - you can visit while their player is there.");
                     return;
                 }
                 JoinAsTownVisitor(sock, name, guid);
@@ -758,6 +800,22 @@ namespace Simitone.Client.Utils
         }
 
         /// <summary>2C: an owner without a Sim to control gets one of their family (when one is on the lot).</summary>
+        private void SendVisitorsHomeIfOwnerGone()
+        {
+            List<ReduxSocket> visitors;
+            lock (Sockets)
+            {
+                if (Sockets.Any(x => x.IsOwner && x.Client != null && !x.Closed)) return; // another owner is still here
+                visitors = Sockets.Where(x => !x.IsOwner && !x.Closed).ToList();
+            }
+            if (visitors.Count == 0) return;
+            var fam = vm.TS1State?.CurrentFamily;
+            var famName = (fam == null) ? null : ReduxWorker.FamilyOwnerName(fam.ChunkID);
+            if (famName == null) return; // a town family: visitors can stay
+            ReduxOnlineInfo.Log("[host] the " + famName + " family's player left - sending " + visitors.Count + " visitor(s) back to the town");
+            foreach (var v in visitors) v.Close("The " + famName + " family's player has gone out, so you headed back to the town.");
+        }
+
         private void GiveOwnerASim(ReduxSocket sock)
         {
             if ((DateTime.UtcNow - sock.LastControlTry).TotalSeconds < 2) return;
@@ -775,7 +833,7 @@ namespace Simitone.Client.Utils
                 && (x.GetValue(VMStackObjectVariable.MovementFlags) & (short)VMMovementFlags.FSOExcludeUserSave) == 0
                 && !here.Contains(x.PersistID)).ToList();
 
-            // someone at home first; otherwise someone who is away (they walk back in at the mailbox)
+            // someone at home first; otherwise someone who is away (at work...) - they come back as usual
             var sim = family.FirstOrDefault(x => x.Position != FSO.LotView.Model.LotTilePos.OUT_OF_WORLD) ?? family.FirstOrDefault();
             if (sim == null)
             {
@@ -791,7 +849,7 @@ namespace Simitone.Client.Utils
                             + (a.Position == FSO.LotView.Model.LotTilePos.OUT_OF_WORLD ? " away" : ""))));
                 return;
             }
-            ReduxOnlineInfo.Log("[home] " + sock.PlayerName + " gets " + sim.Name + (sim.Position == FSO.LotView.Model.LotTilePos.OUT_OF_WORLD ? " (coming back in from away)" : "")
+            ReduxOnlineInfo.Log("[home] " + sock.PlayerName + " gets " + sim.Name + (sim.Position == FSO.LotView.Model.LotTilePos.OUT_OF_WORLD ? " (away from the lot - at work or out)" : "")
                 + (sim.PersistID >= ReduxOnlineInfo.FirstGuestID ? " (was left with old player id " + sim.PersistID + ")" : ""));
             Driver.SendCommand(new FSO.SimAntics.NetPlay.Model.Commands.VMNetChangeControlCmd() { ActorUID = id, TargetID = sim.ObjectID });
         }
@@ -1057,12 +1115,34 @@ namespace Simitone.Client.Utils
         }
 
         /// <summary>Called every frame before the lot ticks. Returns false once the connection is over (see Failure).</summary>
+        /// <summary>The lot this game is on right now (so a crash can leave it at once).</summary>
+        public static ReduxGuest Current;
+        private DateTime LastAlive;
+
+        /// <summary>The game is stopping because something went wrong: leave the lot now, so our Sim goes with us.</summary>
+        public static void LeaveBecauseCrashed()
+        {
+            try { Current?.Sock?.Close("My game stopped."); Current?.Sock?.CloseHard(2000); } catch { }
+        }
+
+        /// <summary>Tells the host our game is still running (at most every 3 seconds).</summary>
+        public void SendAlive()
+        {
+            var sock = Sock;
+            if (sock == null || Finished || (DateTime.UtcNow - LastAlive).TotalSeconds < 3) return;
+            LastAlive = DateTime.UtcNow;
+            sock.Send(new byte[] { (byte)ReduxPacket.Alive });
+        }
+
         public bool Process()
         {
             if (Finished) return false;
             if (Failure != null) { Finished = true; return false; }
             var sock = Sock;
             if (sock == null) return true; // still connecting
+            Current = this;
+            // every few seconds, from the game loop itself: the host knows our game is still running
+            SendAlive();
 
             byte[] data;
             while (sock.Incoming.TryDequeue(out data))
@@ -1183,6 +1263,7 @@ namespace Simitone.Client.Utils
         public void Leave()
         {
             Finished = true;
+            if (Current == this) Current = null;
             Sock?.Close("left");
         }
     }

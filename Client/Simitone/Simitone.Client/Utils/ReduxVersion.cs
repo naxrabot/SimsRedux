@@ -12,23 +12,19 @@ namespace Simitone.Client.Utils
     /// </summary>
     public static class ReduxVersion
     {
-        public const string Number = "1.7";
+        public const string Number = "1.8";
         public const string Stage = "Beta";
 
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
-            "Online: coming home after visiting a friend brings your Sim back (in at the mailbox if they were away), and the camera never shows an empty grey screen.",
-            "Online: buying something takes the money off straight away.",
-            "Online: questions at home (like the carpool's \"time for work\") take your answer instead of popping up again and again.",
+            "Online town: one clock for the whole town - every lot shows the same time, and it only moves while someone is playing (it can't be paused or sped up).",
+            "Online town: a player's family only lives while their player is home - you can visit while they're there, and when they leave, visitors head back to the town.",
+            "Online town: several lots can be open at once without undoing each other's saves (money, friendships, everything).",
+            "Online: if your game crashes or freezes, you and your Sim are taken off the lot instead of your Sim carrying on alone.",
+            "Online: going home while your Sim is at work no longer disconnects you - the camera shows your house until they're back.",
+            "Website: the game fills the browser window properly from the start, and follows it when you resize.",
             "Website: no more crash from a sound when the game carries on after a question.",
-            "Admin: give a player's town family money from the server panel ( /money <account> <amount> ).",
-            "Server: the grey window that popped up when a lot opened (Go Home, Visit) is now invisible for good.",
-            "Walls: diagonal walls stay visible when walls are cut away, and doors in cut walls hide with them.",
-            "Online: Leave Multiplayer (on lots in the town and on the town bar) takes you straight back to your own neighborhood.",
-            "Online: click your house and choose Move Out to delete your online family, then make a new one or bring another.",
-            "Online: your family's money shows at home, and the town's plumbob sits just above your roof.",
-            "Server: opening a lot no longer flashes a grey game window on the server PC.",
         };
 
         public static string Text { get { return "v" + Number; } }

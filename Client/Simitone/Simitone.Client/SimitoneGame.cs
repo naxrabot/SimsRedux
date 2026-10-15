@@ -68,6 +68,25 @@ namespace Simitone.Client
 
         }
 
+        /// <summary>
+        /// SimsRedux website: the browser window changed size (the page tells the game): the game's
+        /// picture and layout follow it, like resizing the game's window on a computer.
+        /// </summary>
+        public void ResizeTo(int width, int height)
+        {
+            width = Math.Max(320, width); height = Math.Max(240, height);
+            if (Graphics.PreferredBackBufferWidth == width && Graphics.PreferredBackBufferHeight == height
+                && GlobalSettings.Default.GraphicsWidth == width && GlobalSettings.Default.GraphicsHeight == height) return;
+            Graphics.PreferredBackBufferWidth = width;
+            Graphics.PreferredBackBufferHeight = height;
+            Graphics.ApplyChanges();
+            GlobalSettings.Default.GraphicsWidth = width;
+            GlobalSettings.Default.GraphicsHeight = height;
+            if (uiLayer?.CurrentUIScreen == null) return;
+            uiLayer.SpriteBatch.ResizeBuffer(width, height);
+            uiLayer.CurrentUIScreen.GameResized();
+        }
+
         bool newChange = false;
         void Window_ClientSizeChanged(object sender, EventArgs e)
         {

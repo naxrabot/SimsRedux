@@ -174,6 +174,8 @@ namespace Simitone.Windows
         private static void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
         {
             var exception = e.ExceptionObject;
+            // SimsRedux online: leave the lot we're on first, so our Sim doesn't carry on without us
+            try { Simitone.Client.Utils.ReduxGuest.LeaveBecauseCrashed(); } catch { }
             if (Simitone.Client.Utils.ReduxWorker.Active)
             {
                 // a lot worker has nobody to click OK: tell the server and stop

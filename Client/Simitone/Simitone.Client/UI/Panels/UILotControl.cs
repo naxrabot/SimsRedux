@@ -1010,8 +1010,8 @@ namespace Simitone.Client.UI.Panels
                 ActiveEntity = vm.Entities.FirstOrDefault(x => x is VMAvatar && x.PersistID == SelectedSimID); //try and hook onto a sim if we have none selected.
                 //if (ActiveEntity == null) ActiveEntity = vm.Entities.FirstOrDefault(x => x is VMAvatar);
 
-                // (a Sim who is off the lot - "away" - has nowhere to look at yet: wait until they're back)
-                if (!FoundMe && ActiveEntity != null && ActiveEntity.Position != LotTilePos.OUT_OF_WORLD)
+                // (a Sim who is off the lot - at work, say - has nowhere to look at: the lot is shown instead)
+                if (!FoundMe && !LotMiddleShown && ActiveEntity != null && ActiveEntity.Position != LotTilePos.OUT_OF_WORLD)
                 {
                     vm.Context.World.State.CenterTile = new Vector2(ActiveEntity.VisualPosition.X, ActiveEntity.VisualPosition.Y);
                     vm.Context.World.State.ScrollAnchor = null;

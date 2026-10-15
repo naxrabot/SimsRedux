@@ -5,6 +5,8 @@ using FSO.SimAntics.NetPlay.Model.Commands;
 using Simitone.Client.UI.Screens;
 using System;
 using System.IO;
+using System.Linq;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading;
 
@@ -33,6 +35,8 @@ namespace Simitone.Client.Utils
         public static int MoveOutFamily = -1;
         /// <summary>The admin giving (or taking) money while the lot is closed: family number and amount.</summary>
         public static int MoneyFamily = -1, MoneyAmount;
+        /// <summary>2D: the town's time when this lot opened (Sim minutes since day 1, midnight), or -1.</summary>
+        public static long TownMinutes = -1;
 
         /// <summary>How long an empty lot stays open (for someone coming back) before it saves and closes.</summary>
         private static readonly TimeSpan EmptyGrace = TimeSpan.FromMinutes(2);
@@ -44,7 +48,8 @@ namespace Simitone.Client.Utils
         private static DateTime Started, EmptySince, LastSave, BlockedSince, LastSpeedChange;
         private static bool EverHadPlayers, Closing;
         private static int LastCount = -1;
-        private static string Command; // from the server, read on its own thread
+        /// <summary>Lines from the server, read on their own thread (queued, so none is ever lost).</summary>
+        private static readonly System.Collections.Concurrent.ConcurrentQueue<string> Commands = new System.Collections.Concurrent.ConcurrentQueue<string>();
 
         /// <summary>Reads the worker arguments (from Program.cs). Returns true if this is a worker.</summary>
         public static bool Configure(string[] args)
@@ -58,6 +63,7 @@ namespace Simitone.Client.Utils
                 else if (s.StartsWith("port") && int.TryParse(s.Substring(4), out var p)) Port = p;
                 else if (s.StartsWith("town")) Town = s.Substring(4).Trim('"').Replace('\\', '/').TrimEnd('/') + "/";
                 else if (s.StartsWith("moveout") && int.TryParse(s.Substring(7), out var mo)) MoveOutFamily = mo;
+                else if (s.StartsWith("time") && long.TryParse(s.Substring(4), out var tm)) TownMinutes = tm;
                 else if (s.StartsWith("money"))
                 {
                     // -money<family>:<amount>
@@ -83,7 +89,7 @@ namespace Simitone.Client.Utils
                 try
                 {
                     string line;
-                    while ((line = Console.ReadLine()) != null) Interlocked.Exchange(ref Command, line.Trim().ToLowerInvariant());
+                    while ((line = Console.ReadLine()) != null) Commands.Enqueue(line.Trim().ToLowerInvariant());
                 }
                 catch { }
             }) { IsBackground = true, Name = "worker console" };
@@ -133,6 +139,69 @@ namespace Simitone.Client.Utils
             return -1;
         }
 
+        /// <summary>2D: the player's family living in house... is it a player's family? Their family name, or null (a town family).</summary>
+        public static string FamilyOwnerName(int family)
+        {
+            if (family < 0 || string.IsNullOrEmpty(Town)) return null;
+            try
+            {
+                var path = Path.Combine(Town, "owners.json");
+                if (!File.Exists(path)) return null;
+                using (var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(path)))
+                {
+                    foreach (var p in doc.RootElement.EnumerateObject())
+                    {
+                        if (p.Value.TryGetProperty("Family", out var f) && f.GetInt32() == family)
+                        {
+                            var n = p.Value.TryGetProperty("Name", out var nm) ? nm.GetString() : null;
+                            return string.IsNullOrWhiteSpace(n) ? "that" : n;
+                        }
+                    }
+                }
+            }
+            catch (Exception e) { Say("error reading owners: " + e.Message); }
+            return null;
+        }
+
+        /// <summary>The families this lot looks after (whoever lives here, or moved in / out here).</summary>
+        private static readonly HashSet<int> MyFamilies = new HashSet<int>();
+
+        /// <summary>
+        /// 2D: what this lot may write into the town's shared neighbourhood when it saves - its own
+        /// family (and their Sims) and everyone on the lot except visiting players' Sims (their own
+        /// lot looks after them). Everything else is kept as the other lots left it.
+        /// </summary>
+        private static Tuple<HashSet<short>, HashSet<int>> TownOwnership()
+        {
+            var hood = Content.Get().Neighborhood;
+            var fams = new HashSet<int>(MyFamilies);
+            var vm = Screen?.vm;
+            var cur = vm?.TS1State?.CurrentFamily;
+            if (cur != null) fams.Add(cur.ChunkID);
+            var nbs = new HashSet<short>();
+            foreach (var id in fams)
+            {
+                var fam = hood.GetFamily((ushort)id);
+                if (fam?.FamilyGUIDs == null) continue;
+                foreach (var guid in fam.FamilyGUIDs)
+                {
+                    var nid = hood.GetNeighborIDForGUID(guid);
+                    if (nid != null) nbs.Add(nid.Value);
+                }
+            }
+            if (vm != null)
+            {
+                foreach (var ava in vm.Context.ObjectQueries.Avatars.OfType<FSO.SimAntics.VMAvatar>())
+                {
+                    if ((ava.GetValue(FSO.SimAntics.Model.VMStackObjectVariable.MovementFlags) & (short)FSO.SimAntics.Model.VMMovementFlags.FSOExcludeUserSave) != 0) continue;
+                    var guid = ava.Object?.OBJ?.GUID ?? 0;
+                    var nid = guid == 0 ? null : hood.GetNeighborIDForGUID(guid);
+                    if (nid != null) nbs.Add(nid.Value);
+                }
+            }
+            return Tuple.Create(nbs, fams);
+        }
+
         /// <summary>Called once the game screen exists: load the town and open the house.</summary>
         public static void Begin(TS1GameScreen screen)
         {
@@ -147,6 +216,10 @@ namespace Simitone.Client.Utils
                     Environment.Exit(3);
                 }
                 HideWindow();
+                // 2D: other lots are open too - this one only ever saves its own family and Sims
+                var houseFam = hood.GetFamilyForHouse(House);
+                if (houseFam != null) MyFamilies.Add(houseFam.ChunkID);
+                hood.SharedTownOwnership = TownOwnership;
                 if (MoveOutFamily >= 0)
                 {
                     // a player's family leaves the town: the house goes up for sale, the lot doesn't open
@@ -183,6 +256,7 @@ namespace Simitone.Client.Utils
                     {
                         var pack = ReduxFamilyPackage.FromBytes(File.ReadAllBytes(MoveInFile));
                         var fam = pack.MoveInto(House);
+                        MyFamilies.Add(fam.ChunkID);
                         Say("movedin " + fam.ChunkID);
                         Say("family " + fam.ChunkID + " has §" + fam.Budget + " after buying the lot");
                     }
@@ -210,10 +284,13 @@ namespace Simitone.Client.Utils
             var now = DateTime.UtcNow;
             var host = Screen.Host;
 
-            var cmd = Interlocked.Exchange(ref Command, null);
-            if (cmd == "save") { SaveNow(); }
-            else if (cmd != null && cmd.StartsWith("money ")) { GiveMoney(cmd); }
-            else if (cmd == "quit") { Quit("asked to close"); return; }
+            while (Commands.TryDequeue(out var cmd))
+            {
+                if (cmd == "save") { SaveNow(); }
+                else if (cmd.StartsWith("money ")) { if (host != null) GiveMoney(cmd); else Commands.Enqueue(cmd); break; }
+                else if (cmd.StartsWith("time ") && long.TryParse(cmd.Substring(5), out var townNow)) { TownMinutes = townNow; if (host != null) KeepTownTime(false); }
+                else if (cmd == "quit") { Quit("asked to close"); return; }
+            }
 
             if (host == null)
             {
@@ -223,6 +300,7 @@ namespace Simitone.Client.Utils
             if (LastCount < 0)
             {
                 Say("hosting port " + Port);
+                KeepTownTime(true); // 2D: the same time of day as everywhere else in the town
                 var lotFam = Screen.vm?.TS1State?.CurrentFamily;
                 if (lotFam != null) Say("family " + lotFam.ChunkID + " lives here with §" + lotFam.Budget);
                 LastSave = now;
@@ -305,6 +383,36 @@ namespace Simitone.Client.Utils
                 LastSave = DateTime.MinValue; // save soon
             }
             catch (Exception e) { Say("error money " + e.Message); }
+        }
+
+        /// <summary>
+        /// 2D: puts this lot on the town's clock - when it opens (always), and when the server says the
+        /// time (only if it has drifted more than a couple of minutes, e.g. it was paused while empty).
+        /// </summary>
+        private static void KeepTownTime(bool opening)
+        {
+            try
+            {
+                var vm = Screen?.vm;
+                if (vm == null || TownMinutes < 0) return;
+                var clock = vm.Context.Clock;
+                int townDay = (int)(TownMinutes / 1440 % 30) + 1;      // the game counts days 1-30
+                int townOfDay = (int)(TownMinutes % 1440);
+                int lotOfDay = clock.Hours * 60 + clock.Minutes;
+                int diff = (clock.DayOfMonth - townDay) * 1440 + (lotOfDay - townOfDay);
+                if (!opening && Math.Abs(diff) <= 2) return;
+                vm.SendCommand(new VMNetSetTimeCmd
+                {
+                    Hours = townOfDay / 60,
+                    Minutes = townOfDay % 60,
+                    Seconds = 0,
+                    UTCStart = clock.UTCStart,
+                    DayOfMonth = townDay,
+                });
+                if (opening || Math.Abs(diff) > 10)
+                    Say("town time: day " + (TownMinutes / 1440 + 1) + " " + (townOfDay / 60) + ":" + (townOfDay % 60).ToString("00") + (opening ? " (lot opened)" : " (was " + diff + " minutes off)"));
+            }
+            catch (Exception e) { Say("error town time: " + e.Message); }
         }
 
         private static void SaveNow()

@@ -569,9 +569,21 @@ namespace Simitone.Client.UI.Screens
         private int SwitchLot = -1;
         private bool ClassicLoading;
 
+        private static bool TownSpeedExplained;
+
         public void ChangeSpeedTo(int speed)
         {
             if (IsVisitor) return; // SimsRedux: the host (or the family's owner) controls the speed
+            if (Guest != null && ReduxTown.Active)
+            {
+                // 2D: the online town has one clock for everyone - it can't be sped up or paused
+                if (!TownSpeedExplained)
+                {
+                    TownSpeedExplained = true;
+                    UIClassicDialog.Ok("Town Time", "Time in the online town runs at the same speed for everyone, so it can't be paused or sped up.\n\nIt only moves while someone is playing in the town - when nobody is, the whole town waits.");
+                }
+                return;
+            }
             //0 speed is 0x
             //1 speed is 1x
             //2 speed is 3x

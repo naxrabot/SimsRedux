@@ -43,6 +43,7 @@ namespace SimsRedux.Server
             new[] { "/town fresh", "start a brand-new town: the game's Neighbourhood 1 with its starting families (the old one goes to backups/)" },
             new[] { "/town fresh empty", "start a brand-new town with houses but no families" },
             new[] { "/town sources", "every neighbourhood the server can find, with how many families live in it" },
+            new[] { "/town time [<day> <time>]", "the online town's clock (runs while anyone plays) - e.g. /town time 2 7:30pm" },
             new[] { "/town owners", "which account's family lives in which house" },
             new[] { "/town disown <account>", "the account no longer owns its town family (they stay as a town family)" },
             new[] { "/town import [folder]", "copy a neighbourhood in as the town (default: your Neighborhood 1)" },
@@ -57,6 +58,23 @@ namespace SimsRedux.Server
             new[] { "/restart", "restart the server" },
             new[] { "/quit", "save and stop the server" },
         };
+
+        /// <summary>"7:30pm", "19:30", "7pm" -> minutes after midnight.</summary>
+        private static bool TryParseClock(string text, out long minutes)
+        {
+            minutes = 0;
+            var t = (text ?? "").Trim().ToLowerInvariant().Replace(" ", "");
+            bool pm = t.EndsWith("pm"), am = t.EndsWith("am");
+            if (pm || am) t = t.Substring(0, t.Length - 2);
+            var parts = t.Split(':');
+            if (!int.TryParse(parts[0], out var h)) return false;
+            int m = 0;
+            if (parts.Length > 1 && !int.TryParse(parts[1], out m)) return false;
+            if (pm || am) { if (h < 1 || h > 12) return false; h = h % 12 + (pm ? 12 : 0); }
+            if (h < 0 || h > 23 || m < 0 || m > 59) return false;
+            minutes = h * 60 + m;
+            return true;
+        }
 
         public void Run(string line)
         {
@@ -198,6 +216,17 @@ namespace SimsRedux.Server
                         var owners = Owners.All();
                         Log.Reply(owners.Count == 0 ? "no player families in the town yet"
                             : string.Join("\n", owners.Values.OrderBy(o => o.House).Select(o => "house " + o.House + ": " + o.Account + " (the " + o.Name + " family, family " + o.Family + ")")));
+                        break;
+                    }
+                    if (Arg(1)?.ToLowerInvariant() == "time")
+                    {
+                        // /town time            what time it is in the town
+                        // /town time 2 7:30pm   set it (day, then time)
+                        if (Arg(2) == null) { Log.Reply("the town's time: " + TownClock.Describe(TownClock.Now) + " (it runs while anyone is playing in the town)"); break; }
+                        if (!long.TryParse(Arg(2), out var tday) || tday < 1 || Arg(3) == null || !TryParseClock(Rest(3), out var tmins))
+                        { Log.Reply("usage: /town time <day> <time>   e.g. /town time 2 7:30pm"); break; }
+                        TownClock.Set((tday - 1) * 1440 + tmins, Lots);
+                        Log.Reply("the town's time is now " + TownClock.Describe(TownClock.Now) + " - open lots change to it straight away");
                         break;
                     }
                     if (Arg(1)?.ToLowerInvariant() == "disown")

@@ -84,6 +84,8 @@ namespace SimsRedux.Server
 
             // housekeeping: save logins now and then, forget old rate-limit counts
             var timer = new Timer(_ => { try { Accounts.SaveSessions(); api.Tidy(); } catch { } }, null, 30000, 30000);
+            // 2D: the online town's one clock (runs while anyone is playing in the town)
+            var clockTimer = new Timer(_ => { try { TownClock.Tick(lots); } catch { } }, null, 1000, 1000);
 
             // console commands come in on stdin (the panel writes them there)
             var input = new Thread(() =>
@@ -109,6 +111,7 @@ namespace SimsRedux.Server
             Done.Wait();
             timer.Dispose();
             lots.CloseAll();
+            TownClock.Flush();
             http.Shutdown();
             Accounts.SaveAll();
             Config.Save();

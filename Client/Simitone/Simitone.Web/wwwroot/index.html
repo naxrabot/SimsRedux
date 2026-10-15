@@ -121,6 +121,15 @@
             return [holder.clientWidth, holder.clientHeight];
         };
 
+        // the canvas's own pixel size follows the page (the game asks when the page has changed size)
+        window.simsReduxFitCanvas = () =>
+        {
+            var canvas = document.getElementById('theCanvas');
+            var holder = document.getElementById('canvasHolder');
+            if (canvas.width !== holder.clientWidth) canvas.width = holder.clientWidth;
+            if (canvas.height !== holder.clientHeight) canvas.height = holder.clientHeight;
+        };
+
         window.simsReduxCrashed = (message) =>
         {
             var box = document.createElement('div');
@@ -144,6 +153,8 @@
             // first make sure the player's Sims files are here (asks for the folder the first time),
             // then begin the game loop
             SimsFS.prepare().then(() => window.requestAnimationFrame(tickJS));
+            // "still here" for online lots, even while this tab is in the background
+            setInterval(() => { try { DotNet.invokeMethod('SimsRedux.Web', 'SimsReduxAlive'); } catch (e) { } }, 5000);
         };
 
         window.addEventListener("keydown", function(event)
