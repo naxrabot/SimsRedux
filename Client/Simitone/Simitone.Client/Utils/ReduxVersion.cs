@@ -12,12 +12,13 @@ namespace Simitone.Client.Utils
     /// </summary>
     public static class ReduxVersion
     {
-        public const string Number = "2.5";
+        public const string Number = "2.6";
         public const string Stage = "Beta";
 
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Online: the game never pauses - always normal speed for everyone, even in Buy and Build mode. A question only holds up the Sim it's about while everyone else carries on.",
             "The update message is short now - press Show More to read everything that changed, a page at a time.",
             "Online: questions for your Sim (like picking a job) wait for your answer - the server no longer answers for you after 20 seconds.",
             "Online: nothing on the server can take your Sim away from you while you're controlling them.",

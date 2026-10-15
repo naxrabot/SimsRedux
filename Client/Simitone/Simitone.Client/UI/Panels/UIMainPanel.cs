@@ -383,7 +383,12 @@ namespace Simitone.Client.UI.Panels
 
             Game.LotControl.PickupPanel.Visible = Game.LotControl.PickupPanel.Opacity > 0;
 
-            if (Mode != UIMainPanelMode.LIVE)
+            if (Game.OnlineNoPause)
+            {
+                // online: Buy and Build mode don't pause the game (the lot keeps running for everyone)
+                if (Game.vm.SpeedMultiplier == -1) Game.vm.SpeedMultiplier = 1;
+            }
+            else if (Mode != UIMainPanelMode.LIVE)
             {
                 Game.vm.SpeedMultiplier = -1;
             } else if (Game.vm.SpeedMultiplier == -1)

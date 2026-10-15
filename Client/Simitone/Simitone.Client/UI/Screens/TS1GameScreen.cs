@@ -213,6 +213,17 @@ namespace Simitone.Client.UI.Screens
         /// <summary>Visiting a friend's lot (null when not visiting).</summary>
         public ReduxGuest Guest;
         public bool IsGuest { get { return Guest != null; } }
+
+        /// <summary>
+        /// SimsRedux: on any online lot (visiting, at home in the town, or hosting friends) the game
+        /// always runs at normal speed for everyone - no pausing, no speeding up, not even in Buy or
+        /// Build mode - so nobody's game falls out of step. (The server's own copy of a lot still
+        /// pauses itself while nobody is on it.)
+        /// </summary>
+        public bool OnlineNoPause { get { return (Guest != null || Host != null) && !ReduxWorker.Active; } }
+
+        /// <summary>The current game screen's OnlineNoPause (for panels that only have the lot).</summary>
+        public static bool CurrentOnlineNoPause { get { return (UIScreen.Current as TS1GameScreen)?.OnlineNoPause == true; } }
         /// <summary>2C: on someone else's lot (a guest who isn't the family's owner).</summary>
         public bool IsVisitor { get { return Guest != null && !Guest.IsOwner; } }
         /// <summary>Start hosting as soon as the next lot finishes loading.</summary>
@@ -349,6 +360,8 @@ namespace Simitone.Client.UI.Screens
             var server = Driver as VMServerDriver;
             if (server == null) return;
             var host = new ReduxHost(vm, server);
+            vm.ReduxNoPause = true; // online: the lot never pauses
+            if (!ReduxWorker.Active && vm.SpeedMultiplier != 1) vm.SendCommand(new VMNetSetSpeedCmd() { Speed = 1 });
             string error;
             // the dedicated server (when it's running) owns the usual port and passes players to us
             var port = ReduxWorker.Active ? ReduxWorker.Port : ReduxOnlineInfo.HostPort();
@@ -409,6 +422,7 @@ namespace Simitone.Client.UI.Screens
             vm.OnFullRefresh += VMRefreshed;
             vm.OnRequestLotSwitch += VMLotSwitch;
             vm.OnGenericVMEvent += Vm_OnGenericVMEvent;
+            vm.ReduxNoPause = true; // online: the lot never pauses (same as the server's copy)
             ActiveFamily = null;
             Downtown = false;
 
@@ -582,13 +596,14 @@ namespace Simitone.Client.UI.Screens
         public void ChangeSpeedTo(int speed)
         {
             if (IsVisitor) return; // SimsRedux: the host (or the family's owner) controls the speed
-            if (Guest != null && ReduxTown.Active)
+            if (OnlineNoPause)
             {
-                // 2D: the online town has one clock for everyone - it can't be sped up or paused
+                // online, the game runs at normal speed for everyone - it can't be paused or sped up
                 if (!TownSpeedExplained)
                 {
                     TownSpeedExplained = true;
-                    UIClassicDialog.Ok("Town Time", "Time in the online town runs at the same speed for everyone, so it can't be paused or sped up.\n\nIt only moves while someone is playing in the town - when nobody is, the whole town waits.");
+                    UIClassicDialog.Ok("Normal Speed Only", "Online, the game always runs at normal speed for everyone - it can't be paused or sped up, even in Buy and Build mode."
+                        + (ReduxTown.Active ? "\n\nThe town's clock only moves while someone is playing in the town - when nobody is, the whole town waits." : ""));
                 }
                 return;
             }

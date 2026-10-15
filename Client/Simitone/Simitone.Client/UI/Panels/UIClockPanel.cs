@@ -1,4 +1,4 @@
-﻿using FSO.Client;
+using FSO.Client;
 using FSO.Client.UI.Controls;
 using FSO.Client.UI.Framework;
 using FSO.Client.UI.Model;
@@ -154,6 +154,7 @@ namespace Simitone.Client.UI.Panels
 
         public void SwitchSpeed(int speed)
         {
+            if (Simitone.Client.UI.Screens.TS1GameScreen.CurrentOnlineNoPause) { (UIScreen.Current as Simitone.Client.UI.Screens.TS1GameScreen)?.ChangeSpeedTo(1); return; } // online: normal speed only
             if (VM.SpeedMultiplier == -1) return;
             switch (VM.SpeedMultiplier)
             {
