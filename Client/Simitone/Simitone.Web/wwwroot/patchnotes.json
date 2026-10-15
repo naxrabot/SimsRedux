@@ -2,6 +2,18 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "4.1",
+      "date": "Oct 15, 2026",
+      "features": [
+        "Online button — a new rounded Online button on the neighborhood bar."
+      ],
+      "updates": [
+        "Family faces — each Sim's head is centred in its picture.",
+        "Buy and Build — the icons sit right on the new bar.",
+        "Neighborhood bar — tidier logo and version text with more room."
+      ]
+    },
+    {
       "version": "4.0",
       "date": "Oct 15, 2026",
       "features": [],

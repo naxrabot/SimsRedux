@@ -46,8 +46,12 @@ namespace Simitone.Client.UI.Panels
 
         // button layout measured from the original screens
         private const int ButtonY = 5;
-        private const int MainFirstX = 204, Spacing = 50;
-        private const int SubFirstX = 330;
+        private const int ClassicFirstX = 204, Spacing = 50;
+        private const int ClassicSubFirstX = 330;
+        // SimsRedux: the Redux bar moves the round buttons a little right, to give the logo, the
+        // Redux/version text and the neighbourhood arrows room to breathe
+        private int MainFirstX { get { return Redux ? ClassicFirstX + 26 : ClassicFirstX; } }
+        private int SubFirstX { get { return Redux ? ClassicSubFirstX + 26 : ClassicSubFirstX; } }
 
         public UIClassicNeighborhoodBar(UINeighborhoodSelectionPanel panel, ushort mode, bool moveIn)
         {
@@ -97,7 +101,7 @@ namespace Simitone.Client.UI.Panels
             int prevW = prevTex.Width / Math.Max(1, TS1UIGraphics.GuessFrames(prevTex));
             int nextW = nextTex.Width / Math.Max(1, TS1UIGraphics.GuessFrames(nextTex));
             const int numberW = 20;
-            int nextX = MainFirstX - 10 - nextW;
+            int nextX = MainFirstX - (Redux ? 12 : 10) - nextW;
             int numberX = nextX - numberW;
             int prevX = numberX - prevW;
             var prev = Btn("NghUI/Previous.bmp", prevX, (int)Math.Round(bandMid - prevTex.Height / 2f));
@@ -116,11 +120,20 @@ namespace Simitone.Client.UI.Panels
             Add(NeighNumber);
 
             // SimsRedux: "Redux / Beta / v0.1" next to The Sims logo
-            int textX = 8 + (Logo?.Width ?? 70) + 2;
-            int textW = Math.Max(30, prevX - 4 - textX);
-            AddVersionLine("Redux", 13, Color.White, textX, bandMid - 20, textW, 16);
-            AddVersionLine(ReduxVersion.Stage, 9, new Color(255, 205, 70), textX, bandMid - 4, textW, 12);
-            AddVersionLine(ReduxVersion.Text, 9, new Color(205, 210, 255), textX, bandMid + 8, textW, 12);
+            int textX = 8 + (Logo?.Width ?? 70) + (Redux ? 8 : 2);
+            int textW = Math.Max(30, prevX - (Redux ? 10 : 4) - textX);
+            if (Redux)
+            {
+                AddVersionLine("Redux", 11, Color.White, textX, bandMid - 17, textW, 13);
+                AddVersionLine(ReduxVersion.Stage, 8, new Color(255, 205, 70), textX, bandMid - 4, textW, 10);
+                AddVersionLine(ReduxVersion.Text, 8, new Color(205, 210, 255), textX, bandMid + 6, textW, 10);
+            }
+            else
+            {
+                AddVersionLine("Redux", 13, Color.White, textX, bandMid - 20, textW, 16);
+                AddVersionLine(ReduxVersion.Stage, 9, new Color(255, 205, 70), textX, bandMid - 4, textW, 12);
+                AddVersionLine(ReduxVersion.Text, 9, new Color(205, 210, 255), textX, bandMid + 8, textW, 12);
+            }
 
             ReduxVersion.ShowUpdatePopupOnce();
             if (!moveIn) ReduxFreshHood.OfferIfEmpty();
@@ -164,14 +177,33 @@ namespace Simitone.Client.UI.Panels
             // SimsRedux: play online (go to the town, host a house, or visit a friend)
             if (!moveIn)
             {
-                var online = new UITS1TileButton(TS1UIGraphics.Get("cpanel/Buttons/ButtonTileDialog.bmp"), town ? "Leave Multiplayer" : "Online", town ? 150 : 110);
-                online.TextSize = town ? 12 : 15;
-                online.Position = new Vector2((showExit ? x + Spacing : x) + 6, 9); // takes the Quit button's place in the browser
-                BarEnd = Math.Max(BarEnd, (int)online.Position.X + (town ? 150 : 110) + 16);
-                if (town) online.OnButtonClick += (b) => UIClassicDialog.YesNo("Leave Multiplayer?", "Leave the online town and go back to your own neighborhood?",
-                    () => (UIScreen.Current as Simitone.Client.UI.Screens.TS1GameScreen)?.LeaveTown());
-                else online.OnButtonClick += (b) => UIClassicOnlineDialog.AskToConnect();
-                Add(online);
+                var label = town ? "Leave Multiplayer" : "Online";
+                var onlineX = (showExit ? x + Spacing : x) + 6; // takes the Quit button's place in the browser
+                Action go = town
+                    ? (Action)(() => UIClassicDialog.YesNo("Leave Multiplayer?", "Leave the online town and go back to your own neighborhood?",
+                        () => (UIScreen.Current as Simitone.Client.UI.Screens.TS1GameScreen)?.LeaveTown()))
+                    : (Action)(() => UIClassicOnlineDialog.AskToConnect());
+                int onlineW;
+                if (Redux)
+                {
+                    // Redux: a rounded button in the UI colour, sitting in the bar
+                    onlineW = town ? 132 : 92;
+                    var online = new UIReduxButton(label, onlineW, 24);
+                    online.TextSize = town ? 11 : 13;
+                    online.Position = new Vector2(onlineX + 4, (int)Math.Round(bandMid - 12));
+                    online.OnButtonClick += (b) => go();
+                    Add(online);
+                }
+                else
+                {
+                    onlineW = town ? 150 : 110;
+                    var online = new UITS1TileButton(TS1UIGraphics.Get("cpanel/Buttons/ButtonTileDialog.bmp"), label, onlineW);
+                    online.TextSize = town ? 12 : 15;
+                    online.Position = new Vector2(onlineX, 9);
+                    online.OnButtonClick += (b) => go();
+                    Add(online);
+                }
+                BarEnd = Math.Max(BarEnd, onlineX + onlineW + 20);
             }
 
             // the town is for travelling for now: families, building and the other neighbourhoods come later
@@ -216,7 +248,7 @@ namespace Simitone.Client.UI.Panels
             {
                 if (Banner == null) return fallback;
                 int w = Banner.Width, h = Banner.Height;
-                int col = Math.Min(w - 1, MainFirstX - 30);
+                int col = Math.Min(w - 1, ClassicFirstX - 30);
                 var data = new Color[w * h];
                 Banner.GetData(data);
                 int top = -1, bottom = -1;

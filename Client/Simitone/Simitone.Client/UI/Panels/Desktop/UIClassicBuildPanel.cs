@@ -647,7 +647,7 @@ namespace Simitone.Client.UI.Panels.Desktop
             if (!Visible) return;
 
             // dark well behind the tool buttons, and the divider
-            Fill(batch, new Rectangle(ToolX - 4, BarY + 4, ToolStep * 6 + 8, 92), new Color(0, 0, 50) * 0.6f);
+            if (!ReduxTheme.Redux) Fill(batch, new Rectangle(ToolX - 4, BarY + 4, ToolStep * 6 + 8, 92), new Color(0, 0, 50) * 0.6f);
             if (Divider != null && Divider.Width > 1) DrawLocalTexture(batch, Divider, new Vector2(DividerX, BarY + 6));
 
             if (CurrentTool == Tool.Terrain)

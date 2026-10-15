@@ -301,13 +301,40 @@ namespace Simitone.Client.UI.Panels.Desktop
             DrawHoverName(batch);
         }
 
+        private static Dictionary<Texture2D, Rectangle> HeadBounds = new Dictionary<Texture2D, Rectangle>();
+
+        /// <summary>Where the head actually is in its picture (the picture has empty space around it).</summary>
+        private static Rectangle FindHead(Texture2D head)
+        {
+            Rectangle r;
+            if (HeadBounds.TryGetValue(head, out r)) return r;
+            r = new Rectangle(0, 0, head.Width, head.Height);
+            try
+            {
+                var data = new Color[head.Width * head.Height];
+                head.GetData(data);
+                int x0 = head.Width, y0 = head.Height, x1 = -1, y1 = -1;
+                for (int y = 0; y < head.Height; y++)
+                    for (int x = 0; x < head.Width; x++)
+                        if (data[x + y * head.Width].A > 24)
+                        {
+                            if (x < x0) x0 = x; if (x > x1) x1 = x;
+                            if (y < y0) y0 = y; if (y > y1) y1 = y;
+                        }
+                if (x1 > x0 + 4 && y1 > y0 + 4) r = new Rectangle(x0, y0, x1 - x0 + 1, y1 - y0 + 1);
+            }
+            catch { }
+            HeadBounds[head] = r;
+            return r;
+        }
+
         private void DrawFace(UISpriteBatch batch, Texture2D head, Rectangle slot)
         {
-            // the head picture is square with space around it: crop the middle so the face fills the slot
-            int crop = head.Width / 6;
-            var src = new Rectangle(crop, crop / 2, head.Width - crop * 2, head.Height - crop * 2);
-            DrawLocalTexture(batch, head, src, new Vector2(slot.X, slot.Y),
-                new Vector2(slot.Width / (float)src.Width, slot.Height / (float)src.Height));
+            // SimsRedux: fit the whole head in the slot, centred (the camera sees it from the side, off-centre)
+            var b = FindHead(head);
+            float scale = Math.Min((slot.Width - 2) / (float)b.Width, (slot.Height - 2) / (float)b.Height);
+            var pos = new Vector2(slot.X + (slot.Width - b.Width * scale) / 2f, slot.Y + (slot.Height - b.Height * scale) / 2f);
+            DrawLocalTexture(batch, head, b, pos, new Vector2(scale, scale));
         }
 
         // ------------------------------------------------------------------

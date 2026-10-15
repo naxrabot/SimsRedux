@@ -726,9 +726,12 @@ namespace Simitone.Client.UI.Panels.Desktop
 
             if (CurrentView == View.Start)
             {
-                // dark wells behind the two rows of icons
-                Fill(batch, new Rectangle(CatX - 4, RowAY - 22, CatW * 8 + 8, 44), new Color(0, 0, 50) * 0.6f);
-                Fill(batch, new Rectangle(CatX - 4, RowBY - 22, CatW * 8 + 8, 44), new Color(0, 0, 50) * 0.6f);
+                // dark wells behind the two rows of icons (Redux: just the icons on the bar)
+                if (!ReduxTheme.Redux)
+                {
+                    Fill(batch, new Rectangle(CatX - 4, RowAY - 22, CatW * 8 + 8, 44), new Color(0, 0, 50) * 0.6f);
+                    Fill(batch, new Rectangle(CatX - 4, RowBY - 22, CatW * 8 + 8, 44), new Color(0, 0, 50) * 0.6f);
+                }
                 var label = HoverText ?? "";
                 DrawLocalString(batch, label, new Vector2(CatX + CatW * 8 + 16, BarY + 38), Title, new Rectangle(0, 0, 220, 20), TextAlignment.Left | TextAlignment.Middle);
             }
