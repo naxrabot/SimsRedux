@@ -58,6 +58,16 @@ namespace Simitone.Client.Utils
             }
         }
 
+        /// <summary>
+        /// How smart Sims are on their own in single player: 0 = the original Sims 1 brain,
+        /// 1 = Smarter, 2 = Smartest (Sims 3/4-style, the default). Online lots are always Smartest.
+        /// </summary>
+        public static int Autonomy
+        {
+            get { var v = Math.Max(0, Math.Min(2, GetInt("autonomy", 2))); FSO.SimAntics.Primitives.VMFindBestAction.ReduxLevel = v; return v; }
+            set { var v = Math.Max(0, Math.Min(2, value)); Set("autonomy", v); FSO.SimAntics.Primitives.VMFindBestAction.ReduxLevel = v; }
+        }
+
         public static int GetInt(string key, int fallback)
         {
             Load();
@@ -113,6 +123,7 @@ namespace Simitone.Client.Utils
         public static void ApplyToGlobal()
         {
             var g = GlobalSettings.Default;
+            try { var smarts = Autonomy; } catch { } // the Sim Smarts setting reaches the game's brain
             if (Has("lighting")) g.LightingMode = Math.Max(0, Math.Min(3, GetInt("lighting", 3)));
             if (Has("antialias")) g.AntiAlias = GetInt("antialias", g.AntiAlias);
             if (Has("smoothzoom")) g.SmoothZoom = GetBool("smoothzoom", g.SmoothZoom);

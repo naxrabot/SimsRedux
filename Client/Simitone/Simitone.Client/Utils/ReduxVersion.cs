@@ -12,12 +12,14 @@ namespace Simitone.Client.Utils
     /// </summary>
     public static class ReduxVersion
     {
-        public const string Number = "2.8";
+        public const string Number = "2.9";
         public const string Stage = "Beta";
 
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Smarter Sims: they deal with needs before they turn red, put urgent needs first, sleep at night instead of napping all day, and get ready before the carpool. Options > Play > Sim Smarts (online is always Smartest).",
+            "Mods added: Red Poppy bathroom set and French door, LPX soccer ball, Frosti chevron floors, 7 Zeta heads, Hidden Objects Unlocked, Improved Pets, and Slower Motives.",
             "Online: going home or visiting shows the wallpaper and progress bar until the lot is actually on screen - no more grey screen.",
             "Debug menu works on objects: Ctrl + Left Shift + right-click a stuck object (in any mode) to Reset it, Move it to a free spot, or Delete it for its value back.",
             "Website: the Sims Redux wallpaper is now behind the first screen (title, log in, game files).",

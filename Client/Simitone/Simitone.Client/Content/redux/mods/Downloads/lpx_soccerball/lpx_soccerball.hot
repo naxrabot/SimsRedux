@@ -1,0 +1,14 @@
+[Patch]
+6500=0,soccerkick01,"Downloads\lpx_soccerball\soccerkick01.wav",0,0,0,0,0
+6501=0,soccerkick02,"Downloads\lpx_soccerball\soccerkick02.wav",0,0,0,0,0
+6502=0,soccerkick03,"Downloads\lpx_soccerball\soccerkick03.wav",0,0,0,0,0
+
+[Track]
+6503=0,soccerkick01,1024,2,10,1,20,1,6500
+6504=0,soccerkick02,1024,2,10,1,20,1,6501
+6505=0,soccerkick03,1024,2,10,1,20,1,6502
+
+[EventMapping]
+soccerkick01=1,6503,0,0,0,0
+soccerkick02=1,6504,0,0,0,0
+soccerkick03=1,6505,0,0,0,0

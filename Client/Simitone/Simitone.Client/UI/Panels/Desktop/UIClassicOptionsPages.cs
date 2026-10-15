@@ -112,6 +112,9 @@ namespace Simitone.Client.UI.Panels.Desktop
         {
             AddChoices("Camera", "PopupOptAutoCenter", new[] { "Sims 3 style", "Classic" },
                 () => ReduxSettings.ClassicCamera ? 1 : 0, (v) => ReduxSettings.ClassicCamera = v == 1);
+            // SimsRedux: how smart Sims are on their own (single player - online lots are always Smartest)
+            AddChoices("Sim Smarts", "PopupOptAutoCenter", new[] { "Sims 1", "Smarter", "Smartest" },
+                () => ReduxSettings.Autonomy, (v) => ReduxSettings.Autonomy = v);
             AddCheck("Edge Scrolling", "PopupOptEdgeScroll",
                 () => ReduxSettings.EdgeScroll, (v) => { ReduxSettings.EdgeScroll = v; GlobalSettings.Default.EdgeScroll = v; GlobalSettings.Default.Save(); });
             if (ReduxPlatform.ChangeGameFolder != null)

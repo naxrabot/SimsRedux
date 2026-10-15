@@ -74,6 +74,7 @@ namespace Simitone.Web
             }
             GlobalSettings.Default.EnableTransitions = true;
 
+            try { var smarts = Simitone.Client.Utils.ReduxSettings.Autonomy; } catch { } // the Sim Smarts setting
             return new SimitoneGame();
         }
     }
