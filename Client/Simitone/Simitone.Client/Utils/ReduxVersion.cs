@@ -12,12 +12,13 @@ namespace Simitone.Client.Utils
     /// </summary>
     public static class ReduxVersion
     {
-        public const string Number = "3.2";
+        public const string Number = "3.3";
         public const string Stage = "Beta";
 
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Website: a new launcher - patch notes, your account, server status and players online, and the game only loads when you press Play.",
             "Website: fixed the crash while loading (a mod's sound file was empty) - a broken mod sound is now skipped instead of stopping the game.",
             "Smarter Sims, stage 3: when there's a fire a grown-up calls the fire department and everyone keeps clear of it, they call the repairman when nobody at home can fix things, and they're quiet around sleeping Sims (no chatting to them, no loud fun nearby).",
             "Smarter Sims, stage 2: they finish what they start (the whole meal, a proper sleep), stop bouncing between the same things, pay the bills and repair broken things when they're doing fine, and grab a snack instead of cooking when they can't cook.",

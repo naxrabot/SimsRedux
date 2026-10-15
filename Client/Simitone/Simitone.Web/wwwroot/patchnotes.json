@@ -1,0 +1,52 @@
+{
+  "stage": "Beta",
+  "patches": [
+    {
+      "version": "3.3",
+      "date": "Oct 15, 2026",
+      "features": [
+        "New game launcher: patch notes, account and game folder in one place.",
+        "Server status and players online, live on the launcher.",
+        "The game now loads only when you press Play."
+      ],
+      "updates": [
+        "Logged-in players go straight to the launcher.",
+        "Switch account, log out and change game folder moved to the launcher."
+      ]
+    },
+    {
+      "version": "3.2",
+      "date": "Oct 15, 2026",
+      "features": [],
+      "updates": [
+        "Fixed a crash while loading the website.",
+        "Mods with broken sound files no longer stop the game."
+      ]
+    },
+    {
+      "version": "3.1",
+      "date": "Oct 15, 2026",
+      "features": [
+        "Smarter Sims: a grown-up calls the fire department during a fire.",
+        "Smarter Sims: Sims call the repairman when nobody can fix things."
+      ],
+      "updates": [
+        "Sims keep clear of fires.",
+        "Sims keep quiet around sleeping Sims."
+      ]
+    },
+    {
+      "version": "3.0",
+      "date": "Oct 15, 2026",
+      "features": [
+        "Sim Smarts: new Off setting for single player."
+      ],
+      "updates": [
+        "Sims finish meals and get a full night's sleep.",
+        "Sims pay bills and repair objects when their needs are met.",
+        "Sims with low Cooking grab a snack instead of cooking.",
+        "Sims stop bouncing between the same activities."
+      ]
+    }
+  ]
+}

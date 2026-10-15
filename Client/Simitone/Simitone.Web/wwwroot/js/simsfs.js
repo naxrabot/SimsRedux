@@ -149,11 +149,105 @@
 #srx-setup .acct .msg.error { color: #ff9a8a; }
 #srx-setup .acct .small { font-size: 12px; color: #8a8ac8; margin-top: 8px; }
 #srx-setup .srvfiles { margin: 0 0 14px; }
-#srx-setup .or { font-size: 13px; color: #8a8ac8; margin: 2px 0 6px; }`;
+#srx-setup .or { font-size: 13px; color: #8a8ac8; margin: 2px 0 6px; }
+
+/* ---------- the launcher ---------- */
+#srx-setup .box.wide { max-width: 680px; padding: 0; background: rgba(4, 8, 38, .88); border: 1px solid rgba(143, 180, 255, .35);
+  box-shadow: 0 24px 70px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.06); backdrop-filter: blur(6px);
+  display: flex; flex-direction: column; overflow: hidden; }
+#srx-setup .launcher { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
+#srx-setup .launcher.hidden { display: none; }
+#srx-setup .l-top { padding: 28px 30px 18px; text-align: center; background: linear-gradient(rgba(120,255,140,.07), transparent); }
+#srx-setup .logo { font-size: 38px; font-weight: 800; letter-spacing: .14em; color: #fff; line-height: 1; text-shadow: 0 2px 18px rgba(80,140,255,.45); }
+#srx-setup .logo span { color: #78ff8c; }
+#srx-setup .logo img { max-width: 100%; max-height: 120px; }
+#srx-setup .ver { margin-top: 10px; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: #8a96d0; }
+#srx-setup .ver b { color: #fff; font-weight: 600; }
+#srx-setup .ver .stage { color: #04102a; background: #78ff8c; font-weight: 700; padding: 1px 6px; margin-right: 8px; letter-spacing: .1em; }
+#srx-setup .l-acct { margin: 0 30px; padding: 14px 16px; border: 1px solid rgba(143,180,255,.2); background: rgba(0,0,0,.25);
+  display: grid; grid-template-columns: auto 1fr auto; gap: 4px 14px; align-items: center; }
+#srx-setup .avatar { grid-row: span 2; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 19px;
+  color: #04102a; background: linear-gradient(135deg, #9fffb0, #3bc25a); }
+#srx-setup .avatar.off { background: #2a335e; color: #9fb4ff; }
+#srx-setup .lname { font-size: 16px; font-weight: 600; color: #fff; overflow-wrap: anywhere; }
+#srx-setup .badge { font-size: 10px; letter-spacing: .1em; font-weight: 700; color: #9fb4ff; border: 1px solid #5a6ab8; padding: 1px 5px; margin-left: 6px; vertical-align: 2px; }
+#srx-setup .lstatus { font-size: 12px; color: #8a96d0; display: flex; align-items: center; gap: 6px; }
+#srx-setup .dot { width: 8px; height: 8px; border-radius: 50%; background: #6a6a8a; flex: none; }
+#srx-setup .dot.on { background: #78ff8c; box-shadow: 0 0 8px #78ff8c; }
+#srx-setup .dot.warn { background: #ffb547; }
+#srx-setup .lbtns { grid-row: span 2; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+#srx-setup button.ghost { font-size: 12px; font-weight: 600; letter-spacing: .04em; padding: 6px 11px; background: transparent; color: #c8d4ff;
+  border: 1px solid rgba(143,180,255,.4); margin: 0; }
+#srx-setup button.ghost:hover { background: rgba(143,180,255,.12); color: #fff; }
+#srx-setup .lfolder { grid-column: 1 / -1; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(143,180,255,.12); font-size: 12px; color: #8a96d0;
+  display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+#srx-setup .lfolder b { color: #d7d7f5; font-weight: 600; }
+#srx-setup .lfolder button.link { font-size: 12px; }
+#srx-setup .l-srv { margin: 10px 30px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+#srx-setup .sitem { padding: 10px 14px; border: 1px solid rgba(143,180,255,.2); background: rgba(0,0,0,.25); }
+#srx-setup .sitem .k { font-size: 10px; letter-spacing: .16em; font-weight: 700; color: #8a96d0; margin-bottom: 4px; }
+#srx-setup .sitem .v { font-size: 15px; font-weight: 600; color: #fff; display: flex; align-items: center; gap: 8px; }
+#srx-setup .sitem .v small { font-size: 12px; font-weight: 400; color: #8a96d0; }
+#srx-setup .smotd { grid-column: 1 / -1; font-size: 12px; color: #c8d4ff; padding: 8px 14px; border-left: 3px solid #78ff8c; background: rgba(120,255,140,.06); }
+#srx-setup .notes { margin: 16px 30px 0; flex: 1 1 auto; min-height: 120px; overflow: auto; border-top: 1px solid rgba(143,180,255,.2); padding-top: 14px; }
+#srx-setup .nhead { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; letter-spacing: .16em; font-weight: 700; color: #fff; margin-bottom: 10px; }
+#srx-setup .nhead span { color: #8a96d0; font-weight: 400; letter-spacing: .06em; }
+#srx-setup .patch + .patch { margin-top: 16px; padding-top: 14px; border-top: 1px dashed rgba(143,180,255,.15); }
+#srx-setup .patch .pv { font-size: 12px; color: #9fb4ff; letter-spacing: .1em; margin-bottom: 6px; }
+#srx-setup .cat { font-size: 11px; font-weight: 700; letter-spacing: .14em; margin: 10px 0 5px; }
+#srx-setup .cat.feat { color: #78ff8c; }
+#srx-setup .cat.upd { color: #7fc4ff; }
+#srx-setup .notes ul { margin: 0; padding: 0; list-style: none; }
+#srx-setup .notes li { font-size: 13.5px; line-height: 1.45; padding: 2px 0 2px 16px; position: relative; color: #d7d7f5; }
+#srx-setup .notes li::before { content: ''; position: absolute; left: 3px; top: 9px; width: 5px; height: 5px; background: currentColor; opacity: .5; }
+#srx-setup .cat.feat + ul li::before { background: #78ff8c; opacity: 1; }
+#srx-setup .cat.upd + ul li::before { background: #7fc4ff; opacity: 1; }
+#srx-setup .nolder { margin-top: 12px; font-size: 12px; }
+#srx-setup .l-bottom { padding: 18px 30px 22px; }
+#srx-setup button.play { display: block; width: 100%; margin: 0; padding: 15px; font-size: 20px; font-weight: 800; letter-spacing: .3em;
+  color: #04220d; background: linear-gradient(#9fffb0, #3bc25a); border: none; box-shadow: 0 6px 24px rgba(80,230,110,.25), inset 0 1px 0 rgba(255,255,255,.5); }
+#srx-setup button.play:hover { background: linear-gradient(#b8ffc5, #4fd56d); }
+#srx-setup button.play:disabled { opacity: .6; cursor: default; }
+#srx-setup .l-foot { margin-top: 10px; text-align: center; font-size: 11px; color: #6a74a8; }
+@media (max-width: 560px) {
+  #srx-setup .l-top { padding: 22px 18px 14px; } #srx-setup .logo { font-size: 28px; }
+  #srx-setup .l-acct { margin: 0 16px; grid-template-columns: auto 1fr; }
+  #srx-setup .avatar { grid-column: 1; grid-row: 1 / span 2; } #srx-setup .lname { grid-column: 2; grid-row: 1; } #srx-setup .lstatus { grid-column: 2; grid-row: 2; }
+  #srx-setup .lbtns { grid-row: 3; grid-column: 1 / -1; justify-content: flex-start; margin-top: 10px; } #srx-setup .lfolder { grid-row: 4; }
+  #srx-setup .l-srv { margin: 10px 16px 0; } #srx-setup .notes { margin: 14px 16px 0; } #srx-setup .l-bottom { padding: 14px 16px 18px; }
+}`;
         document.head.appendChild(style);
         const el = document.createElement('div');
         el.id = 'srx-setup';
         el.innerHTML = `<div class="box">
+<div class="launcher hidden">
+  <div class="l-top">
+    <div class="logo">THE SIMS <span>REDUX</span></div>
+    <div class="ver"><span class="stage">BETA</span>Version <b class="vnum">&mdash;</b></div>
+  </div>
+  <div class="l-acct">
+    <div class="avatar">?</div>
+    <div class="lname"></div>
+    <div class="lbtns"></div>
+    <div class="lstatus"><i class="dot"></i><span class="ltext"></span></div>
+    <div class="lfolder">Game files &amp; saves: <b class="lfstate">Checking...</b> <button class="link lchange">Change folder</button></div>
+  </div>
+  <div class="l-srv">
+    <div class="sitem"><div class="k">SERVER STATUS</div><div class="v"><i class="dot sdot"></i><span class="sstate">Checking...</span></div></div>
+    <div class="sitem"><div class="k">PLAYERS ONLINE</div><div class="v"><span class="scount">&mdash;</span> <small class="splaying"></small></div></div>
+    <div class="smotd hidden"></div>
+  </div>
+  <div class="notes">
+    <div class="nhead">PATCH NOTES <span class="ndate"></span></div>
+    <div class="nbody"></div>
+    <button class="link nolder hidden">Show earlier patches</button>
+  </div>
+  <div class="l-bottom">
+    <button class="play">PLAY</button>
+    <div class="l-foot">build ${(document.querySelector('meta[name="srx-build"]') || {}).content || 'dev'}</div>
+  </div>
+</div>
+<div class="setup">
   <h1>The Sims Redux</h1>
   <h2 class="title"></h2>
   <div class="acct">
@@ -189,6 +283,7 @@
   <div class="again hidden" style="margin-top:10px"><button class="link change">Use a different Sims folder</button>
     <button class="link signout" style="margin-left:16px">Log out / switch account</button></div>
   <div style="margin-top:14px;font-size:11px;color:#7878b8">build ${(document.querySelector('meta[name="srx-build"]') || {}).content || 'dev'}</div>
+</div>
 </div>`;
         document.body.appendChild(el);
         ui = {
@@ -213,6 +308,10 @@
     function show(title, { pick = false, progress = false, again = false } = {}) {
         const s = screen();
         s.root.classList.remove('hidden');
+        // the setup steps (log in, game folder, loading), not the launcher
+        s.root.querySelector('.box').classList.remove('wide');
+        s.root.querySelector('.launcher').classList.add('hidden');
+        s.root.querySelector('.setup').classList.remove('hidden');
         s.title.textContent = title;
         s.pick.classList.toggle('hidden', !pick);
         s.progress.classList.toggle('hidden', !progress);
@@ -239,6 +338,7 @@
         const KEY = 'srx-account';
         let session = null;      // { token, name, role, files }
         let root = null, onChange = null;
+        let reachable = null;    // did the server answer last time? (null = not asked yet)
 
         function load() {
             try { session = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { session = null; }
@@ -258,8 +358,10 @@
             try {
                 r = await fetch(SERVER + path, { method: method || (body ? 'POST' : 'GET'), headers, body: body ? JSON.stringify(body) : undefined });
             } catch (e) {
+                reachable = false;
                 return { ok: false, status: 0, error: "Couldn't reach the server. It may be offline right now - you can still play without an account." };
             }
+            reachable = true;
             let j = null;
             try { j = await r.json(); } catch (e) { }
             if (!r.ok) return { ok: false, status: r.status, error: (j && j.error) || ('The server answered ' + r.status) };
@@ -331,7 +433,8 @@
             load(); paint();
         }
         return {
-            SERVER, attach, refresh, call, step,
+            SERVER, attach, refresh, call, step, logout,
+            get reachable() { return reachable; },
             get session() { return session; },
             set onChange(fn) { onChange = fn; },
             show(on) { if (root) root.classList.toggle('hidden', !on); },
@@ -545,6 +648,132 @@
         })();
     }
 
+    // ---------- the launcher ----------
+    //
+    // After logging in (or choosing to play offline): the game's version, patch notes, the account
+    // and the game folder. Nothing big loads until Play is pressed.
+    let patchNotes = null;
+    async function getPatchNotes() {
+        if (patchNotes) return patchNotes;
+        try {
+            const r = await fetch('patchnotes.json', { cache: 'no-cache' });
+            patchNotes = r.ok ? await r.json() : null;
+        } catch (e) { patchNotes = null; }
+        return patchNotes;
+    }
+    async function hasGameFiles() {
+        try {
+            const tx = (await openDb()).transaction(STORE, 'readonly');
+            return (await req(tx.objectStore(STORE).count(IDBKeyRange.only('/sims/gamedata/uitext.iff')))) > 0;
+        } catch (e) { return false; }
+    }
+    function esc(t) { const d = document.createElement('div'); d.textContent = t == null ? '' : String(t); return d.innerHTML; }
+    function patchHtml(p, withVersion) {
+        let h = '<div class="patch">';
+        if (withVersion) h += '<div class="pv">VERSION ' + esc(p.version) + (p.date ? ' &middot; ' + esc(p.date) : '') + '</div>';
+        if (p.features && p.features.length) h += '<div class="cat feat">NEW FEATURES</div><ul>' + p.features.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>';
+        if (p.updates && p.updates.length) h += '<div class="cat upd">UPDATES</div><ul>' + p.updates.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>';
+        return h + '</div>';
+    }
+
+    async function launcher(how) {
+        const s = screen();
+        const L = s.root.querySelector('.launcher');
+        s.root.classList.remove('hidden');
+        s.root.querySelector('.setup').classList.add('hidden');
+        s.root.querySelector('.box').classList.add('wide');
+        L.classList.remove('hidden');
+
+        // version and patch notes
+        const notes = await getPatchNotes();
+        const patches = (notes && notes.patches) || [];
+        const latest = patches[0];
+        L.querySelector('.stage').textContent = ((notes && notes.stage) || 'Beta').toUpperCase();
+        L.querySelector('.vnum').textContent = latest ? latest.version : '?';
+        L.querySelector('.ndate').textContent = latest ? 'v' + latest.version + (latest.date ? ' \u00b7 ' + latest.date : '') : '';
+        const body = L.querySelector('.nbody');
+        body.innerHTML = latest ? patchHtml(latest, false) : '<p>Patch notes are unavailable right now.</p>';
+        const older = L.querySelector('.nolder');
+        older.classList.toggle('hidden', patches.length < 2);
+        older.textContent = 'Show earlier patches';
+        older.onclick = () => {
+            if (older.dataset.open) { body.innerHTML = patchHtml(latest, false); older.textContent = 'Show earlier patches'; delete older.dataset.open; return; }
+            body.innerHTML = patchHtml(latest, false) + patches.slice(1).map(p => patchHtml(p, true)).join('');
+            older.textContent = 'Hide earlier patches'; older.dataset.open = '1';
+        };
+
+        // the account
+        const acc = Account.session;
+        const on = how !== 'offline' && !!(acc && acc.token);
+        const av = L.querySelector('.avatar');
+        av.textContent = on ? (acc.name || '?').charAt(0).toUpperCase() : '?';
+        av.classList.toggle('off', !on);
+        const role = on ? (acc.role === 'admin' ? 'ADMIN' : acc.role === 'tester' ? 'TESTER' : 'PLAYER') : '';
+        L.querySelector('.lname').innerHTML = on ? esc(acc.name) + '<span class="badge">' + role + '</span>' : 'Playing offline';
+        const dot = L.querySelector('.dot'), text = L.querySelector('.ltext');
+        dot.className = 'dot';
+        if (!on) text.textContent = 'Not logged in \u2014 the online town is unavailable';
+        else if (Account.reachable === false) { dot.classList.add('warn'); text.textContent = "Logged in \u2014 couldn't reach the server"; }
+        else { dot.classList.add('on'); text.textContent = 'Logged in'; }
+
+        // the game folder (the Sims files and the homes saved in them live in this browser)
+        const fstate = L.querySelector('.lfstate');
+        const paintFolder = async () => {
+            fstate.textContent = (await hasGameFiles()) ? 'Saved in this browser' : "Not set up yet \u2014 you'll choose it after pressing Play";
+        };
+        await paintFolder();
+
+        // online play: is the server up, and how many people are on (every 15 seconds while this is showing)
+        const sdot = L.querySelector('.sdot'), sstate = L.querySelector('.sstate'), scount = L.querySelector('.scount'),
+            splaying = L.querySelector('.splaying'), smotd = L.querySelector('.smotd');
+        const paintServer = async () => {
+            let st = null;
+            try {
+                const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 6000);
+                const r = await fetch(Account.SERVER + '/api/status', { cache: 'no-store', signal: ctl.signal });
+                clearTimeout(t);
+                st = r.ok ? await r.json() : null;
+            } catch (e) { st = null; }
+            sdot.className = 'dot sdot';
+            if (!st) { sstate.textContent = 'Offline'; scount.textContent = '\u2014'; splaying.textContent = ''; smotd.classList.add('hidden'); return; }
+            if (st.town) { sdot.classList.add('on'); sstate.textContent = 'Online'; }
+            else { sdot.classList.add('warn'); sstate.textContent = 'Maintenance'; }
+            scount.textContent = String(st.online | 0);
+            splaying.textContent = (st.playing | 0) > 0 ? '(' + (st.playing | 0) + ' in a lot)' : '';
+            smotd.textContent = st.motd || '';
+            smotd.classList.toggle('hidden', !st.motd);
+        };
+        paintServer();
+        const serverTimer = setInterval(paintServer, 15000);
+
+        return new Promise(done => {
+            const btns = L.querySelector('.lbtns');
+            btns.innerHTML = on ? '<button class="ghost lswitch">Switch account</button><button class="ghost llogout">Log out</button>'
+                : '<button class="ghost llogin">Log in</button>';
+            const finish = (r) => { clearInterval(serverTimer); document.removeEventListener('keydown', onKey); done(r); };
+            const leave = async (focus) => {
+                await Account.logout();
+                finish('account');
+                if (focus) setTimeout(() => { const n = s.root.querySelector('.aname'); if (n) n.focus(); }, 0);
+            };
+            if (on) {
+                btns.querySelector('.lswitch').onclick = () => leave(true);
+                btns.querySelector('.llogout').onclick = () => leave(false);
+            } else btns.querySelector('.llogin').onclick = () => finish('account');
+            L.querySelector('.lchange').onclick = async () => {
+                if (!(await hasGameFiles())) { alert("There's no game folder yet - you'll choose one after pressing Play."); return; }
+                if (!confirm('Change the game folder? The Sims files in this browser are removed (homes saved in the game go with them), and you choose a folder again after pressing Play.')) return;
+                try { await saveChain; await clearSims(); } catch (e) { console.warn('[SimsFS] could not clear', e); }
+                await paintFolder();
+            };
+            const play = L.querySelector('.play');
+            play.disabled = false;
+            play.onclick = () => { play.disabled = true; finish('play'); };
+            const onKey = (e) => { if (e.key === 'Enter' && !L.classList.contains('hidden')) play.click(); };
+            document.addEventListener('keydown', onKey);
+        });
+    }
+
     // Shows the setup screen as needed; resolves once the game can start.
     async function prepare() {
         const build = (document.querySelector('meta[name="srx-build"]') || {}).content || 'dev';
@@ -563,10 +792,15 @@
 
         const contentReady = loadSiteContent();
 
-        // 1. log in, make an account, or play offline (skipped when a login is remembered)
-        show('Welcome!', {});
-        Account.show(true);
-        const how = await Account.step();
+        // 1. log in, make an account, or play offline (skipped when a login is remembered),
+        //    then the launcher - nothing loads until Play
+        let how;
+        for (;;) {
+            show('Welcome!', {});
+            Account.show(true);
+            how = await Account.step();
+            if (await launcher(how) === 'play') break;
+        }
         console.log('[SimsRedux] ' + (how === 'offline' ? 'playing offline' : 'logged in as ' + Account.session.name));
 
         // 2. the game files: already in this browser, or picked / downloaded now

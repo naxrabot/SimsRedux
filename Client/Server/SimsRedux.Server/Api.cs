@@ -109,6 +109,22 @@ namespace SimsRedux.Server
                         return;
                     }
                     break;
+                case "/api/status":
+                    // the website's launcher: is online play up, and how many people are on (counts only, no names)
+                    if (req.Method == "GET")
+                    {
+                        await HttpServer.SendJson(stream, 200, new
+                        {
+                            ok = true,
+                            town = Lots.TownReady,
+                            online = Accounts.RecentlyActive(TimeSpan.FromMinutes(5)).Count,
+                            playing = Lots?.PlayerCount ?? 0,
+                            lots = Lots?.Running().Count ?? 0,
+                            motd = Config.Motd,
+                        }, cors);
+                        return;
+                    }
+                    break;
                 case "/api/register": if (req.Method == "POST") { await Register(req, stream, cors); return; } break;
                 case "/api/login": if (req.Method == "POST") { await Login(req, stream, cors); return; } break;
                 case "/api/logout": if (req.Method == "POST") { Accounts.Logout(req.BearerToken()); await HttpServer.SendJson(stream, 200, new { ok = true }, cors); return; } break;
