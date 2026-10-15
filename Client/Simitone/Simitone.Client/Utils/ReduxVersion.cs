@@ -12,12 +12,14 @@ namespace Simitone.Client.Utils
     /// </summary>
     public static class ReduxVersion
     {
-        public const string Number = "2.3";
+        public const string Number = "2.4";
         public const string Stage = "Beta";
 
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Online: questions for your Sim (like picking a job) wait for your answer - the server no longer answers for you after 20 seconds.",
+            "Online: nothing on the server can take your Sim away from you while you're controlling them.",
             "Online: your Sim no longer flickers on and off - the server's own copy of the lot kept taking control of them.",
             "The Help System question and the expansion announcements (like Old Town Shuttle) don't pop up any more.",
             "Online: no more crash when someone arrives on a lot while it's still loading.",

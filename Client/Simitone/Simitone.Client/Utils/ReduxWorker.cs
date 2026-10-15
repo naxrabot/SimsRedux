@@ -338,9 +338,9 @@ namespace Simitone.Client.Utils
                     var asker = vm.GlobalBlockingDialog;
                     Say("waiting on a question from " + (asker?.ToString() ?? "?") + " (id " + (asker?.ObjectID ?? 0) + ")");
                 }
-                else if (now - BlockedSince > TimeSpan.FromSeconds(20))
+                else if (now - BlockedSince > TimeSpan.FromSeconds(PlayersQuestion(vm) ? 180 : 20))
                 {
-                    Say("nobody answered the question in 20 seconds - answering it so the lot carries on");
+                    Say("nobody answered the question in time - answering it so the lot carries on");
                     vm.SendCommand(new VMNetDialogResponseCmd { ResponseCode = 0, ResponseText = "" });
                     BlockedSince = default;
                 }
@@ -419,6 +419,17 @@ namespace Simitone.Client.Utils
                     Say("town time: day " + (TownMinutes / 1440 + 1) + " " + (townOfDay / 60) + ":" + (townOfDay % 60).ToString("00") + (opening ? " (lot opened)" : " (was " + diff + " minutes off)"));
             }
             catch (Exception e) { Say("error town time: " + e.Message); }
+        }
+
+        /// <summary>
+        /// Is the question about a Sim a player is controlling? Then that player is reading it (a job
+        /// list, a name to type...) - the lot waits for them, only stepping in after a long while.
+        /// </summary>
+        private static bool PlayersQuestion(FSO.SimAntics.VM vm)
+        {
+            var asker = vm.GlobalBlockingDialog as FSO.SimAntics.VMAvatar;
+            if (asker == null) return false;
+            return asker.PersistID >= ReduxOnlineInfo.FirstGuestID || vm.ReduxFamilyControl.ContainsKey(asker.PersistID);
         }
 
         private static void SaveNow()
