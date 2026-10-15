@@ -8,16 +8,20 @@ namespace Simitone.Client.Utils
     /// SimsRedux: the game's version, shown on the neighbourhood top bar ("Redux / Beta / v0.1")
     /// and in the "The game has been updated" popup.
     ///
-    /// EVERY UPDATE: raise Number by 0.1 and put a few lines about it in WhatsNew.
+    /// EVERY UPDATE: raise ReduxBuild.Number by 0.1 and put a few lines about it in WhatsNew.
     /// </summary>
     public static class ReduxVersion
     {
-        public const string Number = "3.3";
-        public const string Stage = "Beta";
+        public const string Number = ReduxBuild.Number; // (the number itself is in ReduxBuild.cs)
+        public const string Stage = ReduxBuild.Stage;
 
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Online: account levels and XP - earn XP playing in the online town (skill points, promotions, time played). Your level shows on the website's launcher.",
+            "Online: messages from the server (announcements, events like Double XP, your level-ups) pop up while you're in the online town.",
+            "Website launcher: pick the Live or Test server (green = online, red = offline), see the message of the day and any event, report a player, and it checks your game is up to date before you play.",
+            "Smarter Sims: they leave other Sims' plates alone, and don't stop to chat with someone standing in a doorway.",
             "Website: a new launcher - patch notes, your account, server status and players online, and the game only loads when you press Play.",
             "Website: fixed the crash while loading (a mod's sound file was empty) - a broken mod sound is now skipped instead of stopping the game.",
             "Smarter Sims, stage 3: when there's a fire a grown-up calls the fire department and everyone keeps clear of it, they call the repairman when nobody at home can fix things, and they're quiet around sleeping Sims (no chatting to them, no loud fun nearby).",

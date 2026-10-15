@@ -20,6 +20,13 @@ namespace SimsRedux.Server
         /// <summary>Whether anyone can make an account from the website.</summary>
         public bool Registration { get; set; } = true;
         public string Motd { get; set; } = "Welcome to The Sims Redux!";
+        /// <summary>The hour (0-23, this PC's time) for the daily automatic backup; -1 = no automatic backups.</summary>
+        public int BackupHour { get; set; } = 4;
+        /// <summary>How many automatic backups to keep (the oldest go).</summary>
+        public int KeepBackups { get; set; } = 14;
+        /// <summary>The public addresses of the Live and Test servers (the website's launcher offers both).</summary>
+        public string LiveUrl { get; set; } = "https://tsr-lot.mbrew.studio";
+        public string TestUrl { get; set; } = "https://tsr-test.mbrew.studio";
         /// <summary>Websites allowed to use this server's account and file services.</summary>
         public List<string> AllowedOrigins { get; set; } = new List<string>
         {

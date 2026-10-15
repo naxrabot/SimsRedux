@@ -16,4 +16,8 @@
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- the game's version number (the launcher checks the website, game and server match) -->
+    <Compile Include="..\..\Simitone\Simitone.Client\Utils\ReduxBuild.cs" Link="ReduxBuild.cs" />
+  </ItemGroup>
 </Project>

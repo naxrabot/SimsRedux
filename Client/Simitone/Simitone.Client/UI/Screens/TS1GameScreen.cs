@@ -745,6 +745,7 @@ namespace Simitone.Client.UI.Screens
             // SimsRedux online: messages from friends / the host go in before the lot ticks
             Host?.Process();
             ReduxWorker.Tick();
+            ReduxNotices.Tick();
             UpdateJoinMessage();
             if (Guest != null && !Guest.Process()) GuestLost();
             // the lot is on screen: the loading wallpaper can go

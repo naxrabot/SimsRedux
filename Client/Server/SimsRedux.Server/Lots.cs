@@ -168,6 +168,22 @@ namespace SimsRedux.Server
             if (text.StartsWith("movedin ") && int.TryParse(text.Substring(8).Trim(), out var fam)) { w.MovedInFamily = fam; Log.Info("lot " + w.House + ": a family moved in (family " + fam + ")"); return; }
             if (text.StartsWith("closing")) w.Closing = true; // new arrivals wait for it to finish, then it reopens
             if (text == "saved") return; // every few minutes - not worth a line each time
+            if (text.StartsWith("stats "))
+            {
+                // "stats <family> <money or -1> <sims>": XP and the cheat checks, for families players own
+                var f = text.Split(' ', 4);
+                if (f.Length == 4 && int.TryParse(f[1], out var sFam) && int.TryParse(f[2], out var sBudget))
+                {
+                    var owner = Owners.All().FirstOrDefault(o => o.Value.Family == sFam);
+                    if (owner.Value != null)
+                    {
+                        var sims = SimStats.Parse(f[3]);
+                        try { Progress.Stats(owner.Key, sims); } catch (Exception e) { Log.Warn("xp: " + e.Message); }
+                        try { AntiCheat.Stats(owner.Key, owner.Value.Account, sFam, sBudget, sims); } catch (Exception e) { Log.Warn("cheat check: " + e.Message); }
+                    }
+                }
+                return;
+            }
             Log.Info("lot " + w.House + ": " + text);
         }
 

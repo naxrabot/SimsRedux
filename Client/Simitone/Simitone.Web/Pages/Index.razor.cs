@@ -30,6 +30,10 @@ namespace Simitone.Web.Pages
             if (_crashed) return;
             try { Simitone.Client.Utils.ReduxGuest.Current?.SendAlive(); } catch { }
         }
+        /// <summary>The launcher's version check: the game version this website build actually runs.</summary>
+        [JSInvokable("SimsReduxVersion")]
+        public static string SimsReduxVersion() { return Simitone.Client.Utils.ReduxBuild.Number; }
+
         int _frames, _lastW, _lastH;
 
         [JSInvokable]

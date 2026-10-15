@@ -207,7 +207,24 @@ const COMMANDS = [
   ]],
   ["Players", [
     ["/who", "accounts active in the last 5 minutes"],
-    ["/motd <text>", "the message players see when they log in"]
+    ["/motd <text>", "the message of the day (on the website's launcher)"],
+    ["/say <text>", "a message on every online player's screen"],
+    ["/kick <name> [minutes]", "send a player off the town's lots (10 minutes before they can return)"],
+    ["/unkick <name>", "let a kicked player back in now"],
+    ["/reports [all]", "players' reports about other players"],
+    ["/reports done <id|all>", "mark reports as dealt with"],
+    ["/flags [all]", "cheat-check flags (online only) waiting for a look"],
+    ["/flags ok <id|all>", "mark flags as looked at"]
+  ]],
+  ["Events and XP", [
+    ["/event", "event types, and events on now or coming up"],
+    ["/event start <type> [hours] [title]", "start one now - e.g. /event start doublexp 3"],
+    ["/event at <yyyy-mm-dd> <time> <type> [hours] [title]", "schedule one - e.g. /event at 2026-12-24 6pm holiday 30"],
+    ["/event stop <type|all>", "end events early"],
+    ["/xp [name]", "a player's level and XP (no name: the top 10)"],
+    ["/xp give <name> <amount>", "give (or take, with minus) XP"],
+    ["/xp settings", "what everything is worth in XP"],
+    ["/xp set <setting> <value>", "change an amount - e.g. /xp set PerMinute 3"]
   ]],
   ["Game files", [
     ["/files", "the Sims 1 files Admins and Testers can download"],
@@ -219,6 +236,8 @@ const COMMANDS = [
     ["/name <text>", "the server's name"],
     ["/save", "save everything now"],
     ["/backup", "save and keep a dated copy in backups/"],
+    ["/backups", "the backups (one is made automatically every day)"],
+    ["/restore <backup> confirm", "put a backup back (restarts the server)"],
     ["/restart", "restart the server"],
     ["/quit", "save and stop the server"],
     ["/help", "the server's own list"]
@@ -227,10 +246,7 @@ const COMMANDS = [
 
 /* On the roadmap, not built yet: listed so there's one place to look. */
 const PLANNED = [
-  ["/say <text>", "a message on every player's screen (with lots on the server)"],
-  ["/kick <name>", "drop someone off their lot"],
   ["/promote", "copy the Test server's content to Live"],
-  ["/event <name>", "start a server event (double XP, holidays...)"],
   ["/traveler", "become The Traveler in-game"]
 ];
 

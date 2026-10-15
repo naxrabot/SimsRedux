@@ -52,6 +52,23 @@ namespace SimsRedux.Server
             new[] { "/lots open <house>", "open a lot (players can also just travel there)" },
             new[] { "/lots close <house|all>", "save and close a lot" },
             new[] { "/lots game <path>", "the game program that runs lots (Simitone.exe, or its folder)" },
+            new[] { "/say <text>", "a message on every online player's screen (on a lot or the town map)" },
+            new[] { "/kick <name> [minutes]", "send a player off the town's lots (default: they can't come back for 10 minutes)" },
+            new[] { "/unkick <name>", "let a kicked player back in now" },
+            new[] { "/event", "the event types, and events on now or coming up" },
+            new[] { "/event start <type> [hours] [title]", "start an event now - e.g. /event start doublexp 3" },
+            new[] { "/event at <yyyy-mm-dd> <time> <type> [hours] [title]", "schedule one - e.g. /event at 2026-12-24 6pm holiday 30 Christmas Eve" },
+            new[] { "/event stop <type|all>", "end events early" },
+            new[] { "/xp [name]", "a player's level and XP (no name: the top 10)" },
+            new[] { "/xp give <name> <amount>", "give (or with minus, take) XP" },
+            new[] { "/xp settings", "how much XP everything is worth" },
+            new[] { "/xp set <setting> <value>", "change an XP amount - e.g. /xp set PerMinute 3" },
+            new[] { "/reports [all]", "players' reports about other players (all = done ones too)" },
+            new[] { "/reports done <id|all>", "mark reports as dealt with" },
+            new[] { "/flags [all]", "the cheat checks' flags (online only) waiting for a look" },
+            new[] { "/flags ok <id|all>", "mark flags as looked at" },
+            new[] { "/backups", "the backups (one is made automatically every day)" },
+            new[] { "/restore <backup> confirm", "put a backup back (the server restarts; a copy of now is kept first)" },
             new[] { "/name <text>", "the server's name" },
             new[] { "/save", "save everything now" },
             new[] { "/backup", "save and keep a dated copy in backups/" },
@@ -255,6 +272,7 @@ namespace SimsRedux.Server
                         var mOwner = Owners.Of(Accounts.KeyOf(mWho));
                         if (mOwner == null) { Log.Reply(mWho + " doesn't have a family in the town"); break; }
                         var mHouse = (short)mOwner.House;
+                        AntiCheat.ExpectMoney(mOwner.Family, mAmount); // (so the cheat checks don't flag it)
                         var mWhat = (mAmount > 0 ? "\u00a7" + mAmount + " to " : "\u00a7" + (-mAmount) + " from ") + mWho + "'s family (" + mOwner.Name + ")";
                         var mOpen = Lots.Running().FirstOrDefault(x => x.House == mHouse && x.Ready && !x.Closing && !x.Finished);
                         if (mOpen != null)
@@ -329,6 +347,162 @@ namespace SimsRedux.Server
                     Lots.CloseAll();
                     Log.Info("restarting...");
                     Quit?.Invoke(75);
+                    break;
+
+                case "/say":
+                    if (Rest(1).Length == 0) { Log.Reply("usage: /say <text>"); break; }
+                    Notices.Add("Message from " + Config.Name, Rest(1));
+                    Log.Reply("sent to everyone online: " + Rest(1));
+                    break;
+
+                case "/kick":
+                    {
+                        var kWho = Arg(1);
+                        if (kWho == null) { Log.Reply("usage: /kick <name> [minutes]"); break; }
+                        var kMin = 10;
+                        if (Arg(2) != null && (!int.TryParse(Arg(2), out kMin) || kMin < 0 || kMin > 100000)) { Log.Reply("usage: /kick <name> [minutes]"); break; }
+                        var kAcc = Accounts.Find(kWho);
+                        var kName = kAcc?.Name ?? kWho;
+                        if (kMin > 0) Kicks.Add(Accounts.KeyOf(kName), kMin);
+                        foreach (var w in Lots.Running()) Lots.Send(w, "kick " + kName);
+                        Log.Reply("kicked " + kName + (kMin > 0 ? " - they can come back in " + kMin + " minute(s) (/unkick to let them in sooner)" : "") +
+                            (kAcc == null ? "  (no account called that - check the name with /who)" : ""));
+                    }
+                    break;
+
+                case "/unkick":
+                    if (Arg(1) == null) { Log.Reply("usage: /unkick <name>"); break; }
+                    Log.Reply(Kicks.Remove(Accounts.KeyOf(Arg(1))) ? Arg(1) + " can come back now" : Arg(1) + " wasn't kicked");
+                    break;
+
+                case "/event":
+                    {
+                        var sub = Arg(1)?.ToLowerInvariant();
+                        if (sub == null)
+                        {
+                            var ev = new StringBuilder("event types:\n");
+                            foreach (var k in Events.Kinds) ev.Append("  ").Append(k.Key.PadRight(10)).Append(k.Value.Title).Append(" - ").Append(k.Value.About).Append('\n');
+                            var list = Events.All();
+                            ev.Append(list.Count == 0 ? "no events on or coming up" : "on now / coming up:\n" + string.Join("\n", list.Select(e => "  " + Events.Describe(e))));
+                            Log.Reply(ev.ToString());
+                        }
+                        else if (sub == "start")
+                        {
+                            if (Arg(2) == null) { Log.Reply("usage: /event start <type> [hours] [title]"); break; }
+                            double hours = 2; int titleAt = 3;
+                            if (Arg(3) != null && double.TryParse(Arg(3), out var h)) { hours = h; titleAt = 4; }
+                            Log.Reply(Events.Add(Arg(2), DateTime.UtcNow, hours, Rest(titleAt)));
+                        }
+                        else if (sub == "at")
+                        {
+                            if (Arg(4) == null || !DateTime.TryParse(Arg(2), out var day) || !TryParseClock(Arg(3), out var mins))
+                            { Log.Reply("usage: /event at <yyyy-mm-dd> <time> <type> [hours] [title]   e.g. /event at 2026-12-24 6pm holiday 30"); break; }
+                            var start = day.Date.AddMinutes(mins);
+                            if (start < DateTime.Now) { Log.Reply("that time has already passed (it's this PC's time)"); break; }
+                            double hours = 2; int titleAt = 5;
+                            if (Arg(5) != null && double.TryParse(Arg(5), out var h)) { hours = h; titleAt = 6; }
+                            Log.Reply(Events.Add(Arg(4), start.ToUniversalTime(), hours, Rest(titleAt)));
+                        }
+                        else if (sub == "stop")
+                        {
+                            if (Arg(2) == null) { Log.Reply("usage: /event stop <type|all>"); break; }
+                            var n = Events.Stop(Arg(2).ToLowerInvariant());
+                            Log.Reply(n == 0 ? "no such event on or coming up" : "ended " + n + " event(s)");
+                        }
+                        else Log.Reply("usage: /event, /event start, /event at, /event stop - see /help");
+                    }
+                    break;
+
+                case "/xp":
+                    {
+                        var sub = Arg(1)?.ToLowerInvariant();
+                        if (sub == null)
+                        {
+                            var top = Progress.Top(10);
+                            Log.Reply(top.Count == 0 ? "nobody has earned XP yet (it's earned playing online)" :
+                                "top players:\n" + string.Join("\n", top.Select((t, i) => "  " + (i + 1) + ". " + t.key.PadRight(20) + " level " + t.p.Level + "  (" + t.p.Xp + " XP, " + t.p.Minutes + " min played)"))
+                                + (Events.XpMultiplier() != 1 ? "\nXP is x" + Events.XpMultiplier() + " right now (an event)" : ""));
+                        }
+                        else if (sub == "settings") Log.Reply("XP amounts (/xp set <setting> <value>):\n" + Progress.SettingsText());
+                        else if (sub == "set")
+                        {
+                            if (Arg(3) == null || !int.TryParse(Arg(3), out var v)) { Log.Reply("usage: /xp set <setting> <value> - see /xp settings"); break; }
+                            Log.Reply(Progress.Set(Arg(2), v));
+                        }
+                        else if (sub == "give")
+                        {
+                            if (Arg(3) == null || !long.TryParse(Arg(3), out var amt)) { Log.Reply("usage: /xp give <name> <amount>"); break; }
+                            var key = Accounts.KeyOf(Arg(2));
+                            Progress.Award(key, amt, "given by an admin", false);
+                            Progress.Save();
+                            var lv = Progress.Where(key);
+                            Log.Reply(Arg(2) + " is level " + lv.level + " (" + lv.into + " / " + lv.need + " XP to the next)");
+                        }
+                        else
+                        {
+                            var key = Accounts.KeyOf(Arg(1));
+                            var p = Progress.Of(key);
+                            var lv = Progress.Where(key);
+                            Log.Reply(Arg(1) + ": level " + lv.level + " - " + lv.into + " / " + lv.need + " XP to the next, " + p.Xp + " XP in all, " + p.Minutes + " minutes played online");
+                        }
+                    }
+                    break;
+
+                case "/reports":
+                    if (Arg(1)?.ToLowerInvariant() == "done")
+                    {
+                        if (Arg(2) == null) { Log.Reply("usage: /reports done <id|all>"); break; }
+                        Log.Reply("marked " + Reports.Close(Arg(2).ToLowerInvariant()) + " report(s) as dealt with");
+                        break;
+                    }
+                    {
+                        var rAll = Arg(1)?.ToLowerInvariant() == "all";
+                        var rs = Reports.List(rAll);
+                        Log.Reply(rs.Count == 0 ? (rAll ? "no reports yet" : "no reports waiting") :
+                            string.Join("\n", rs.Select(r => "  #" + r.Id + (r.Done ? " (done)" : "") + "  " + Store.Ago(r.Time) + "  " + r.From + " about " + r.About + ": " + r.Reason))
+                            + (rAll ? "" : "\n(/reports done <id> when it's dealt with)"));
+                    }
+                    break;
+
+                case "/flags":
+                    if (Arg(1)?.ToLowerInvariant() == "ok")
+                    {
+                        if (Arg(2) == null) { Log.Reply("usage: /flags ok <id|all>"); break; }
+                        Log.Reply("marked " + AntiCheat.Review(Arg(2).ToLowerInvariant()) + " flag(s) as looked at");
+                        break;
+                    }
+                    {
+                        var fAll = Arg(1)?.ToLowerInvariant() == "all";
+                        var fs = AntiCheat.List(fAll);
+                        Log.Reply(fs.Count == 0 ? (fAll ? "no flags yet" : "nothing flagged") :
+                            string.Join("\n", fs.Select(f => "  #" + f.Id + (f.Reviewed ? " (ok)" : "") + "  " + Store.Ago(f.Time) + "  " + f.Account + "  " + f.What + ": " + f.Detail))
+                            + (fAll ? "" : "\n(/flags ok <id> once you've looked - nothing happens to the player by itself)"));
+                    }
+                    break;
+
+                case "/backups":
+                    {
+                        var bs = Backups.List();
+                        Log.Reply(bs.Count == 0 ? "no backups yet" :
+                            "backups (newest first; automatic ones at " + (Config.BackupHour < 0 ? "OFF" : Config.BackupHour + ":00") + ", " + Config.KeepBackups + " kept):\n"
+                            + string.Join("\n", bs.Take(30).Select(d => "  " + d.Name.PadRight(36) + (Backups.Size(d) / 1048576.0).ToString("0.0") + " MB")));
+                    }
+                    break;
+
+                case "/restore":
+                    {
+                        var name = Arg(1);
+                        if (name == null || name.Contains("..") || name.Contains('/') || name.Contains('\\') || !Directory.Exists(Path.Combine(Backups.Dir, name)))
+                        { Log.Reply("usage: /restore <backup> confirm   (names from /backups)"); break; }
+                        if (Arg(2)?.ToLowerInvariant() != "confirm")
+                        { Log.Reply("this puts EVERYTHING back to " + name + " (accounts, the town, XP...). Anything since is lost - a copy of now is kept first. Type: /restore " + name + " confirm"); break; }
+                        Accounts.SaveAll(); Config.Save(); Progress.Save();
+                        Lots.CloseAll();
+                        Log.Info(Program.Backup("before-restore"));
+                        File.WriteAllText(Path.Combine(Program.DataDir, Backups.Pending), name);
+                        Log.Info("restoring " + name + " - the server restarts now...");
+                        Quit?.Invoke(75);
+                    }
                     break;
 
                 case "/quit":

@@ -41,6 +41,7 @@ namespace SimsRedux.Server
             Directory.CreateDirectory(DataDir);
             Directory.CreateDirectory(Path.Combine(DataDir, "backups"));
             Log.Open(Path.Combine(DataDir, "server.log"));
+            Backups.RestoreIfAsked(); // (a /restore puts the backup back now, before anything is loaded)
 
             Config = ServerConfig.Load(Path.Combine(DataDir, "server.json"));
             if (channel == "live" || channel == "test") Config.Channel = channel;
@@ -86,6 +87,15 @@ namespace SimsRedux.Server
             var timer = new Timer(_ => { try { Accounts.SaveSessions(); api.Tidy(); } catch { } }, null, 30000, 30000);
             // 2D: the online town's one clock (runs while anyone is playing in the town)
             var clockTimer = new Timer(_ => { try { TownClock.Tick(lots); } catch { } }, null, 1000, 1000);
+            // events start and end on time; XP for everyone playing on a lot, each minute
+            var eventTimer = new Timer(_ => { try { Events.Tick(); } catch (Exception e) { Log.Warn("events: " + e.Message); } }, null, 5000, 30000);
+            var xpTimer = new Timer(_ =>
+            {
+                try { Progress.PlayMinute(api.PlayingNow()); Progress.Save(); }
+                catch (Exception e) { Log.Warn("xp: " + e.Message); }
+            }, null, 60000, 60000);
+            // one automatic backup a day (checked every 10 minutes)
+            var backupTimer = new Timer(_ => { try { Backups.Tick(Config, () => { Accounts.SaveAll(); Config.Save(); Progress.Save(); }); } catch (Exception e) { Log.Warn("backup: " + e.Message); } }, null, 120000, 600000);
 
             // console commands come in on stdin (the panel writes them there)
             var input = new Thread(() =>
@@ -112,6 +122,7 @@ namespace SimsRedux.Server
             timer.Dispose();
             lots.CloseAll();
             TownClock.Flush();
+            Progress.Save();
             http.Shutdown();
             Accounts.SaveAll();
             Config.Save();
@@ -120,21 +131,28 @@ namespace SimsRedux.Server
             return ExitCode;
         }
 
-        /// <summary>A dated copy of the server's data files in backups/.</summary>
-        public static string Backup()
+        /// <summary>
+        /// A dated copy of everything in the data folder - settings, accounts, the online town, XP,
+        /// flags, reports - in backups/ (named e.g. 2026-10-15_04-00-00_auto).
+        /// </summary>
+        public static string Backup(string why = "manual")
         {
             try
             {
-                var dir = Path.Combine(DataDir, "backups", DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss"));
+                var name = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss") + "_" + why;
+                var dir = Path.Combine(DataDir, "backups", name);
                 Directory.CreateDirectory(dir);
                 int n = 0;
-                foreach (var f in new[] { "server.json", "accounts.json", "sessions.json" })
+                foreach (var f in Directory.GetFiles(DataDir))
                 {
-                    var src = Path.Combine(DataDir, f);
-                    if (File.Exists(src)) { File.Copy(src, Path.Combine(dir, f), true); n++; }
+                    var fn = Path.GetFileName(f);
+                    if (fn.EndsWith(".log") || fn.EndsWith(".tmp") || fn == Backups.Pending) continue;
+                    try { File.Copy(f, Path.Combine(dir, fn), true); n++; } catch { }
                 }
+                var town = Path.Combine(DataDir, "Town");
+                if (Directory.Exists(town)) { Backups.CopyDir(town, Path.Combine(dir, "Town")); n++; }
                 Log.Info("backup: " + dir);
-                return "backed up " + n + " file(s) to " + dir;
+                return "backed up " + n + " item(s) to backups/" + name;
             }
             catch (Exception e) { return "backup failed: " + e.Message; }
         }

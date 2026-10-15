@@ -33,6 +33,11 @@ namespace SimsRedux.Server
         private readonly RateLimiter LoginByName = new RateLimiter(10, TimeSpan.FromMinutes(15));
         private readonly RateLimiter RegisterByAddress = new RateLimiter(5, TimeSpan.FromHours(1));
         private readonly RateLimiter Everything = new RateLimiter(3000, TimeSpan.FromMinutes(1));
+        private readonly RateLimiter ReportsByAccount = new RateLimiter(5, TimeSpan.FromHours(1));
+
+        /// <summary>Accounts on a town lot right now (key -> connections), for XP while playing.</summary>
+        private readonly Dictionary<string, int> OnLots = new Dictionary<string, int>();
+        public List<string> PlayingNow() { lock (OnLots) return OnLots.Where(x => x.Value > 0).Select(x => x.Key).ToList(); }
 
         /// <summary>Online-lot connections being passed through right now.</summary>
         public int LotConnections;
@@ -116,15 +121,21 @@ namespace SimsRedux.Server
                         await HttpServer.SendJson(stream, 200, new
                         {
                             ok = true,
+                            channel = Config.Channel,
+                            game = Simitone.Client.Utils.ReduxBuild.Number,
+                            servers = new { live = Config.LiveUrl, test = Config.TestUrl },
                             town = Lots.TownReady,
                             online = Accounts.RecentlyActive(TimeSpan.FromMinutes(5)).Count,
                             playing = Lots?.PlayerCount ?? 0,
                             lots = Lots?.Running().Count ?? 0,
                             motd = Config.Motd,
+                            events = Events.Active().Select(e => new { title = e.Title, kind = e.Kind, ends = e.End.ToString("o") }),
                         }, cors);
                         return;
                     }
                     break;
+                case "/api/notices": if (req.Method == "GET") { await GetNotices(req, stream, cors); return; } break;
+                case "/api/report": if (req.Method == "POST") { await PostReport(req, stream, cors); return; } break;
                 case "/api/register": if (req.Method == "POST") { await Register(req, stream, cors); return; } break;
                 case "/api/login": if (req.Method == "POST") { await Login(req, stream, cors); return; } break;
                 case "/api/logout": if (req.Method == "POST") { Accounts.Logout(req.BearerToken()); await HttpServer.SendJson(stream, 200, new { ok = true }, cors); return; } break;
@@ -221,7 +232,38 @@ namespace SimsRedux.Server
         {
             var a = Accounts.Check(req.BearerToken());
             if (a == null) { await HttpServer.SendJson(stream, 401, new { error = "Not logged in." }, cors); return; }
-            await HttpServer.SendJson(stream, 200, new { ok = true, name = a.Name, role = a.Role, files = Roles.GetsGameFiles(a.Role) && Files.Ready, motd = Config.Motd }, cors);
+            var lv = Progress.Where(a.Key);
+            await HttpServer.SendJson(stream, 200, new { ok = true, name = a.Name, role = a.Role, files = Roles.GetsGameFiles(a.Role) && Files.Ready, motd = Config.Motd,
+                level = lv.level, xp = lv.into, next = lv.need }, cors);
+        }
+
+        /// <summary>The online town's announcements for this player (their game asks every 15 seconds).</summary>
+        private async Task GetNotices(Request req, Stream stream, Dictionary<string, string> cors)
+        {
+            var a = Accounts.Check(req.BearerToken());
+            if (a == null) { await HttpServer.SendJson(stream, 401, new { error = "Not logged in." }, cors); return; }
+            int.TryParse(req.QueryValue("after") ?? "-1", out var after);
+            var (last, list) = Notices.Since(after, a.Key);
+            await HttpServer.SendJson(stream, 200, new { ok = true, last, notices = list.Select(n => new { id = n.Id, title = n.Title, text = n.Text }) }, cors);
+        }
+
+        /// <summary>A player reports another player (from the website's launcher). It waits in the panel.</summary>
+        private async Task PostReport(Request req, Stream stream, Dictionary<string, string> cors)
+        {
+            var a = Accounts.Check(req.BearerToken());
+            if (a == null) { await HttpServer.SendJson(stream, 401, new { error = "Log in first." }, cors); return; }
+            var body = req.JsonBody();
+            string clean(string t, int max)
+            {
+                var c = new string((t ?? "").Where(ch => ch >= 32).ToArray()).Trim();
+                return c.Length > max ? c.Substring(0, max) : c;
+            }
+            var about = clean(Str(body, "about"), 40);
+            var reason = clean(Str(body, "reason"), 400);
+            if (about.Length == 0 || reason.Length < 5) { await HttpServer.SendJson(stream, 400, new { error = "Say who it's about and what happened." }, cors); return; }
+            if (!ReportsByAccount.Allow(a.Key)) { await HttpServer.SendJson(stream, 429, new { error = "You've sent a lot of reports - try again in an hour." }, cors); return; }
+            var id = Reports.Add(a.Name, about, reason);
+            await HttpServer.SendJson(stream, 200, new { ok = true, id }, cors);
         }
 
         private async Task ChangePassword(Request req, Stream stream, Dictionary<string, string> cors)
@@ -449,6 +491,13 @@ namespace SimsRedux.Server
                 await Refuse(stream, 401, "Log in with an approved account first.");
                 return;
             }
+            var kicked = Kicks.MinutesLeft(who.Key);
+            if (kicked > 0)
+            {
+                Log.Info("online: " + who.Name + " tried to come back after being kicked (" + kicked + " min left)");
+                await Refuse(stream, 403, "An admin removed you from the online town. You can come back in " + kicked + " minute" + (kicked == 1 ? "" : "s") + ".");
+                return;
+            }
             Log.Info("online: " + who.Name + " is travelling to house " + house);
             // two tries: if the lot was just closing (everyone had left), wait for it to finish and open it again
             for (int attempt = 0; attempt < 2; attempt++)
@@ -477,7 +526,11 @@ namespace SimsRedux.Server
                         return;
                     }
                 }
-                if (await Relay(req, stream, w.Port, "house " + house, WithAccount(req.Raw, who.Name))) return;
+                bool done;
+                lock (OnLots) OnLots[who.Key] = (OnLots.TryGetValue(who.Key, out var c) ? c : 0) + 1;
+                try { done = await Relay(req, stream, w.Port, "house " + house, WithAccount(req.Raw, who.Name)); }
+                finally { lock (OnLots) { OnLots[who.Key]--; if (OnLots[who.Key] <= 0) OnLots.Remove(who.Key); } }
+                if (done) return;
                 // it was open but didn't answer (closing at that very moment): start it again
                 Log.Info("online: house " + house + " didn't answer - reopening it");
                 await Lots.WaitExit(w, TimeSpan.FromSeconds(30));

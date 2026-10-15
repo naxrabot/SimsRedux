@@ -305,6 +305,15 @@ namespace Simitone.Client.Utils
         public List<string> GuestNames { get { lock (Sockets) return Sockets.Where(x => x.Client != null).Select(x => x.PlayerName).ToList(); } }
         public event Action<string> OnNotice;
 
+        /// <summary>The server's /kick: everyone connected as this account is sent away with the reason. How many.</summary>
+        public int Kick(string account, string reason)
+        {
+            List<ReduxSocket> them;
+            lock (Sockets) them = Sockets.Where(x => !x.Closed && x.Account != null && x.Account.Equals(account, StringComparison.OrdinalIgnoreCase)).ToList();
+            foreach (var s in them) s.Close(reason);
+            return them.Count;
+        }
+
         /// <summary>Seconds without hearing from a player before they're taken off (a crashed or frozen game).</summary>
         public const int SilentLimit = 90;
 

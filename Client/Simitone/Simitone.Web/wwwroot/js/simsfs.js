@@ -182,13 +182,32 @@
 #srx-setup .lfolder { grid-column: 1 / -1; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(143,180,255,.12); font-size: 12px; color: #8a96d0;
   display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
 #srx-setup .lfolder b { color: #d7d7f5; font-weight: 600; }
+#srx-setup .llevel { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; margin-top: 10px; font-size: 11px; letter-spacing: .08em; color: #8a96d0; }
+#srx-setup .llevel .lvtext b { color: #78ff8c; font-size: 13px; }
+#srx-setup .lvbar { flex: 1; height: 6px; background: rgba(143,180,255,.15); }
+#srx-setup .lvbar div { height: 100%; width: 0; background: linear-gradient(90deg, #3bc25a, #9fffb0); }
+#srx-setup .lreport { grid-column: 1 / -1; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(143,180,255,.12); display: grid; gap: 8px; }
+#srx-setup .lreport input, #srx-setup .lreport textarea { font: inherit; font-size: 13px; color: #fff; background: #000052; border: 1px solid #5a5aa8; padding: 7px 9px; resize: vertical; }
+#srx-setup .lreport .rrow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+#srx-setup .lreport .rmsg { font-size: 12px; color: #8a96d0; }
+#srx-setup .lreport .rmsg.error { color: #ff9a8a; }
+#srx-setup .lreport.hidden, #srx-setup .llevel.hidden { display: none; }
 #srx-setup .lfolder button.link { font-size: 12px; }
 #srx-setup .l-srv { margin: 10px 30px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 #srx-setup .sitem { padding: 10px 14px; border: 1px solid rgba(143,180,255,.2); background: rgba(0,0,0,.25); }
+#srx-setup button.srv { font: inherit; text-align: left; cursor: pointer; color: inherit; margin: 0; border-radius: 0; width: 100%; }
+#srx-setup button.srv:hover { background: rgba(143,180,255,.1); }
+#srx-setup button.srv.sel { border-color: #78ff8c; background: rgba(120,255,140,.08); box-shadow: inset 0 0 0 1px #78ff8c; }
+#srx-setup button.srv.sel .k::after { content: '  \\2713 SELECTED'; color: #78ff8c; }
+#srx-setup .dot.down { background: #ff5a5a; box-shadow: 0 0 8px #ff5a5a; }
+#srx-setup .vcheck { font-size: 12px; text-align: center; margin: 0 0 10px; color: #8a96d0; min-height: 16px; }
+#srx-setup .vcheck.ok { color: #78ff8c; } #srx-setup .vcheck.warn { color: #ffb547; }
 #srx-setup .sitem .k { font-size: 10px; letter-spacing: .16em; font-weight: 700; color: #8a96d0; margin-bottom: 4px; }
 #srx-setup .sitem .v { font-size: 15px; font-weight: 600; color: #fff; display: flex; align-items: center; gap: 8px; }
-#srx-setup .sitem .v small { font-size: 12px; font-weight: 400; color: #8a96d0; }
-#srx-setup .smotd { grid-column: 1 / -1; font-size: 12px; color: #c8d4ff; padding: 8px 14px; border-left: 3px solid #78ff8c; background: rgba(120,255,140,.06); }
+#srx-setup .sitem .v small { font-size: 12px; font-weight: 400; color: #8a96d0; margin-left: auto; }
+#srx-setup .smotd { margin: 12px 30px 0; font-size: 13.5px; color: #e4e9ff; padding: 10px 14px; border-left: 3px solid #78ff8c; background: rgba(120,255,140,.06); }
+#srx-setup .smotd .mevent { margin-top: 6px; font-weight: 700; color: #ffd36b; letter-spacing: .04em; }
+#srx-setup .smotd .k { font-size: 10px; letter-spacing: .16em; font-weight: 700; color: #78ff8c; margin-bottom: 4px; }
 #srx-setup .notes { margin: 16px 30px 0; flex: 1 1 auto; min-height: 120px; overflow: auto; border-top: 1px solid rgba(143,180,255,.2); padding-top: 14px; }
 #srx-setup .nhead { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; letter-spacing: .16em; font-weight: 700; color: #fff; margin-bottom: 10px; }
 #srx-setup .nhead span { color: #8a96d0; font-weight: 400; letter-spacing: .06em; }
@@ -213,8 +232,8 @@
   #srx-setup .l-top { padding: 22px 18px 14px; } #srx-setup .logo { font-size: 28px; }
   #srx-setup .l-acct { margin: 0 16px; grid-template-columns: auto 1fr; }
   #srx-setup .avatar { grid-column: 1; grid-row: 1 / span 2; } #srx-setup .lname { grid-column: 2; grid-row: 1; } #srx-setup .lstatus { grid-column: 2; grid-row: 2; }
-  #srx-setup .lbtns { grid-row: 3; grid-column: 1 / -1; justify-content: flex-start; margin-top: 10px; } #srx-setup .lfolder { grid-row: 4; }
-  #srx-setup .l-srv { margin: 10px 16px 0; } #srx-setup .notes { margin: 14px 16px 0; } #srx-setup .l-bottom { padding: 14px 16px 18px; }
+  #srx-setup .lbtns { grid-row: 3; grid-column: 1 / -1; justify-content: flex-start; margin-top: 10px; } #srx-setup .llevel { grid-row: 4; } #srx-setup .lreport { grid-row: 5; } #srx-setup .lfolder { grid-row: 6; }
+  #srx-setup .l-srv { margin: 10px 16px 0; } #srx-setup .smotd { margin: 12px 16px 0; } #srx-setup .notes { margin: 14px 16px 0; } #srx-setup .l-bottom { padding: 14px 16px 18px; }
 }`;
         document.head.appendChild(style);
         const el = document.createElement('div');
@@ -230,19 +249,26 @@
     <div class="lname"></div>
     <div class="lbtns"></div>
     <div class="lstatus"><i class="dot"></i><span class="ltext"></span></div>
+    <div class="llevel hidden"><span class="lvtext"></span><div class="lvbar"><div></div></div></div>
+    <div class="lreport hidden">
+      <input class="rabout" type="text" maxlength="40" placeholder="Player's name" spellcheck="false">
+      <textarea class="rreason" maxlength="400" rows="2" placeholder="What happened?"></textarea>
+      <div class="rrow"><button class="ghost rsend">Send report</button><button class="link rcancel">Cancel</button><span class="rmsg"></span></div>
+    </div>
     <div class="lfolder">Game files &amp; saves: <b class="lfstate">Checking...</b> <button class="link lchange">Change folder</button></div>
   </div>
   <div class="l-srv">
-    <div class="sitem"><div class="k">SERVER STATUS</div><div class="v"><i class="dot sdot"></i><span class="sstate">Checking...</span></div></div>
-    <div class="sitem"><div class="k">PLAYERS ONLINE</div><div class="v"><span class="scount">&mdash;</span> <small class="splaying"></small></div></div>
-    <div class="smotd hidden"></div>
+    <button class="sitem srv" data-ch="live"><div class="k">LIVE SERVER</div><div class="v"><i class="dot"></i><span class="sstate">Checking...</span><small class="scount"></small></div></button>
+    <button class="sitem srv" data-ch="test"><div class="k">TEST SERVER</div><div class="v"><i class="dot"></i><span class="sstate">Checking...</span><small class="scount"></small></div></button>
   </div>
+  <div class="smotd hidden"><div class="k">MESSAGE OF THE DAY</div><div class="mtext"></div></div>
   <div class="notes">
     <div class="nhead">PATCH NOTES <span class="ndate"></span></div>
     <div class="nbody"></div>
     <button class="link nolder hidden">Show earlier patches</button>
   </div>
   <div class="l-bottom">
+    <div class="vcheck"></div>
     <button class="play">PLAY</button>
     <div class="l-foot">build ${(document.querySelector('meta[name="srx-build"]') || {}).content || 'dev'}</div>
   </div>
@@ -333,9 +359,22 @@
     // The website and the server are at different addresses: tsr.mbrew.studio serves the game,
     // tsr-lot.mbrew.studio is the server on Joey's PC (through Cloudflare). ?server=... picks
     // another server, e.g. the Test one.
+    // The launcher picks Live (the default) or Test; each server has its own accounts, so each keeps
+    // its own login in this browser.
+    const LIVE_URL = 'https://tsr-lot.mbrew.studio';
+    function lsGet(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } }
+    function lsSet(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { } }
+    const Servers = {
+        get channel() { return lsGet('srx-channel', 'live') === 'test' ? 'test' : 'live'; },
+        set channel(c) { lsSet('srx-channel', c === 'test' ? 'test' : null); },
+        // (?server=... in the address replaces the Live server, for trying a server on this PC)
+        url(c) { return c === 'test' ? lsGet('srx-test-url', 'https://tsr-test.mbrew.studio') : ((new URLSearchParams(location.search).get('server') || LIVE_URL).replace(/\/+$/, '')); },
+        learn(servers) { if (servers && typeof servers.test === 'string' && /^https:\/\//.test(servers.test)) lsSet('srx-test-url', servers.test.replace(/\/+$/, '')); },
+    };
     const Account = (function () {
-        const SERVER = (new URLSearchParams(location.search).get('server') || 'https://tsr-lot.mbrew.studio').replace(/\/+$/, '');
-        const KEY = 'srx-account';
+        const forced = new URLSearchParams(location.search).get('server');
+        const SERVER = (forced || Servers.url(Servers.channel)).replace(/\/+$/, '');
+        const KEY = (!forced && Servers.channel === 'test') ? 'srx-account-test' : 'srx-account';
         let session = null;      // { token, name, role, files }
         let root = null, onChange = null;
         let reachable = null;    // did the server answer last time? (null = not asked yet)
@@ -412,7 +451,7 @@
         async function refresh() {
             if (!load()) { paint(); return; }
             const r = await call('/api/me');
-            if (r.ok) store({ token: session.token, name: r.name, role: r.role, files: !!r.files });
+            if (r.ok) store({ token: session.token, name: r.name, role: r.role, files: !!r.files, level: r.level | 0, xp: r.xp | 0, next: r.next | 0 });
             else if (r.status === 401) { store(null); msg('Please log in again.'); }
             else paint(); // server offline: keep the remembered login
         }
@@ -716,6 +755,15 @@
         else if (Account.reachable === false) { dot.classList.add('warn'); text.textContent = "Logged in \u2014 couldn't reach the server"; }
         else { dot.classList.add('on'); text.textContent = 'Logged in'; }
 
+        // account level and XP (earned playing online)
+        const lvBox = L.querySelector('.llevel');
+        lvBox.classList.toggle('hidden', !(on && acc.level > 0));
+        if (on && acc.level > 0) {
+            L.querySelector('.lvtext').innerHTML = 'LEVEL <b>' + (acc.level | 0) + '</b>';
+            L.querySelector('.lvbar div').style.width = (acc.next > 0 ? Math.min(100, (acc.xp | 0) / acc.next * 100) : 0).toFixed(1) + '%';
+            lvBox.title = (acc.xp | 0) + ' / ' + (acc.next | 0) + ' XP to level ' + ((acc.level | 0) + 1);
+        }
+
         // the game folder (the Sims files and the homes saved in them live in this browser)
         const fstate = L.querySelector('.lfstate');
         const paintFolder = async () => {
@@ -723,33 +771,94 @@
         };
         await paintFolder();
 
-        // online play: is the server up, and how many people are on (every 15 seconds while this is showing)
-        const sdot = L.querySelector('.sdot'), sstate = L.querySelector('.sstate'), scount = L.querySelector('.scount'),
-            splaying = L.querySelector('.splaying'), smotd = L.querySelector('.smotd');
-        const paintServer = async () => {
-            let st = null;
+        // Live and Test: online (green), maintenance (amber) or offline (red), with how many people are
+        // on; the chosen one's message of the day sits above the patch notes (every 15 seconds while showing)
+        const smotd = L.querySelector('.smotd');
+        const statusOf = async (url) => {
             try {
                 const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 6000);
-                const r = await fetch(Account.SERVER + '/api/status', { cache: 'no-store', signal: ctl.signal });
+                const r = await fetch(url + '/api/status', { cache: 'no-store', signal: ctl.signal });
                 clearTimeout(t);
-                st = r.ok ? await r.json() : null;
-            } catch (e) { st = null; }
-            sdot.className = 'dot sdot';
-            if (!st) { sstate.textContent = 'Offline'; scount.textContent = '\u2014'; splaying.textContent = ''; smotd.classList.add('hidden'); return; }
-            if (st.town) { sdot.classList.add('on'); sstate.textContent = 'Online'; }
-            else { sdot.classList.add('warn'); sstate.textContent = 'Maintenance'; }
-            scount.textContent = String(st.online | 0);
-            splaying.textContent = (st.playing | 0) > 0 ? '(' + (st.playing | 0) + ' in a lot)' : '';
-            smotd.textContent = st.motd || '';
-            smotd.classList.toggle('hidden', !st.motd);
+                return r.ok ? await r.json() : null;
+            } catch (e) { return null; }
         };
-        paintServer();
-        const serverTimer = setInterval(paintServer, 15000);
+        const status = { live: null, test: null };
+        const chosen = Servers.channel;
+        const paintServers = async () => {
+            status.live = await statusOf(Servers.url('live'));
+            if (status.live) Servers.learn(status.live.servers);
+            status.test = await statusOf(Servers.url('test'));
+            for (const ch of ['live', 'test']) {
+                const card = L.querySelector('.srv[data-ch="' + ch + '"]'), st = status[ch];
+                card.classList.toggle('sel', ch === chosen);
+                const dot = card.querySelector('.dot'), state = card.querySelector('.sstate'), count = card.querySelector('.scount');
+                dot.className = 'dot';
+                if (!st) { dot.classList.add('down'); state.textContent = 'Offline'; count.textContent = ''; continue; }
+                if (st.town) { dot.classList.add('on'); state.textContent = 'Online'; }
+                else { dot.classList.add('warn'); state.textContent = 'Maintenance'; }
+                count.textContent = (st.online | 0) + ' online' + ((st.playing | 0) > 0 ? ' \u00b7 ' + (st.playing | 0) + ' in a lot' : '');
+            }
+            const mine = status[chosen];
+            const evs = (mine && Array.isArray(mine.events)) ? mine.events : [];
+            const mt = L.querySelector('.mtext');
+            mt.textContent = (mine && mine.motd) || '';
+            for (const ev of evs) {
+                const d = document.createElement('div');
+                d.className = 'mevent';
+                let until = '';
+                try { until = ' \u2014 until ' + new Date(ev.ends).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' }); } catch (e) { }
+                d.textContent = '\u2605 EVENT: ' + ev.title + until;
+                mt.appendChild(d);
+            }
+            smotd.classList.toggle('hidden', !(mine && (mine.motd || evs.length)));
+            checkVersion();
+        };
+
+        // the version check: this website's game, the newest patch notes, and the chosen server's game
+        const play = L.querySelector('.play'), vcheck = L.querySelector('.vcheck');
+        let webVersion = null;
+        try { webVersion = DotNet.invokeMethod('SimsRedux.Web', 'SimsReduxVersion'); } catch (e) { webVersion = null; }
+        const newer = (a, b) => { // is version a newer than b?
+            const x = String(a).split('.').map(n => parseInt(n, 10) || 0), y = String(b).split('.').map(n => parseInt(n, 10) || 0);
+            for (let i = 0; i < Math.max(x.length, y.length); i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); }
+            return false;
+        };
+        if (webVersion) L.querySelector('.vnum').textContent = webVersion;
+        let needsUpdate = false;
+        const checkVersion = () => {
+            const srv = status[chosen] && status[chosen].game;
+            const site = latest && latest.version;
+            needsUpdate = !!webVersion && ((site && newer(site, webVersion)) || (srv && newer(srv, webVersion)));
+            vcheck.className = 'vcheck';
+            if (!webVersion) { vcheck.textContent = ''; }
+            else if (needsUpdate) { vcheck.classList.add('warn'); vcheck.textContent = 'A new version is out (v' + (srv && newer(srv, site || '0') ? srv : site) + ') \u2014 you have v' + webVersion + '.'; }
+            else if (srv && newer(webVersion, srv)) { vcheck.classList.add('warn'); vcheck.textContent = 'Up to date (v' + webVersion + '). The server is still on v' + srv + ' \u2014 online play waits for it to update; single player is fine.'; }
+            else { vcheck.classList.add('ok'); vcheck.textContent = '\u2713 Up to date \u00b7 v' + webVersion; }
+            play.textContent = needsUpdate ? 'UPDATE' : 'PLAY';
+        };
+        paintServers();
+        const serverTimer = setInterval(paintServers, 15000);
 
         return new Promise(done => {
             const btns = L.querySelector('.lbtns');
-            btns.innerHTML = on ? '<button class="ghost lswitch">Switch account</button><button class="ghost llogout">Log out</button>'
+            btns.innerHTML = on ? '<button class="ghost lrep">Report a player</button><button class="ghost lswitch">Switch account</button><button class="ghost llogout">Log out</button>'
                 : '<button class="ghost llogin">Log in</button>';
+            const rep = L.querySelector('.lreport'), rmsg = L.querySelector('.rmsg');
+            rep.classList.add('hidden');
+            if (on) {
+                btns.querySelector('.lrep').onclick = () => { rep.classList.toggle('hidden'); rmsg.textContent = ''; L.querySelector('.rabout').focus(); };
+                L.querySelector('.rcancel').onclick = () => rep.classList.add('hidden');
+                L.querySelector('.rsend').onclick = async () => {
+                    const about = L.querySelector('.rabout').value.trim(), reason = L.querySelector('.rreason').value.trim();
+                    rmsg.className = 'rmsg';
+                    if (!about || reason.length < 5) { rmsg.classList.add('error'); rmsg.textContent = 'Say who it is and what happened.'; return; }
+                    rmsg.textContent = 'Sending...';
+                    const r = await Account.call('/api/report', { about, reason });
+                    if (!r.ok) { rmsg.classList.add('error'); rmsg.textContent = r.error || 'It could not be sent.'; return; }
+                    L.querySelector('.rabout').value = ''; L.querySelector('.rreason').value = '';
+                    rmsg.textContent = 'Thanks - your report went to the admin.';
+                };
+            }
             const finish = (r) => { clearInterval(serverTimer); document.removeEventListener('keydown', onKey); done(r); };
             const leave = async (focus) => {
                 await Account.logout();
@@ -766,10 +875,30 @@
                 try { await saveChain; await clearSims(); } catch (e) { console.warn('[SimsFS] could not clear', e); }
                 await paintFolder();
             };
-            const play = L.querySelector('.play');
+            for (const card of L.querySelectorAll('.srv'))
+                card.onclick = () => {
+                    const ch = card.dataset.ch;
+                    if (ch === chosen) return;
+                    if (ch === 'test' && !confirm('Switch to the Test server? It has its own accounts and town, and gets new things first (they may be unfinished).')) return;
+                    Servers.channel = ch;
+                    finish('switch');
+                };
             play.disabled = false;
-            play.onclick = () => { play.disabled = true; finish('play'); };
-            const onKey = (e) => { if (e.key === 'Enter' && !L.classList.contains('hidden')) play.click(); };
+            play.onclick = async () => {
+                play.disabled = true;
+                if (!needsUpdate) { finish('play'); return; }
+                // fetch the newest website: clear what the browser kept of the old one, then reload
+                vcheck.className = 'vcheck'; vcheck.textContent = 'Updating...';
+                try { if (window.caches) for (const k of await caches.keys()) await caches.delete(k); } catch (e) { }
+                try { if (navigator.serviceWorker) for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); } catch (e) { }
+                finish('update');
+            };
+            const onKey = (e) => {
+                if (e.key !== 'Enter' || L.classList.contains('hidden')) return;
+                const t = e.target && e.target.tagName;
+                if (t === 'INPUT' || t === 'TEXTAREA' || t === 'BUTTON') return;
+                play.click();
+            };
             document.addEventListener('keydown', onKey);
         });
     }
@@ -781,7 +910,7 @@
         await openDb();
         screen().root.querySelector('.signout').onclick = async () => {
             try { await Account.call('/api/logout', {}); } catch (e) { }
-            try { localStorage.removeItem('srx-account'); } catch (e) { }
+            try { await Account.logout(); } catch (e) { }
             location.reload();
         };
         screen().change.onclick = async () => {
@@ -796,10 +925,12 @@
         //    then the launcher - nothing loads until Play
         let how;
         for (;;) {
-            show('Welcome!', {});
+            show(Servers.channel === 'test' ? 'Welcome! (Test server)' : 'Welcome!', {});
             Account.show(true);
             how = await Account.step();
-            if (await launcher(how) === 'play') break;
+            const r = await launcher(how);
+            if (r === 'play') break;
+            if (r === 'switch' || r === 'update') { location.reload(); return new Promise(() => { }); }
         }
         console.log('[SimsRedux] ' + (how === 'offline' ? 'playing offline' : 'logged in as ' + Account.session.name));
 

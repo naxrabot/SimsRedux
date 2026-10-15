@@ -140,6 +140,40 @@ namespace Simitone.Client.Utils
         }
 
         /// <summary>2D: the player's family living in house... is it a player's family? Their family name, or null (a town family).</summary>
+        private static DateTime LastStats;
+        private static readonly FSO.SimAntics.Model.VMPersonDataVariable[] StatSkills =
+        {
+            FSO.SimAntics.Model.VMPersonDataVariable.CookingSkill, FSO.SimAntics.Model.VMPersonDataVariable.MechanicalSkill,
+            FSO.SimAntics.Model.VMPersonDataVariable.CharismaSkill, FSO.SimAntics.Model.VMPersonDataVariable.BodySkill,
+            FSO.SimAntics.Model.VMPersonDataVariable.LogicSkill, FSO.SimAntics.Model.VMPersonDataVariable.CreativitySkill,
+        };
+
+        /// <summary>
+        /// "stats &lt;family&gt; &lt;money or -1&gt; &lt;sim&gt;:&lt;6 skills&gt;:&lt;job&gt;:&lt;job level&gt;;..." - one line per family
+        /// with Sims on the lot (money only for the family that lives here).
+        /// </summary>
+        private static void ReportStats(FSO.SimAntics.VM vm)
+        {
+            var byFamily = new Dictionary<int, List<string>>();
+            foreach (var e in vm.Context.ObjectQueries.Avatars)
+            {
+                var a = e as FSO.SimAntics.VMAvatar;
+                if (a == null || a.IsPet || a.Position == FSO.LotView.Model.LotTilePos.OUT_OF_WORLD) continue;
+                int fam = a.GetPersonData(FSO.SimAntics.Model.VMPersonDataVariable.TS1FamilyNumber);
+                if (fam <= 0) continue;
+                var name = new string((a.Name ?? "?").Where(c => c >= 32 && c != ':' && c != ';' && c != ',' && c != '|').ToArray()).Trim();
+                if (name.Length == 0) name = "Sim" + a.ObjectID;
+                var line = name + ":" + string.Join(",", StatSkills.Select(v => a.GetPersonData(v)))
+                    + ":" + a.GetPersonData(FSO.SimAntics.Model.VMPersonDataVariable.JobType)
+                    + ":" + a.GetPersonData(FSO.SimAntics.Model.VMPersonDataVariable.JobPromotionLevel);
+                if (!byFamily.TryGetValue(fam, out var list)) byFamily[fam] = list = new List<string>();
+                list.Add(line);
+            }
+            var lotFam = vm.TS1State?.CurrentFamily;
+            foreach (var kv in byFamily)
+                Say("stats " + kv.Key + " " + (lotFam != null && lotFam.ChunkID == kv.Key ? lotFam.Budget : -1) + " " + string.Join(";", kv.Value));
+        }
+
         public static string FamilyOwnerName(int family)
         {
             if (family < 0 || string.IsNullOrEmpty(Town)) return null;
@@ -290,6 +324,12 @@ namespace Simitone.Client.Utils
                 else if (cmd.StartsWith("money ")) { if (host != null) GiveMoney(cmd); else Commands.Enqueue(cmd); break; }
                 else if (cmd.StartsWith("time ") && long.TryParse(cmd.Substring(5), out var townNow)) { TownMinutes = townNow; if (host != null) KeepTownTime(false); }
                 else if (cmd == "quit") { Quit("asked to close"); return; }
+                else if (cmd.StartsWith("kick "))
+                {
+                    var who = cmd.Substring(5).Trim();
+                    var n = host?.Kick(who, "An admin removed you from the online town.") ?? 0;
+                    Say("kicked " + who + (n == 0 ? " (not on this lot)" : ""));
+                }
             }
 
             if (host == null)
@@ -325,6 +365,14 @@ namespace Simitone.Client.Utils
                 LastSpeedChange = now;
                 if (count > 0 && speedVm.SpeedMultiplier == 0) Screen.ChangeSpeedTo(1);
                 else if (count == 0 && speedVm.SpeedMultiplier > 0) Screen.ChangeSpeedTo(0);
+            }
+
+            // every 10 seconds while players are here: each family's skills, jobs and money, for the
+            // server's XP / levels and its cheat checks (online only - single player never runs this)
+            if (count > 0 && now - LastStats > TimeSpan.FromSeconds(10) && Screen.vm != null)
+            {
+                LastStats = now;
+                try { ReportStats(Screen.vm); } catch (Exception e) { Say("stats failed: " + e.Message); }
             }
 
             // nobody is at the keyboard on a worker: a question that pauses the game gets the

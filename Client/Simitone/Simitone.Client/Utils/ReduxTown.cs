@@ -287,6 +287,36 @@ namespace Simitone.Client.Utils
             return await Http.SendAsync(req);
         }
 
+        /// <summary>
+        /// Announcements from the server newer than `after` (its /say, events starting and ending, your
+        /// level-ups). done(newest id, [(title, text)]) runs on the game thread. after = -1 only asks for the newest id.
+        /// </summary>
+        public static void FetchNotices(int after, Action<int, List<Tuple<string, string>>> done)
+        {
+            Task.Run(async () =>
+            {
+                int last = after;
+                var list = new List<Tuple<string, string>>();
+                try
+                {
+                    var r = await Send(HttpMethod.Get, "/api/notices?after=" + after);
+                    if (r.IsSuccessStatusCode)
+                    {
+                        var json = Parse(await r.Content.ReadAsStringAsync());
+                        if (json != null && json.Value.ValueKind == JsonValueKind.Object)
+                        {
+                            if (json.Value.TryGetProperty("last", out var l) && l.TryGetInt32(out var li)) last = li;
+                            if (json.Value.TryGetProperty("notices", out var arr) && arr.ValueKind == JsonValueKind.Array)
+                                foreach (var n in arr.EnumerateArray())
+                                    list.Add(Tuple.Create(Get(n, "title") ?? "The Sims Redux", Get(n, "text") ?? ""));
+                        }
+                    }
+                }
+                catch { }
+                FSO.Common.Utils.GameThread.NextUpdate((s) => done(last, list));
+            });
+        }
+
         private static void Run(Func<Task<string>> work, Action<string> done)
         {
             Task.Run(async () =>

@@ -2,6 +2,23 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "3.4",
+      "date": "Oct 15, 2026",
+      "features": [
+        "Live and Test server choice on the launcher, with live status.",
+        "Message of the day and running events on the launcher.",
+        "Version check: the launcher updates the game before you play.",
+        "Account levels and XP for online play.",
+        "Report a player from the launcher.",
+        "Server announcements pop up in the online town."
+      ],
+      "updates": [
+        "Sims leave other Sims' plates alone.",
+        "Sims avoid chatting in doorways.",
+        "Online worlds are backed up automatically every day."
+      ]
+    },
+    {
       "version": "3.3",
       "date": "Oct 15, 2026",
       "features": [
