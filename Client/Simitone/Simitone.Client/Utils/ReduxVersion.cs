@@ -12,12 +12,14 @@ namespace Simitone.Client.Utils
     /// </summary>
     public static class ReduxVersion
     {
-        public const string Number = "2.0";
+        public const string Number = "2.1";
         public const string Stage = "Beta";
 
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Online: no more crash when a Sim arrives on a lot that's still loading.",
+            "Online: messages like \"Nobody's home\" stay on screen until you press OK (they used to vanish straight away).",
             "Online: when the server can't let you onto a lot, it now says why (instead of \"couldn't reach the host\"), and your login code is never shown on screen.",
             "Online: games on different versions now say \"update your game\" instead of getting stuck on a grey screen.",
             "Online town: one clock for the whole town - every lot shows the same time, and it only moves while someone is playing (it can't be paused or sped up).",

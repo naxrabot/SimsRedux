@@ -467,6 +467,14 @@ namespace Simitone.Client.UI.Screens
         {
             var reason = Guest?.Failure ?? "The connection to the host was lost.";
             ReduxOnlineInfo.Log("Left the host's lot: " + reason);
+            if (ReduxTown.Active)
+            {
+                // back to the town: the message waits until the town is on screen (the town's
+                // loading box closing would otherwise take the message with it)
+                TownMessage = reason;
+                ExitLot();
+                return;
+            }
             ExitLot();
             UIClassicDialog.Ok("Back Home", reason);
         }
@@ -1400,6 +1408,8 @@ namespace Simitone.Client.UI.Screens
         // ================= SimsRedux: the online town (drop 2B) =================
 
         private bool TownBusy;
+        /// <summary>Why we were sent back to the town (shown once the town is on screen).</summary>
+        private string TownMessage;
 
         /// <summary>
         /// Go to the server's town with one of your own Sims: the Sim is packed up from your own
@@ -1444,10 +1454,17 @@ namespace Simitone.Client.UI.Screens
                 if (error != null)
                 {
                     LeaveTownNow();
+                    if (TownMessage != null) { error = TownMessage + "\n\n" + error; TownMessage = null; }
                     UIClassicDialog.Ok("The Town", error);
                     return;
                 }
                 NeighSelection(NeighSelectionMode.Normal);
+                if (TownMessage != null)
+                {
+                    var msg = TownMessage;
+                    TownMessage = null;
+                    GameThread.NextUpdate((s3) => UIClassicDialog.Ok("The Town", msg));
+                }
                 try
                 {
                     ReduxOnlineInfo.Log("[town] showing the town: " + TS1NeighPanel?.Describe());
