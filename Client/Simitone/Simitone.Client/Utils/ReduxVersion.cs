@@ -12,12 +12,13 @@ namespace Simitone.Client.Utils
     /// </summary>
     public static class ReduxVersion
     {
-        public const string Number = "2.4";
+        public const string Number = "2.5";
         public const string Stage = "Beta";
 
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "The update message is short now - press Show More to read everything that changed, a page at a time.",
             "Online: questions for your Sim (like picking a job) wait for your answer - the server no longer answers for you after 20 seconds.",
             "Online: nothing on the server can take your Sim away from you while you're controlling them.",
             "Online: your Sim no longer flickers on and off - the server's own copy of the lot kept taking control of them.",
@@ -49,14 +50,43 @@ namespace Simitone.Client.Utils
             catch { seen = ""; }
             if (seen == Number) return;
 
+            // short: one line about the update, with the full list a page at a time behind Show More
             var msg = "The Sims Redux has been updated to " + Stage + " " + Text + ".";
-            if (WhatsNew.Length > 0) msg += "\n\nWhat's new:\n- " + string.Join("\n- ", WhatsNew);
+            if (WhatsNew.Length > 0) msg += "\n\n" + WhatsNew[0] + (WhatsNew.Length > 1 ? "\n\n(and " + (WhatsNew.Length - 1) + " more)" : "");
             GameThread.NextUpdate((s) =>
             {
-                // only counts as seen once OK is pressed (if it got covered up, it shows again next time)
-                try { UIClassicDialog.Ok("Updated to " + Text, msg, () => { try { ReduxSettings.Set("seen_version", Number); } catch { } }); }
+                try
+                {
+                    var buttons = new System.Collections.Generic.List<Tuple<string, Action>> { Tuple.Create<string, Action>("OK", MarkSeen) };
+                    if (WhatsNew.Length > 1) buttons.Add(Tuple.Create<string, Action>("Show More", () => ShowPage(0)));
+                    UIClassicDialog.Show("Updated to " + Text, msg, buttons.ToArray());
+                }
                 catch (Exception e) { Console.WriteLine("[SimsRedux] Couldn't show the update popup: " + e.Message); }
             });
+        }
+
+        /// <summary>How many changes fit on one page of Show More (so it never runs off the screen).</summary>
+        private const int PerPage = 4;
+
+        /// <summary>One page of everything that changed, with Back / Next / Close.</summary>
+        private static void ShowPage(int page)
+        {
+            int pages = (WhatsNew.Length + PerPage - 1) / PerPage;
+            page = Math.Max(0, Math.Min(pages - 1, page));
+            var lines = new System.Collections.Generic.List<string>();
+            for (int i = page * PerPage; i < Math.Min(WhatsNew.Length, (page + 1) * PerPage); i++) lines.Add("- " + WhatsNew[i]);
+            var buttons = new System.Collections.Generic.List<Tuple<string, Action>>();
+            if (page > 0) buttons.Add(Tuple.Create<string, Action>("Back", () => ShowPage(page - 1)));
+            if (page < pages - 1) buttons.Add(Tuple.Create<string, Action>("Next", () => ShowPage(page + 1)));
+            buttons.Add(Tuple.Create<string, Action>("Close", MarkSeen));
+            try { UIClassicDialog.Show("What's New in " + Text + " (" + (page + 1) + " of " + pages + ")", string.Join("\n\n", lines), buttons.ToArray()); }
+            catch (Exception e) { Console.WriteLine("[SimsRedux] Couldn't show what's new: " + e.Message); }
+        }
+
+        /// <summary>The popup only counts as seen once it's closed (if it got covered up, it shows again next time).</summary>
+        private static void MarkSeen()
+        {
+            try { ReduxSettings.Set("seen_version", Number); } catch { }
         }
     }
 }
