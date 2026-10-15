@@ -263,3 +263,4 @@ button.tunnel.off{color:var(--acc);border-color:var(--accdim)}
 .pnFoot{display:flex;gap:8px;align-items:center;justify-content:flex-end}
 .pnFoot #pnMsg{margin-right:auto}
 .pnFoot .danger{color:var(--bad);border-color:#5e3330}
+.arow .an .who{display:block;color:var(--dim);font-size:11px;text-decoration:none}

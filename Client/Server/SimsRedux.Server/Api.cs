@@ -212,14 +212,27 @@ namespace SimsRedux.Server
                 return;
             }
             var body = req.JsonBody();
+            // the owner needs to know who's asking (real name) and how to reach them for a password reset (email)
+            var email = new string((Str(body, "email") ?? "").Where(c => c > 32 && c < 127).ToArray());
+            var realName = new string((Str(body, "realName") ?? "").Where(c => c >= 32).ToArray()).Trim();
+            if (realName.Length < 2 || realName.Length > 60)
+            {
+                await HttpServer.SendJson(stream, 400, new { error = "Please enter your real name, so the admin knows who you are." }, cors);
+                return;
+            }
+            if (email.Length > 120 || !System.Text.RegularExpressions.Regex.IsMatch(email, @"^[^@\s]+@[^@\s]+\.[^@\s]{2,}$"))
+            {
+                await HttpServer.SendJson(stream, 400, new { error = "Please enter a valid email address (it's used if you forget your password)." }, cors);
+                return;
+            }
             // new accounts wait for the server owner to approve them in the panel
-            var a = Accounts.Create(Str(body, "name"), Str(body, "password"), Roles.Player, Str(body, "email"), out var error, pending: true);
+            var a = Accounts.Create(Str(body, "name"), Str(body, "password"), Roles.Player, email, out var error, pending: true, realName: realName);
             if (a == null)
             {
                 await HttpServer.SendJson(stream, 400, new { error }, cors);
                 return;
             }
-            Log.Warn("new account " + a.Name + " is waiting for your approval (from " + req.From + ") - approve it in Accounts, or type  /approve " + a.Name);
+            Log.Warn("new account " + a.Name + " (" + a.RealName + ", " + a.Email + ") is waiting for your approval (from " + req.From + ") - approve it in Accounts, or type  /approve " + a.Name);
             await HttpServer.SendJson(stream, 200, new { ok = true, pending = true, name = a.Name, message = "Please wait for admin approval before connecting." }, cors);
         }
 

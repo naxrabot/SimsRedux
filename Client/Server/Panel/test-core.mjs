@@ -53,10 +53,11 @@ ok(acc.length === 2 && acc[0].name === "Joey", "accounts read and sorted");
 ok(!JSON.stringify(acc).includes("SECRET") && !JSON.stringify(acc).includes("SALT"), "password hashes never leave the file");
 ok(C.readAccounts(path.join(tmp, "nothing")).length === 0, "no accounts file = no accounts");
 fs.writeFileSync(path.join(dd, "accounts.json"), JSON.stringify([
-  { name: "Ann", role: "player" }, { name: "zoe", role: "player", pending: true }
+  { name: "Ann", role: "player" }, { name: "zoe", role: "player", pending: true, realName: "Zoe V", email: "zoe@example.com", hash: "SECRET" }
 ]));
 const acc2 = C.readAccounts(dd);
 ok(acc2[0].name === "zoe" && acc2[0].pending && !acc2[1].pending, "accounts waiting for approval come first");
+ok(acc2[0].realName === "Zoe V" && acc2[0].email === "zoe@example.com" && !JSON.stringify(acc2).includes("SECRET"), "real name and email shown for approval, never the password");
 
 // commands
 const names = C.commandNames();

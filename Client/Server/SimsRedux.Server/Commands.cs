@@ -139,6 +139,7 @@ namespace SimsRedux.Server
                         lines.Append("  ").Append(a.Name.PadRight(22)).Append(a.Role.PadRight(8))
                              .Append(a.Suspended ? " SUSPENDED" : "")
                              .Append(a.Pending ? " WAITING FOR APPROVAL" : "")
+                             .Append(a.RealName.Length > 0 || a.Email.Length > 0 ? "  [" + a.RealName + (a.RealName.Length > 0 && a.Email.Length > 0 ? ", " : "") + a.Email + "]" : "")
                              .Append("  last login ").Append(a.LastLogin == default ? "never" : a.LastLogin.ToLocalTime().ToString("yyyy-MM-dd HH:mm"))
                              .Append('\n');
                     Log.Reply(lines.ToString().TrimEnd());
@@ -187,7 +188,7 @@ namespace SimsRedux.Server
                     {
                         var waiting = Accounts.Waiting();
                         Log.Reply(waiting.Count == 0 ? "nobody is waiting for approval"
-                            : waiting.Count + " waiting for approval: " + string.Join(", ", waiting.Select(w => w.Name)) + "\napprove with  /approve <name>");
+                            : waiting.Count + " waiting for approval: " + string.Join(", ", waiting.Select(w => w.Name + (w.RealName.Length > 0 ? " (" + w.RealName + (w.Email.Length > 0 ? ", " + w.Email : "") + ")" : ""))) + "\napprove with  /approve <name>");
                     }
                     break;
 

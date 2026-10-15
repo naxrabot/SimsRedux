@@ -102,6 +102,8 @@ function readAccounts(dataDir) {
     role: String(a.role || "player"),
     suspended: !!a.suspended,
     pending: !!a.pending,
+    realName: String(a.realName || ""),
+    email: String(a.email || ""),
     created: a.created || "",
     lastLogin: a.lastLogin || ""
   })).sort((x, y) => (y.pending - x.pending) || x.name.localeCompare(y.name, undefined, { sensitivity: "base" }));

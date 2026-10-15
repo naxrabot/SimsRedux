@@ -139,6 +139,8 @@
 #srx-setup .acct { border: 1px solid #3a3a8a; background: #00002c; padding: 12px 14px; margin: 0 0 16px; }
 #srx-setup .acct h3 { margin: 0 0 8px; font-size: 13px; color: #9fb4ff; font-weight: 600; letter-spacing: .04em; }
 #srx-setup .acct .row { display: flex; gap: 8px; flex-wrap: wrap; }
+#srx-setup .acct .row.signup { margin-top: 8px; }
+#srx-setup .acct .row.signup.hidden { display: none; }
 #srx-setup .acct input { font: inherit; font-size: 14px; color: #fff; background: #000052; border: 1px solid #5a5aa8; padding: 7px 9px; flex: 1 1 140px; min-width: 0; }
 #srx-setup .acct input:focus { outline: none; border-color: #8fb4ff; }
 #srx-setup .acct button { margin-top: 8px; }
@@ -279,8 +281,11 @@
   <div class="acct">
     <h3>YOUR ACCOUNT</h3>
     <div class="out">
-      <div class="row"><input class="aname" type="text" autocomplete="username" placeholder="Name" maxlength="20" spellcheck="false">
+      <div class="row"><input class="aname" type="text" autocomplete="username" placeholder="Account name" maxlength="20" spellcheck="false">
         <input class="apw" type="password" autocomplete="current-password" placeholder="Password"></div>
+      <div class="row signup hidden">
+        <input class="areal" type="text" autocomplete="name" placeholder="Your real name" maxlength="60" spellcheck="false">
+        <input class="aemail" type="email" autocomplete="email" placeholder="Email (for password resets)" maxlength="120" spellcheck="false"></div>
       <button class="login">Log in</button> <button class="second register">Create account</button>
       <button class="link offline" style="margin-left:10px">Play offline</button>
       <div class="small">An account keeps your homes and families yours online. Offline, you play on your own.</div>
@@ -427,13 +432,28 @@
         async function login(register) {
             const name = root.querySelector('.aname').value.trim();
             const password = root.querySelector('.apw').value;
+            const signup = root.querySelector('.signup');
+            // a new account also asks for the person's real name (so the admin knows who to approve)
+            // and their email (for password resets): the first press of Create account shows those
+            if (register && signup.classList.contains('hidden')) {
+                signup.classList.remove('hidden');
+                msg('Fill in your real name and email too, then press Create account again.');
+                root.querySelector(name ? '.areal' : '.aname').focus();
+                return;
+            }
+            if (!register) signup.classList.add('hidden');
             if (!name || !password) { msg('Type a name and a password.', true); return; }
+            const realName = root.querySelector('.areal').value.trim(), email = root.querySelector('.aemail').value.trim();
+            if (register && realName.length < 2) { msg('Please enter your real name, so the admin knows who you are.', true); return; }
+            if (register && !/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email)) { msg('Please enter a valid email address (used if you forget your password).', true); return; }
             msg(register ? 'Making your account...' : 'Logging in...');
-            const r = await call(register ? '/api/register' : '/api/login', { name, password });
+            const r = await call(register ? '/api/register' : '/api/login', register ? { name, password, realName, email } : { name, password });
             if (!r.ok) { msg(r.error, true); return; }
             root.querySelector('.apw').value = '';
             // new accounts wait for the server owner to approve them
             if (r.pending) {
+                signup.classList.add('hidden');
+                root.querySelector('.areal').value = ''; root.querySelector('.aemail').value = '';
                 msg('Account made. Please wait for admin approval.');
                 alert(r.message || 'Please wait for admin approval before connecting.');
                 return;

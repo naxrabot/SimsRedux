@@ -235,6 +235,12 @@ async function loadAccounts(){
     const row = document.createElement("div"); row.className = "arow";
     const n = document.createElement("span"); n.className = "an" + (a.suspended ? " sus" : "") + (a.pending ? " pend" : "");
     n.textContent = a.name + (a.suspended ? " (suspended)" : "") + (a.pending ? " (waiting for approval)" : "");
+    if (a.realName || a.email) {
+      /* who it is (given when they signed up on the website) */
+      const who = document.createElement("span"); who.className = "who";
+      who.textContent = [a.realName, a.email].filter(Boolean).join(" · ");
+      n.appendChild(who);
+    }
     const role = document.createElement("select");
     for (const r of ["admin", "tester", "player"]) { const o = document.createElement("option"); o.value = r; o.textContent = r[0].toUpperCase() + r.slice(1); role.appendChild(o); }
     role.value = a.role; role.className = "role-" + a.role; role.disabled = !d.running;

@@ -20,6 +20,8 @@ namespace SimsRedux.Server
         public string Name { get; set; }
         public string Role { get; set; } = Roles.Player;
         public string Email { get; set; } = "";
+        /// <summary>The person's real name, given when they made the account on the website (so the owner knows who it is).</summary>
+        public string RealName { get; set; } = "";
         public string Salt { get; set; }
         public string Hash { get; set; }
         public int Iterations { get; set; }
@@ -111,7 +113,7 @@ namespace SimsRedux.Server
             return null;
         }
 
-        public Account Create(string name, string password, string role, string email, out string error, bool pending = false)
+        public Account Create(string name, string password, string role, string email, out string error, bool pending = false, string realName = "")
         {
             error = CheckName(name) ?? CheckPassword(password);
             if (error != null) return null;
@@ -120,7 +122,7 @@ namespace SimsRedux.Server
             lock (Lock)
             {
                 if (ByKey.ContainsKey(KeyOf(name))) { error = "That name is taken."; return null; }
-                var a = new Account { Name = name, Role = role, Email = (email ?? "").Trim(), Created = DateTime.UtcNow, Pending = pending };
+                var a = new Account { Name = name, Role = role, Email = (email ?? "").Trim(), RealName = (realName ?? "").Trim(), Created = DateTime.UtcNow, Pending = pending };
                 SetPasswordOn(a, password);
                 ByKey[a.Key] = a;
                 SaveAccounts();

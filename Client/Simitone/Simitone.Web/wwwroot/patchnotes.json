@@ -2,6 +2,16 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "3.6",
+      "date": "Oct 15, 2026",
+      "features": [
+        "New accounts ask for your real name and email."
+      ],
+      "updates": [
+        "The admin sees who's asking before approving an account."
+      ]
+    },
+    {
       "version": "3.5",
       "date": "Oct 15, 2026",
       "features": [
