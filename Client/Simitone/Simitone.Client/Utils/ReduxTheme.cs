@@ -191,6 +191,126 @@ namespace Simitone.Client.Utils
             return result;
         }
 
+        // ------------------------------------------------------------------
+        // Neighbourhood top bar
+        // ------------------------------------------------------------------
+
+        private static Dictionary<Texture2D, Tuple<Texture2D, Vector3>> CircleCache = new Dictionary<Texture2D, Tuple<Texture2D, Vector3>>();
+
+        /// <summary>
+        /// Keeps only the round part of a Sims 1 round button (the icon and its white ring), dropping
+        /// the piece of bar baked in behind it, so it sits cleanly on the Redux bar.
+        /// Returns the new sheet; circle = (centre x, centre y, radius) within one frame.
+        /// </summary>
+        public static Texture2D CircleCut(Texture2D sheet, int frames, out Vector3 circle)
+        {
+            circle = Vector3.Zero;
+            if (sheet == null || sheet.Width < 4 || frames < 1) return sheet;
+            Tuple<Texture2D, Vector3> hit;
+            if (CircleCache.TryGetValue(sheet, out hit)) { circle = hit.Item2; return hit.Item1; }
+            int w = sheet.Width, h = sheet.Height, fw = w / frames;
+            var data = new Color[w * h];
+            Texture2D result = sheet;
+            try
+            {
+                sheet.GetData(data);
+                // the white ring in the first frame gives the circle
+                int x0 = int.MaxValue, x1 = -1, y0 = int.MaxValue, y1 = -1;
+                for (int y = 0; y < h; y++)
+                    for (int x = 0; x < fw; x++)
+                    {
+                        var c = data[x + y * w];
+                        if (c.A < 200 || c.R < 185 || c.G < 185 || c.B < 185) continue;
+                        if (Math.Max(c.R, Math.Max(c.G, c.B)) - Math.Min(c.R, Math.Min(c.G, c.B)) > 40) continue;
+                        x0 = Math.Min(x0, x); x1 = Math.Max(x1, x); y0 = Math.Min(y0, y); y1 = Math.Max(y1, y);
+                    }
+                float cx, cy, r;
+                if (x1 - x0 > 8 && y1 - y0 > 8)
+                {
+                    cx = (x0 + x1) / 2f + 0.5f; cy = (y0 + y1) / 2f + 0.5f;
+                    r = Math.Max(x1 - x0, y1 - y0) / 2f + 1.2f;
+                }
+                else { cx = fw / 2f; cy = h / 2f; r = Math.Min(fw, h) / 2f - 2; }
+                for (int f = 0; f < frames; f++)
+                    for (int y = 0; y < h; y++)
+                        for (int x = 0; x < fw; x++)
+                        {
+                            float d = (float)Math.Sqrt((x + 0.5f - cx) * (x + 0.5f - cx) + (y + 0.5f - cy) * (y + 0.5f - cy));
+                            float cover = Math.Max(0, Math.Min(1, r - d + 0.5f));
+                            int i = f * fw + x + y * w;
+                            if (cover < 1) data[i] = data[i] * cover;
+                        }
+                result = new Texture2D(GameFacade.GraphicsDevice, w, h);
+                result.SetData(data);
+                circle = new Vector3(cx, cy, r);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("[SimsRedux] Button cut failed: " + e.Message);
+            }
+            CircleCache[sheet] = Tuple.Create(result, circle);
+            return result;
+        }
+
+        /// <summary>
+        /// The Redux neighbourhood bar: a rounded bar with a round socket under each button, all one
+        /// smooth shape with a dark outline, in the UI colour. circles are (x, y, radius) in bar pixels.
+        /// </summary>
+        public static Texture2D TopBar(int width, int barH, List<Vector3> circles)
+        {
+            var key = "top" + width + "_" + barH + "_" + circles.Count + "_" + (circles.Count > 0 ? circles[0].ToString() : "");
+            Texture2D tex;
+            if (Cache.TryGetValue(key, out tex)) return tex;
+            int h = barH + 26;
+            foreach (var c in circles) h = Math.Max(h, (int)Math.Ceiling(c.Y + c.Z) + 5);
+            var data = new Color[width * h];
+            var edge = Edge;
+            float radius = barH / 2f;
+            for (int y = 0; y < h; y++)
+            {
+                Color fill;
+                if (y < 2) fill = Rim;
+                else if (y < 4) fill = Color.Lerp(Hi, Color.White, 0.25f);
+                else
+                {
+                    float t = (y - 4) / 56f;
+                    fill = (t < 0.2f) ? Color.Lerp(Hi, Base, t / 0.2f) : Color.Lerp(Base, Deep, Math.Min(1, (t - 0.2f) / 0.8f));
+                }
+                for (int x = 0; x < width; x++)
+                {
+                    float px = x + 0.5f, py = y + 0.5f;
+                    // signed distance to the bar (rounded right end, slightly rounded left)
+                    float d = RoundRectDist(px, py, width, barH, radius);
+                    foreach (var c in circles)
+                    {
+                        float dc = (float)Math.Sqrt((px - c.X) * (px - c.X) + (py - c.Y) * (py - c.Y)) - c.Z;
+                        if (dc < d) d = dc;
+                    }
+                    if (d > 3.5f) continue;
+                    // shadow outside, dark outline at the edge, colour inside
+                    Color col;
+                    if (d > 1f) { float a = 0.3f * (1 - (d - 1f) / 2.5f); col = Color.Black * a; }
+                    else if (d > -0.5f) col = edge * Math.Max(0, Math.Min(1, 1f - (d - 0.5f)));
+                    else col = Color.Lerp(edge, fill, Math.Min(1, -d - 0.5f));
+                    data[x + y * width] = col;
+                }
+            }
+            tex = new Texture2D(GameFacade.GraphicsDevice, width, h);
+            tex.SetData(data);
+            Cache[key] = tex;
+            return tex;
+        }
+
+        private static float RoundRectDist(float px, float py, float w, float h, float r)
+        {
+            float cx = Math.Max(0, Math.Max(r - px, px - (w - r)));
+            float cy = Math.Max(0, Math.Max(r - py, py - (h - r)));
+            if (cx > 0 && cy > 0) return (float)Math.Sqrt(cx * cx + cy * cy) - r;
+            float inside = -Math.Min(Math.Min(px, w - px), Math.Min(py, h - py));
+            float outside = Math.Max(Math.Max(-px, px - w), Math.Max(-py, py - h));
+            return Math.Max(inside, outside);
+        }
+
         /// <summary>The bottom bar: a light rim on top, then the UI colour fading darker. 1 pixel wide, stretch it.</summary>
         public static Texture2D BarGradient(int height)
         {

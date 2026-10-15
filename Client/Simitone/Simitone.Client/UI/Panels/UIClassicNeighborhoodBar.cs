@@ -37,6 +37,13 @@ namespace Simitone.Client.UI.Panels
         private UILabel NeighNumber;
         private UITS1Button NewHouseBtn, BulldozeBtn, RezoneBtn;
 
+        // SimsRedux: the Redux look draws its own smooth bar with a socket under each round button
+        private bool Redux;
+        private Texture2D LogoCut;
+        private System.Collections.Generic.List<Vector3> Sockets = new System.Collections.Generic.List<Vector3>();
+        private int BarEnd = 800;
+        private const int ReduxBarH = 40;
+
         // button layout measured from the original screens
         private const int ButtonY = 5;
         private const int MainFirstX = 204, Spacing = 50;
@@ -46,6 +53,7 @@ namespace Simitone.Client.UI.Panels
         {
             Panel = panel;
             Mode = mode;
+            Redux = ReduxTheme.Redux;
             Banner = TS1UIGraphics.Get(mode == 4 ? "NghUI/banner_neighborhood.bmp" : "NghUI/banner_downtown.bmp");
             panel.ToolPick = UseTool;
             Logo = TS1UIGraphics.Get("NghUI/TheSimsLogo.bmp");
@@ -64,9 +72,18 @@ namespace Simitone.Client.UI.Panels
         private UITS1Button Btn(string path, int x, int y)
         {
             var tex = TS1UIGraphics.Get(path);
-            var btn = new UITS1Button(tex, TS1UIGraphics.GuessFrames(tex));
+            var frames = TS1UIGraphics.GuessFrames(tex);
+            if (Redux && tex.Width > 1)
+            {
+                // keep just the round button; the bar and its socket are drawn underneath
+                Vector3 circle;
+                tex = ReduxTheme.CircleCut(tex, frames, out circle);
+                if (circle.Z > 0) Sockets.Add(new Vector3(x + circle.X, y + circle.Y, circle.Z + (circle.Z > 15 ? 4 : 2)));
+            }
+            var btn = new UITS1Button(tex, frames);
             btn.Position = new Vector2(x, y);
             Add(btn);
+            BarEnd = Math.Max(BarEnd, x + tex.Width / Math.Max(1, frames) + 16);
             return btn;
         }
 
@@ -150,6 +167,7 @@ namespace Simitone.Client.UI.Panels
                 var online = new UITS1TileButton(TS1UIGraphics.Get("cpanel/Buttons/ButtonTileDialog.bmp"), town ? "Leave Multiplayer" : "Online", town ? 150 : 110);
                 online.TextSize = town ? 12 : 15;
                 online.Position = new Vector2((showExit ? x + Spacing : x) + 6, 9); // takes the Quit button's place in the browser
+                BarEnd = Math.Max(BarEnd, (int)online.Position.X + (town ? 150 : 110) + 16);
                 if (town) online.OnButtonClick += (b) => UIClassicDialog.YesNo("Leave Multiplayer?", "Leave the online town and go back to your own neighborhood?",
                     () => (UIScreen.Current as Simitone.Client.UI.Screens.TS1GameScreen)?.LeaveTown());
                 else online.OnButtonClick += (b) => UIClassicOnlineDialog.AskToConnect();
@@ -341,8 +359,18 @@ namespace Simitone.Client.UI.Panels
         public override void Draw(UISpriteBatch batch)
         {
             if (!Visible) return;
-            DrawLocalTexture(batch, Banner, Vector2.Zero);
-            DrawLocalTexture(batch, Logo, new Vector2(8, 4));
+            if (Redux)
+            {
+                // Redux: one smooth bar in the UI colour, the round buttons sitting in their sockets
+                DrawLocalTexture(batch, ReduxTheme.TopBar(BarEnd, ReduxBarH, Sockets), Vector2.Zero);
+                if (LogoCut == null) LogoCut = TS1UIGraphics.GetCutout("NghUI/TheSimsLogo.bmp", 1, 14);
+                DrawLocalTexture(batch, LogoCut, new Vector2(8, 4));
+            }
+            else
+            {
+                DrawLocalTexture(batch, Banner, Vector2.Zero);
+                DrawLocalTexture(batch, Logo, new Vector2(8, 4));
+            }
             base.Draw(batch);
         }
     }

@@ -2,6 +2,14 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "3.9",
+      "date": "Oct 15, 2026",
+      "features": [],
+      "updates": [
+        "Neighborhood bar — the top bar gets the new look, with the buttons sitting smoothly in it."
+      ]
+    },
+    {
       "version": "3.8",
       "date": "Oct 15, 2026",
       "features": [
