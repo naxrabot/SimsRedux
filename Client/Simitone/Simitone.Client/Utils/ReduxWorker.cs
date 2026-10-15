@@ -193,7 +193,7 @@ namespace Simitone.Client.Utils
             {
                 foreach (var ava in vm.Context.ObjectQueries.Avatars.OfType<FSO.SimAntics.VMAvatar>())
                 {
-                    if ((ava.GetValue(FSO.SimAntics.Model.VMStackObjectVariable.MovementFlags) & (short)FSO.SimAntics.Model.VMMovementFlags.FSOExcludeUserSave) != 0) continue;
+                    if ((ava.GetValue(FSO.SimAntics.Model.VMStackObjectVariable.MovementFlags) & (short)FSO.SimAntics.VMMovementFlags.FSOExcludeUserSave) != 0) continue;
                     var guid = ava.Object?.OBJ?.GUID ?? 0;
                     var nid = guid == 0 ? null : hood.GetNeighborIDForGUID(guid);
                     if (nid != null) nbs.Add(nid.Value);
