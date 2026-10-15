@@ -22,8 +22,6 @@ namespace Simitone.Client.Utils
             "The Help System question and the expansion announcements (like Old Town Shuttle) don't pop up any more.",
             "Online: no more crash when someone arrives on a lot while it's still loading.",
             "Online: messages like \"nobody's home\" stay on screen until you press OK.",
-            "Online: no more crash when a Sim arrives on a lot that's still loading.",
-            "Online: messages like \"Nobody's home\" stay on screen until you press OK (they used to vanish straight away).",
             "Online: when the server can't let you onto a lot, it now says why (instead of \"couldn't reach the host\"), and your login code is never shown on screen.",
             "Online: games on different versions now say \"update your game\" instead of getting stuck on a grey screen.",
             "Online town: one clock for the whole town - every lot shows the same time, and it only moves while someone is playing (it can't be paused or sped up).",
