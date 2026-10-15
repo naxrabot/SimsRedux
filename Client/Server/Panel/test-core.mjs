@@ -69,6 +69,21 @@ ok(C.readServiceState("        STATE              : 1  STOPPED ", 0) === "stoppe
 ok(C.readServiceState("[SC] EnumQueryServicesStatus:OpenService FAILED 1060:", 1060) === "missing", "tunnel not installed");
 ok(C.safeServiceName("cloudflared") === "cloudflared" && C.safeServiceName("x'; rm -rf /") === "cloudflared", "only plain service names reach Windows");
 
+// patch notes: the panel's changes on top of the shipped ones
+ok(C.verCmp("3.10", "3.9") === 1 && C.verCmp("3.4", "3.4") === 0, "versions compare as numbers");
+ok(C.cleanPatch({ version: "../x" }) === null && C.cleanPatch({ version: "3.5", features: "- a\n\n* b" }).features.join("|") === "a|b", "patch lines cleaned, bad versions refused");
+const shipped = { patches: [{ version: "3.3", features: ["old"], updates: [] }, { version: "3.4", features: ["f"], updates: ["u"] }] };
+let m = C.mergePatchNotes(shipped, { patches: [{ version: "3.4", features: ["edited"], updates: [] }, { version: "3.5", features: ["new"], updates: [] }, { version: "3.3", hidden: true }] });
+ok(m.map(x => x.version).join(",") === "3.5,3.4,3.3", "newest first, added versions included");
+ok(m[1].features[0] === "edited" && m[1].edited && m[1].shipped, "an edited version replaces the shipped one");
+ok(m[2].hidden && m[0].edited && !m[0].shipped, "hidden and added versions are marked");
+const nd = path.join(tmp, "notes");
+ok(C.savePatch(nd, { version: "3.6", date: "Oct 16", features: "one\ntwo", updates: "" }).ok, "a version saves");
+ok(!C.savePatch(nd, { version: "3.6", features: "", updates: "" }).ok, "an empty version is refused");
+C.hidePatch(nd, "3.4"); C.resetPatch(nd, "3.6");
+const back = JSON.parse(fs.readFileSync(path.join(nd, "patchnotes.json"), "utf8")).patches;
+ok(back.length === 1 && back[0].version === "3.4" && back[0].hidden, "hide and back-to-original are kept as changes");
+
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(failed ? "\n" + failed + " FAILED" : "\nall passed");
 process.exit(failed ? 1 : 0);

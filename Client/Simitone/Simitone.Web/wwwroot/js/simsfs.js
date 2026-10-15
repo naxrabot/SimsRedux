@@ -691,13 +691,35 @@
     //
     // After logging in (or choosing to play offline): the game's version, patch notes, the account
     // and the game folder. Nothing big loads until Play is pressed.
+    // The notes shipped with the website, with the changes made in the server panel on top
+    // (a version edited there replaces this one, one added there is new, one hidden there is left out).
     let patchNotes = null;
     async function getPatchNotes() {
         if (patchNotes) return patchNotes;
-        try {
-            const r = await fetch('patchnotes.json', { cache: 'no-cache' });
-            patchNotes = r.ok ? await r.json() : null;
-        } catch (e) { patchNotes = null; }
+        const getJson = async (url) => {
+            try {
+                const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 5000);
+                const r = await fetch(url, { cache: 'no-cache', signal: ctl.signal });
+                clearTimeout(t);
+                return r.ok ? await r.json() : null;
+            } catch (e) { return null; }
+        };
+        const [shipped, changes] = await Promise.all([getJson('patchnotes.json'), getJson(Account.SERVER + '/api/patchnotes')]);
+        const ver = v => String(v).split('.').map(n => parseInt(n, 10) || 0);
+        const cmp = (a, b) => { const x = ver(a), y = ver(b); for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) - (y[i] || 0); return 0; };
+        const lines = v => (Array.isArray(v) ? v : []).map(t => String(t).trim()).filter(Boolean).slice(0, 30);
+        const by = new Map();
+        for (const src of [shipped, changes]) {
+            for (const p of ((src && Array.isArray(src.patches)) ? src.patches : [])) {
+                if (!p || !/^\d{1,3}(\.\d{1,3}){0,3}$/.test(String(p.version || ''))) continue;
+                if (p.hidden) { by.delete(String(p.version)); continue; }
+                by.set(String(p.version), { version: String(p.version), date: String(p.date || ''), features: lines(p.features), updates: lines(p.updates) });
+            }
+        }
+        if (!shipped && !changes) return null;
+        // (the version check goes by the website's own notes: a version written up early in the panel isn't out yet)
+        const shippedLatest = ((shipped && Array.isArray(shipped.patches)) ? shipped.patches : []).map(p => String((p && p.version) || '')).filter(v => /^\d/.test(v)).sort((a, b) => cmp(b, a))[0] || null;
+        patchNotes = { stage: (shipped && shipped.stage) || 'Beta', shippedLatest, patches: Array.from(by.values()).sort((a, b) => cmp(b.version, a.version)) };
         return patchNotes;
     }
     async function hasGameFiles() {
@@ -827,7 +849,7 @@
         let needsUpdate = false;
         const checkVersion = () => {
             const srv = status[chosen] && status[chosen].game;
-            const site = latest && latest.version;
+            const site = (notes && notes.shippedLatest) || (latest && latest.version);
             needsUpdate = !!webVersion && ((site && newer(site, webVersion)) || (srv && newer(srv, webVersion)));
             vcheck.className = 'vcheck';
             if (!webVersion) { vcheck.textContent = ''; }

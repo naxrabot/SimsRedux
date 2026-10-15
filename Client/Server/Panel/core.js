@@ -46,6 +46,7 @@ function dataPaths(dir) {
     config: path.join(dir, "server.json"),
     accounts: path.join(dir, "accounts.json"),
     backups: path.join(dir, "backups"),
+    patchnotes: path.join(dir, "patchnotes.json"),
     log: path.join(dir, "server.log")
   };
 }
@@ -106,6 +107,79 @@ function readAccounts(dataDir) {
   })).sort((x, y) => (y.pending - x.pending) || x.name.localeCompare(y.name, undefined, { sensitivity: "base" }));
 }
 function readServerConfig(dataDir) { return readJSON(dataPaths(dataDir).config) || {}; }
+
+/* ---------- patch notes ----------
+   Each update ships its patch notes with the website (Simitone.Web/wwwroot/patchnotes.json).
+   What's changed here in the panel is kept apart, in the server's data folder
+   (patchnotes.json there): a version edited here replaces the shipped one, a version
+   added here is new, a version hidden here isn't shown. The server hands those
+   changes to the website's launcher, which puts the two together the same way. */
+function shippedNotesFile(from) {
+  return path.resolve(from || __dirname, "..", "..", "Simitone", "Simitone.Web", "wwwroot", "patchnotes.json");
+}
+/** -1 / 0 / 1, newest last ("3.10" is after "3.9"). */
+function verCmp(a, b) {
+  const x = String(a).split(".").map(n => parseInt(n, 10) || 0), y = String(b).split(".").map(n => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0) ? -1 : 1;
+  return 0;
+}
+/** A patch entry made safe: short plain lines only. null if it isn't usable. */
+function cleanPatch(p) {
+  if (!p || typeof p !== "object") return null;
+  const version = String(p.version || "").trim();
+  if (!/^\d{1,3}(\.\d{1,3}){0,3}$/.test(version)) return null;
+  const lines = v => (Array.isArray(v) ? v : String(v || "").split(/\r?\n/))
+    .map(t => oneLine(String(t)).replace(/^[-*\u2022]\s*/, "").trim()).filter(t => t.length > 0).slice(0, 30).map(t => t.slice(0, 200));
+  const out = { version, date: oneLine(String(p.date || "")).slice(0, 40), features: lines(p.features), updates: lines(p.updates) };
+  if (p.hidden) out.hidden = true;
+  return out;
+}
+/** The shipped notes with the panel's changes on top, newest first. Each entry says where it came from. */
+function mergePatchNotes(shipped, changes) {
+  const by = new Map();
+  for (const p of ((shipped && shipped.patches) || [])) { const c = cleanPatch(p); if (c) by.set(c.version, Object.assign(c, { shipped: true })); }
+  for (const p of ((changes && changes.patches) || [])) {
+    const c = cleanPatch(p); if (!c) continue;
+    const had = by.get(c.version);
+    by.set(c.version, Object.assign(c, { shipped: !!had, edited: true }));
+  }
+  return Array.from(by.values()).sort((a, b) => verCmp(b.version, a.version));
+}
+function readPatchNotes(dataDir, from) {
+  const shipped = readJSON(shippedNotesFile(from));
+  const changes = readJSON(dataPaths(dataDir).patchnotes);
+  return { ok: true, shippedFound: !!shipped, stage: (shipped && shipped.stage) || "Beta", patches: mergePatchNotes(shipped, changes) };
+}
+function writeChanges(dataDir, fn) {
+  const file = dataPaths(dataDir).patchnotes;
+  const cur = readJSON(file) || {};
+  const list = (Array.isArray(cur.patches) ? cur.patches : []).map(cleanPatch).filter(Boolean);
+  const next = fn(list);
+  fs.mkdirSync(dataDir, { recursive: true });
+  fs.writeFileSync(file + ".tmp", JSON.stringify({ patches: next }, null, 2));
+  fs.renameSync(file + ".tmp", file);
+}
+/** Save one version as typed in the panel (replaces the shipped one for that version). */
+function savePatch(dataDir, entry) {
+  const c = cleanPatch(entry);
+  if (!c) return { ok: false, error: "the version must look like 3.5" };
+  delete c.hidden;
+  if (!c.features.length && !c.updates.length) return { ok: false, error: "add at least one feature or update" };
+  writeChanges(dataDir, list => list.filter(p => p.version !== c.version).concat([c]));
+  return { ok: true };
+}
+/** Hide a version from the launcher (a shipped one stays hidden until shown again). */
+function hidePatch(dataDir, version) {
+  version = String(version || "").trim();
+  writeChanges(dataDir, list => list.filter(p => p.version !== version).concat([{ version, date: "", features: [], updates: [], hidden: true }]));
+  return { ok: true };
+}
+/** Forget the panel's change to a version: back to what shipped (or gone, if it was added here). */
+function resetPatch(dataDir, version) {
+  version = String(version || "").trim();
+  writeChanges(dataDir, list => list.filter(p => p.version !== version));
+  return { ok: true };
+}
 
 /* ---------- asking a server how it is ---------- */
 
@@ -286,6 +360,7 @@ module.exports = { readServiceState, safeServiceName,
   CHANNELS, DEFAULTS,
   guessServerExe, serverCommand, isFile,
   defaultDataDir, dataPaths, readAccounts, readServerConfig,
+  shippedNotesFile, verCmp, cleanPatch, mergePatchNotes, readPatchNotes, savePatch, hidePatch, resetPatch,
   loadSettings, saveSettings, profile, serverArgs,
   getJSON, readHealth, readPublic,
   COMMANDS, PLANNED, commandNames, oneLine

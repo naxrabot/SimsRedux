@@ -19,6 +19,10 @@ contextBridge.exposeInMainWorld("panel", {
   pickExe:    ()            => ipcRenderer.invoke("panel:pickExe"),
   settings:   patch         => ipcRenderer.invoke("panel:settings", patch),
   accounts:   c             => ipcRenderer.invoke("panel:accounts", String(c)),
+  notes:      c             => ipcRenderer.invoke("panel:notes", String(c)),
+  note:       (c, action, entry) => ipcRenderer.invoke("panel:note", String(c), String(action), {
+                version: String((entry && entry.version) || ""), date: String((entry && entry.date) || ""),
+                features: String((entry && entry.features) || ""), updates: String((entry && entry.updates) || "") }),
   account:    (c, action, name, a, b) => ipcRenderer.invoke("panel:account", String(c), String(action), String(name || ""), String(a || ""), String(b || "")),
 
   onConsole: fn => ipcRenderer.on("console", (e, line) => fn(line)),

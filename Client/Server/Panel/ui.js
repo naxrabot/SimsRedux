@@ -120,6 +120,7 @@ function switchTo(ch){
   P.setActive(ch);
   setRunning(); redrawConsole(); paintLocal(); paintPublic(); say("");
   if (!$("acc").classList.contains("hidden")) loadAccounts();
+  if (!$("pn").classList.contains("hidden")) loadNotes();
 }
 
 /* ---------- commands panel ---------- */
@@ -265,6 +266,78 @@ async function loadAccounts(){
   }
 }
 $("bAccounts").addEventListener("click", () => { $("acc").classList.remove("hidden"); loadAccounts(); });
+
+/* ---------- patch notes (what the website's launcher shows) ---------- */
+let NOTES = [], PN_SEL = null;
+async function loadNotes(keep){
+  $("pnTitle").textContent = "PATCH NOTES · " + ACTIVE.toUpperCase();
+  const d = await P.notes(ACTIVE);
+  NOTES = (d && d.patches) || [];
+  $("pnNote").textContent = d && d.shippedFound ? "changes go live on the launcher straight away (server running)" :
+    "the shipped notes weren't found next to the panel — only versions added here show";
+  const list = $("pnList"); list.innerHTML = "";
+  for (const n of NOTES) {
+    const b = document.createElement("button"); b.type = "button";
+    if (n.hidden) b.classList.add("hid");
+    const v = document.createElement("span"); v.className = "v"; v.textContent = "v" + n.version;
+    b.appendChild(v);
+    if (n.edited) { const t = document.createElement("span"); t.className = "tag"; t.textContent = n.hidden ? "HIDDEN" : n.shipped ? "EDITED" : "ADDED HERE"; b.appendChild(t); }
+    const dd = document.createElement("span"); dd.className = "d";
+    dd.textContent = (n.date || "no date") + " · " + (n.features.length + n.updates.length) + " line(s)";
+    b.appendChild(dd);
+    b.addEventListener("click", () => pickNote(n.version));
+    list.appendChild(b);
+  }
+  pickNote(keep && NOTES.some(n => n.version === keep) ? keep : (NOTES[0] && NOTES[0].version) || null);
+}
+function pickNote(version){
+  PN_SEL = version;
+  const n = NOTES.find(x => x.version === version);
+  for (const b of $("pnList").children) b.classList.toggle("sel", b.querySelector(".v").textContent === "v" + version);
+  $("pnVer").value = n ? n.version : "";
+  $("pnVer").readOnly = !!n;
+  $("pnDate").value = n ? n.date : "";
+  $("pnFeat").value = n ? n.features.join("\n") : "";
+  $("pnUpd").value = n ? n.updates.join("\n") : "";
+  $("pnReset").disabled = !(n && n.edited);
+  $("pnReset").textContent = n && n.edited && !n.shipped ? "Remove" : n && n.hidden ? "Show again" : "Back to original";
+  $("pnHide").disabled = !n || n.hidden;
+  $("pnMsg").textContent = n && n.hidden ? "hidden from the launcher" : "";
+}
+function newNote(){
+  PN_SEL = null;
+  for (const b of $("pnList").children) b.classList.remove("sel");
+  const top = NOTES[0] ? NOTES[0].version.split(".").map(Number) : [1, 0];
+  if (top.length > 1) top[top.length - 1]++; else top.push(1);
+  $("pnVer").value = top.join("."); $("pnVer").readOnly = false;
+  $("pnDate").value = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  $("pnFeat").value = ""; $("pnUpd").value = "";
+  $("pnReset").disabled = true; $("pnHide").disabled = true;
+  $("pnMsg").textContent = "a new version — fill it in and SAVE";
+  $("pnFeat").focus();
+}
+$("bNotes").addEventListener("click", () => { $("pn").classList.remove("hidden"); loadNotes(); });
+$("pnClose").addEventListener("click", () => $("pn").classList.add("hidden"));
+$("pnNew").addEventListener("click", newNote);
+$("pnSave").addEventListener("click", async () => {
+  const entry = { version: $("pnVer").value.trim(), date: $("pnDate").value, features: $("pnFeat").value, updates: $("pnUpd").value };
+  if (!PN_SEL && NOTES.some(n => n.version === entry.version)) { $("pnMsg").textContent = "v" + entry.version + " is already in the list — pick it on the left to change it"; return; }
+  const r = await P.note(ACTIVE, "save", entry);
+  if (!r || !r.ok) { $("pnMsg").textContent = (r && r.error) || "couldn't save"; return; }
+  await loadNotes(entry.version);
+  $("pnMsg").textContent = "saved ✓";
+});
+$("pnHide").addEventListener("click", async () => {
+  const b = $("pnHide");
+  if (!b.dataset.sure) { b.dataset.sure = "1"; b.textContent = "Really hide?"; setTimeout(() => { delete b.dataset.sure; b.textContent = "Hide version"; }, 4000); return; }
+  delete b.dataset.sure; b.textContent = "Hide version";
+  await P.note(ACTIVE, "hide", { version: PN_SEL });
+  await loadNotes(PN_SEL);
+});
+$("pnReset").addEventListener("click", async () => {
+  await P.note(ACTIVE, "reset", { version: PN_SEL });
+  await loadNotes(PN_SEL);
+});
 $("accClose").addEventListener("click", () => $("acc").classList.add("hidden"));
 $("accReg").addEventListener("change", e => act("registration", "", e.target.checked ? "on" : "off"));
 $("newGo").addEventListener("click", async () => {
@@ -393,7 +466,7 @@ $("cmd").addEventListener("keydown", e => {
 });
 document.addEventListener("keydown", e => {
   if (e.key !== "Escape") return;
-  for (const id of ["acc", "gf", "cfg"]) if (!$(id).classList.contains("hidden")) { $(id).classList.add("hidden"); return; }
+  for (const id of ["acc", "pn", "gf", "cfg"]) if (!$(id).classList.contains("hidden")) { $(id).classList.add("hidden"); return; }
   if (!$("side").classList.contains("hidden")) toggleSide(false);
 });
 

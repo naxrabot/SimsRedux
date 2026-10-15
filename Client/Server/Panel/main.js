@@ -291,6 +291,18 @@ ipcMain.handle("panel:settings", (e, patch) => {
   return { ok: true, settings: S, servers };
 });
 
+/* ---------- patch notes: the panel's changes, kept in the server's data folder ---------- */
+ipcMain.handle("panel:notes", (e, c) => C.readPatchNotes(C.profile(S, ch(c), __dirname).dataDir, __dirname));
+ipcMain.handle("panel:note", (e, c, action, entry) => {
+  const dir = C.profile(S, ch(c), __dirname).dataDir;
+  try {
+    if (action === "save") return C.savePatch(dir, entry);
+    if (action === "hide") return C.hidePatch(dir, entry && entry.version);
+    if (action === "reset") return C.resetPatch(dir, entry && entry.version);
+  } catch (err) { return { ok: false, error: String(err && err.message || err) }; }
+  return { ok: false, error: "unknown action" };
+});
+
 /* ---------- accounts: read from the server's own file, changed through its console ---------- */
 ipcMain.handle("panel:accounts", (e, c) => {
   c = ch(c);

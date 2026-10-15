@@ -134,6 +134,21 @@ namespace SimsRedux.Server
                         return;
                     }
                     break;
+                case "/api/patchnotes":
+                    // the panel's changes to the patch notes (the launcher puts them over the shipped ones)
+                    if (req.Method == "GET")
+                    {
+                        object notes = new { patches = Array.Empty<object>() };
+                        try
+                        {
+                            var f = Path.Combine(Program.DataDir, "patchnotes.json");
+                            if (File.Exists(f)) notes = System.Text.Json.JsonDocument.Parse(File.ReadAllText(f)).RootElement.Clone();
+                        }
+                        catch (Exception e) { Log.Warn("patchnotes.json couldn't be read: " + e.Message); }
+                        await HttpServer.SendJson(stream, 200, notes, cors);
+                        return;
+                    }
+                    break;
                 case "/api/notices": if (req.Method == "GET") { await GetNotices(req, stream, cors); return; } break;
                 case "/api/report": if (req.Method == "POST") { await PostReport(req, stream, cors); return; } break;
                 case "/api/register": if (req.Method == "POST") { await Register(req, stream, cors); return; } break;

@@ -54,6 +54,7 @@
   <div class="grp">
     <button id="bAccounts">Accounts…</button>
     <button id="bFiles">Game files…</button>
+    <button id="bNotes">Patch notes…</button>
   </div>
   <div class="grp right">
     <button id="bCmds">Commands</button>
@@ -109,6 +110,38 @@
   </div>
 </div>
 
+<!-- ============ PATCH NOTES ============
+     What the website's launcher shows under PATCH NOTES. Saved in the server's
+     data folder; the shipped notes come with each update. -->
+<div id="pn" class="hidden ovl">
+  <div class="ovlBox">
+    <div class="sideHead">
+      <b id="pnTitle">PATCH NOTES</b>
+      <span id="pnNote" class="lh"></span>
+      <button id="pnNew" class="go">+ NEW VERSION</button>
+      <button id="pnClose" class="x">CLOSE</button>
+    </div>
+    <div class="pnWrap">
+      <div id="pnList" class="pnList"></div>
+      <div class="pnEdit">
+        <div class="pnRow">
+          <label>Version<input id="pnVer" type="text" spellcheck="false" placeholder="3.5"></label>
+          <label>Date<input id="pnDate" type="text" spellcheck="false" placeholder="Oct 16, 2026"></label>
+        </div>
+        <label>New features<span class="lh">new things in this version — one per line, short</span>
+          <textarea id="pnFeat" rows="7" spellcheck="true"></textarea></label>
+        <label>Updates<span class="lh">changes and fixes — one per line, short</span>
+          <textarea id="pnUpd" rows="7" spellcheck="true"></textarea></label>
+        <div class="pnFoot">
+          <span id="pnMsg" class="lh"></span>
+          <button id="pnReset">Back to original</button>
+          <button id="pnHide" class="danger">Hide version</button>
+          <button id="pnSave" class="go">SAVE</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 <!-- ============ GAME FILES ============ -->
 <div id="gf" class="hidden ovl">
   <div class="ovlBox small">

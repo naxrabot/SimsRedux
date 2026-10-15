@@ -2,6 +2,14 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "3.5",
+      "date": "Oct 15, 2026",
+      "features": [
+        "Patch notes can be edited from the server panel."
+      ],
+      "updates": []
+    },
+    {
       "version": "3.4",
       "date": "Oct 15, 2026",
       "features": [
