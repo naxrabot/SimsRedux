@@ -20,6 +20,8 @@ namespace Simitone.Client.Utils
         {
             "Online: coming home after visiting a friend brings your Sim back (in at the mailbox if they were away), and the camera never shows an empty grey screen.",
             "Online: buying something takes the money off straight away.",
+            "Online: questions at home (like the carpool's \"time for work\") take your answer instead of popping up again and again.",
+            "Website: no more crash from a sound when the game carries on after a question.",
             "Admin: give a player's town family money from the server panel ( /money <account> <amount> ).",
             "Server: the grey window that popped up when a lot opened (Go Home, Visit) is now invisible for good.",
             "Walls: diagonal walls stay visible when walls are cut away, and doors in cut walls hide with them.",
