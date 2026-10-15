@@ -59,13 +59,14 @@ namespace Simitone.Client.Utils
         }
 
         /// <summary>
-        /// How smart Sims are on their own in single player: 0 = the original Sims 1 brain,
-        /// 1 = Smarter, 2 = Smartest (Sims 3/4-style, the default). Online lots are always Smartest.
+        /// How smart Sims are on their own in single player: -1 = Off (your family does nothing on
+        /// their own), 0 = the original Sims 1 brain, 1 = Smarter, 2 = Smartest (Sims 3/4-style, the
+        /// default). Online lots are always Smartest.
         /// </summary>
         public static int Autonomy
         {
-            get { var v = Math.Max(0, Math.Min(2, GetInt("autonomy", 2))); FSO.SimAntics.Primitives.VMFindBestAction.ReduxLevel = v; return v; }
-            set { var v = Math.Max(0, Math.Min(2, value)); Set("autonomy", v); FSO.SimAntics.Primitives.VMFindBestAction.ReduxLevel = v; }
+            get { var v = Math.Max(-1, Math.Min(2, GetInt("autonomy", 2))); FSO.SimAntics.Primitives.VMFindBestAction.ReduxLevel = v; return v; }
+            set { var v = Math.Max(-1, Math.Min(2, value)); Set("autonomy", v); FSO.SimAntics.Primitives.VMFindBestAction.ReduxLevel = v; }
         }
 
         public static int GetInt(string key, int fallback)

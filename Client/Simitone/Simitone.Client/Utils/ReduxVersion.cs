@@ -12,12 +12,14 @@ namespace Simitone.Client.Utils
     /// </summary>
     public static class ReduxVersion
     {
-        public const string Number = "2.9";
+        public const string Number = "3.0";
         public const string Stage = "Beta";
 
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Smarter Sims, stage 2: they finish what they start (the whole meal, a proper sleep), stop bouncing between the same things, pay the bills and repair broken things when they're doing fine, and grab a snack instead of cooking when they can't cook.",
+            "Options > Play > Sim Smarts now has Off (your family does nothing on their own in single player).",
             "Smarter Sims: they deal with needs before they turn red, put urgent needs first, sleep at night instead of napping all day, and get ready before the carpool. Options > Play > Sim Smarts (online is always Smartest).",
             "Mods added: Red Poppy bathroom set and French door, LPX soccer ball, Frosti chevron floors, 7 Zeta heads, Hidden Objects Unlocked, Improved Pets, and Slower Motives.",
             "Online: going home or visiting shows the wallpaper and progress bar until the lot is actually on screen - no more grey screen.",
