@@ -220,31 +220,31 @@ namespace SimsRedux.Server
 
                 case "/money":
                     {
-                        if (parts.Length != 3 || !int.TryParse(Arg(2).Replace(",", "").TrimStart('\u00a7', '$'), out var amount) || amount == 0 || Math.Abs(amount) > 10000000)
+                        if (parts.Length != 3 || !int.TryParse(Arg(2).Replace(",", "").TrimStart('\u00a7', '$'), out var mAmount) || mAmount == 0 || Math.Abs(mAmount) > 10000000)
                         { Log.Reply("usage: /money <account> <amount>   e.g. /money joey 5000  (or -500 to take some away)"); break; }
-                        var who = Arg(1);
-                        var owner = Owners.Of(Accounts.KeyOf(who));
-                        if (owner == null) { Log.Reply(who + " doesn't have a family in the town"); break; }
-                        var house = (short)owner.House;
-                        var what = (amount > 0 ? "\u00a7" + amount + " to " : "\u00a7" + (-amount) + " from ") + who + "'s family (" + owner.Name + ")";
-                        var open = Lots.Running().FirstOrDefault(x => x.House == house && x.Ready && !x.Closing && !x.Finished);
-                        if (open != null)
+                        var mWho = Arg(1);
+                        var mOwner = Owners.Of(Accounts.KeyOf(mWho));
+                        if (mOwner == null) { Log.Reply(mWho + " doesn't have a family in the town"); break; }
+                        var mHouse = (short)mOwner.House;
+                        var mWhat = (mAmount > 0 ? "\u00a7" + mAmount + " to " : "\u00a7" + (-mAmount) + " from ") + mWho + "'s family (" + mOwner.Name + ")";
+                        var mOpen = Lots.Running().FirstOrDefault(x => x.House == mHouse && x.Ready && !x.Closing && !x.Finished);
+                        if (mOpen != null)
                         {
                             // their lot is open: the money changes right away for everyone on it
-                            Lots.Send(open, "money " + owner.Family + " " + amount);
-                            Log.Reply("giving " + what + " - house " + house + " is open, so it shows straight away");
+                            Lots.Send(mOpen, "money " + mOwner.Family + " " + mAmount);
+                            Log.Reply("giving " + mWhat + " - house " + mHouse + " is open, so it shows straight away");
                             break;
                         }
-                        if (Lots.Running().Any(x => x.House == house)) { Log.Reply("house " + house + " is opening or closing - try again in a few seconds"); break; }
+                        if (Lots.Running().Any(x => x.House == mHouse)) { Log.Reply("house " + mHouse + " is opening or closing - try again in a few seconds"); break; }
                         // closed: the lot opens just long enough to change it, then closes again
-                        Log.Reply("giving " + what + " (house " + house + " is closed - this takes a few seconds)");
-                        var famNo = owner.Family;
+                        Log.Reply("giving " + mWhat + " (house " + mHouse + " is closed - this takes a few seconds)");
+                        var mFamNo = mOwner.Family;
                         _ = Task.Run(async () =>
                         {
-                            var w = Lots.Get(house, out var err, new[] { "-money" + famNo + ":" + amount });
-                            if (w == null) { Log.Reply("couldn't give the money: " + err); return; }
+                            var w = Lots.Get(mHouse, out var mErr, new[] { "-money" + mFamNo + ":" + mAmount });
+                            if (w == null) { Log.Reply("couldn't give the money: " + mErr); return; }
                             await Lots.WaitExit(w, TimeSpan.FromSeconds(90));
-                            Log.Reply(w.MoneyNow >= 0 ? who + "'s family now has \u00a7" + w.MoneyNow : "couldn't give the money: " + (w.Problem ?? "the lot didn't finish").Replace("error ", ""));
+                            Log.Reply(w.MoneyNow >= 0 ? mWho + "'s family now has \u00a7" + w.MoneyNow : "couldn't give the money: " + (w.Problem ?? "the lot didn't finish").Replace("error ", ""));
                         });
                     }
                     break;
