@@ -109,8 +109,9 @@ namespace Simitone.Client.UI.Panels.Desktop
             // camera
             ZoomInButton = Btn("cpanel/Buttons/zoomin.bmp", 26, 105);
             ZoomOutButton = Btn("cpanel/Buttons/zoomout.bmp", 26, 149);
-            RotateCCWButton = Btn("cpanel/Buttons/rotleft.bmp", 43, 127);
-            RotateCWButton = Btn("cpanel/Buttons/rotright.bmp", 9, 127);
+            // (the rotate arrows' pictures have a black square behind them: just the arrows)
+            RotateCCWButton = Btn("cpanel/Buttons/rotleft.bmp", 43, 127, false, true);
+            RotateCWButton = Btn("cpanel/Buttons/rotright.bmp", 9, 127, false, true);
             ZoomInButton.OnButtonClick += (b) => Zoom(-1);
             ZoomOutButton.OnButtonClick += (b) => Zoom(1);
             RotateCWButton.OnButtonClick += (b) => Rotate(1);
@@ -208,9 +209,10 @@ namespace Simitone.Client.UI.Panels.Desktop
             PlayBtn.Selected = page == UIClassicOptionsPages.Page.Play;
         }
 
-        private UITS1Button Btn(string path, int x, int y, bool cyanWhenSelected = false)
+        private UITS1Button Btn(string path, int x, int y, bool cyanWhenSelected = false, bool cutout = false)
         {
-            var tex = TS1UIGraphics.Get(path);
+            // (cutout: just the button itself - the solid background baked into the picture is taken out)
+            var tex = cutout ? TS1UIGraphics.GetCutout(path, 4, 24) : TS1UIGraphics.Get(path);
             var btn = new UITS1Button(tex, 4);
             btn.Position = new Vector2(x, y);
             if (cyanWhenSelected) btn.SelectedFrame = 1;

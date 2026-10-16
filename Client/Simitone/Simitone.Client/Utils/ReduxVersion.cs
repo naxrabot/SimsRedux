@@ -18,6 +18,7 @@ namespace Simitone.Client.Utils
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Touch: the Turn Left and Turn Right arrows show just the arrows - no black square behind them.",
             "Tint: only the object's own main colour changes - a bookshelf's wood, not the books on it.",
             "Cross saves: your neighborhood, houses, Sims and settings are kept on your account - log in on any device and your game is there.",
             "Touch: the Redux interface (the Sims 1 control panel) now works on phones and tablets, sized for your fingers. Drag a held object to move it, tap to put it down, and use Turn / Place / Sell.",
