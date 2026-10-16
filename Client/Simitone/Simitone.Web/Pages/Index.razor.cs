@@ -30,6 +30,52 @@ namespace Simitone.Web.Pages
             if (_crashed) return;
             try { Simitone.Client.Utils.ReduxGuest.Current?.SendAlive(); } catch { }
         }
+        // ---- the phone's keyboard (touch controls) ----
+        static FSO.Client.UI.Controls.UITextEdit _kbTarget;
+        static bool _kbShown;
+
+        /// <summary>
+        /// With touch controls, a game text box that has the focus (a Sim's name, chat...) opens the
+        /// phone's own keyboard: the page focuses a hidden text box and sends back what's typed.
+        /// </summary>
+        void UpdatePhoneKeyboard()
+        {
+            try
+            {
+                FSO.Client.UI.Controls.UITextEdit focus = null;
+                if (FSO.Common.FSOEnvironment.SoftwareKeyboard)
+                    focus = FSO.Client.GameFacade.Screens?.inputManager?.GetFocus() as FSO.Client.UI.Controls.UITextEdit;
+                if (focus != null && (!focus.Visible || focus.IsReadOnly)) focus = null;
+                bool want = focus != null;
+                if (want == _kbShown && focus == _kbTarget) return;
+                _kbShown = want;
+                _kbTarget = focus;
+                ((IJSInProcessRuntime)JsRuntime).InvokeVoid("simsReduxKeyboard", want, want ? (focus.CurrentText ?? "") : "");
+            }
+            catch { }
+        }
+
+        /// <summary>The whole text in the phone keyboard's box (sent on every change).</summary>
+        [JSInvokable("SimsReduxKeyboardText")]
+        public static void SimsReduxKeyboardText(string text)
+        {
+            try { _kbTarget?.SetTextFromKeyboard(text); } catch { }
+        }
+
+        /// <summary>The phone keyboard was put away (Done / back): the game box lets go of the focus too.</summary>
+        [JSInvokable("SimsReduxKeyboardClosed")]
+        public static void SimsReduxKeyboardClosed()
+        {
+            try
+            {
+                var im = FSO.Client.GameFacade.Screens?.inputManager;
+                if (im != null && _kbTarget != null && im.GetFocus() == _kbTarget) im.SetFocus(null);
+                _kbShown = false;
+                _kbTarget = null;
+            }
+            catch { }
+        }
+
         /// <summary>A finger on the game (from index.html), already in the game's pixels. phase: 0 down, 1 moved, 2 up, 3 cancelled.</summary>
         [JSInvokable("SimsReduxTouch")]
         public static bool SimsReduxTouch(int id, double x, double y, int phase)
@@ -85,6 +131,7 @@ namespace Simitone.Web.Pages
                     }
                 }
                 _game.Tick();
+                UpdatePhoneKeyboard();
             }
             catch (Exception e)
             {

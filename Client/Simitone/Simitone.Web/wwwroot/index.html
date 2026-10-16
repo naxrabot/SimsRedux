@@ -140,6 +140,52 @@
             canvas.style.display = 'block';
         };
 
+        // The phone's keyboard (touch controls): a hidden text box the game asks to focus when one of
+        // its own boxes (a name, chat...) is chosen. What's typed is sent back whole on every change
+        // (so autocorrect and backspace just work), and its keys never reach the game directly.
+        window.simsReduxKeyboard = (show, text) =>
+        {
+            var box = document.getElementById('srxKeyboard');
+            if (!box)
+            {
+                box = document.createElement('input');
+                box.id = 'srxKeyboard';
+                box.type = 'text';
+                box.setAttribute('autocomplete', 'off');
+                box.setAttribute('autocapitalize', 'sentences');
+                box.setAttribute('enterkeyhint', 'done');
+                box.style.cssText = 'position:fixed;left:0;bottom:0;width:1px;height:1px;opacity:0;font-size:16px;border:0;padding:0;z-index:-1;';
+                box.addEventListener('input', function () { try { DotNet.invokeMethod('SimsRedux.Web', 'SimsReduxKeyboardText', box.value); } catch (e) { } });
+                var stop = function (e) { e.stopPropagation(); };
+                box.addEventListener('keyup', stop);
+                box.addEventListener('keypress', stop);
+                box.addEventListener('keydown', function (e)
+                {
+                    e.stopPropagation();
+                    if (e.key === 'Enter') { e.preventDefault(); box.blur(); }
+                });
+                box.addEventListener('blur', function ()
+                {
+                    if (!window.srxKbWanted) return;
+                    window.srxKbWanted = false;
+                    try { DotNet.invokeMethod('SimsRedux.Web', 'SimsReduxKeyboardClosed'); } catch (e) { }
+                });
+                document.body.appendChild(box);
+            }
+            if (show)
+            {
+                box.value = text || '';
+                window.srxKbWanted = true;
+                if (document.activeElement !== box) box.focus({ preventScroll: true });
+                try { box.setSelectionRange(box.value.length, box.value.length); } catch (e) { }
+            }
+            else
+            {
+                window.srxKbWanted = false;
+                if (document.activeElement === box) box.blur();
+            }
+        };
+
         window.simsReduxCrashed = (message) =>
         {
             var box = document.createElement('div');
@@ -181,6 +227,11 @@
                     catch (err) { }
                 }
                 if (used) e.preventDefault();
+                if (phase === 2 && window.srxKbWanted)
+                {
+                    var kb = document.getElementById('srxKeyboard');
+                    if (kb && document.activeElement !== kb) kb.focus({ preventScroll: true });
+                }
             };
             canvas.addEventListener('touchstart', function (e) { srxTouch(e, 0); }, { passive: false });
             canvas.addEventListener('touchmove', function (e) { srxTouch(e, 1); }, { passive: false });

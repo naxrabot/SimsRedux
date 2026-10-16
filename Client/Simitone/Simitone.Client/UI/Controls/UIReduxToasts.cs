@@ -25,7 +25,7 @@ namespace Simitone.Client.UI.Controls
             public bool Closing;
         }
 
-        public const int W = 320, Pad = 10, Gap = 8, Top = 64, MaxShown = 4;
+        public const int W = 320, Pad = 10, Gap = 8, Top = 64, TouchTop = 150, MaxShown = 4;
 
         private static UIReduxToasts Instance;
         private List<Toast> Toasts = new List<Toast>();
@@ -131,7 +131,8 @@ namespace Simitone.Client.UI.Controls
         {
             base.Update(state);
             var width = FSO.Client.UI.Framework.UIScreen.Current?.ScreenWidth ?? 1024;
-            Position = new Vector2(width - W - 12, Top);
+            // (touch controls: below the clock and the cutaway button in the top-right corner)
+            Position = new Vector2(width - W - 12, FSO.Common.FSOEnvironment.SoftwareKeyboard ? TouchTop : Top);
             double dt = 1.0 / Math.Max(1, FSO.Common.FSOEnvironment.RefreshRate);
             for (int i = Toasts.Count - 1; i >= 0; i--)
             {
