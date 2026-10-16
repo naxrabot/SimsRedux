@@ -2,6 +2,15 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "6.9",
+      "date": "Oct 16, 2026",
+      "features": [],
+      "updates": [
+        "Touch taps — buttons respond exactly where you tap them, upright or sideways.",
+        "Touch camera — press, hold and drag to move around; hold still to open the menu."
+      ]
+    },
+    {
       "version": "6.8",
       "date": "Oct 16, 2026",
       "features": [],

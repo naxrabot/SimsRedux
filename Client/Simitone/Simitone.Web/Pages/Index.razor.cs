@@ -30,6 +30,13 @@ namespace Simitone.Web.Pages
             if (_crashed) return;
             try { Simitone.Client.Utils.ReduxGuest.Current?.SendAlive(); } catch { }
         }
+        /// <summary>A finger on the game (from index.html), already in the game's pixels. phase: 0 down, 1 moved, 2 up, 3 cancelled.</summary>
+        [JSInvokable("SimsReduxTouch")]
+        public static bool SimsReduxTouch(int id, double x, double y, int phase)
+        {
+            try { FSO.Common.Rendering.Framework.IO.WebTouchInput.Set(id, (float)x, (float)y, phase); } catch { }
+            return FSO.Common.FSOEnvironment.SoftwareKeyboard; // touch controls: the page leaves the touch to the game
+        }
         /// <summary>The launcher's version check: the game version this website build actually runs.</summary>
         [JSInvokable("SimsReduxVersion")]
         public static string SimsReduxVersion() { return Simitone.Client.Utils.ReduxBuild.Number; }

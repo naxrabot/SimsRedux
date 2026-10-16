@@ -18,6 +18,7 @@ namespace Simitone.Client.Utils
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Touch: taps land exactly where your finger is, and you can press, hold and drag to move the camera.",
             "Launcher: your account options are in a menu - click your initial next to your name.",
             "Create-A-Family and Create-A-Sim have the new Redux look: rounded panels and buttons in your UI colour.",
             "Touch camera: drag with one finger to move around, hold two fingers to pan, pinch to zoom and twist to turn.",

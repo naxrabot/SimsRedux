@@ -27,6 +27,10 @@ namespace Simitone.Client.UI.Panels
         private Point TapPoint;
         private const int TAP_TIMER = 8; //current time for a tap to register is a third of a second. if
         private const int TAP_POINT_DIST = 30; //current px distance for a tap to move to become a scroll. TODO: dpi scale?
+        // SimsRedux touch camera: a finger that moves this far starts dragging the camera (at any time
+        // while it's down), and one held still this long (frames at 60 a second) opens the menu
+        private const int TOUCH_DRAG_DIST = 22;
+        private const int TOUCH_HOLD_TIMER = 36;
         private List<Vector2> ScrollVelocityHistory = new List<Vector2>();
 
         private int Mode = 0; //-1: none, 0: touch, 1: scroll, 2: zoomscroll, 3: touched
@@ -147,12 +151,12 @@ namespace Simitone.Client.UI.Panels
                             else
                             {
                                 var mouse = state.MouseStates.FirstOrDefault(x => x.ID == MiceDown.First());
-                                if ((TapPoint - new Point(mouse.MouseState.X, mouse.MouseState.Y)).ToVector2().Length() > TAP_POINT_DIST)
+                                if ((TapPoint - new Point(mouse.MouseState.X, mouse.MouseState.Y)).ToVector2().Length() > (TouchCam ? TOUCH_DRAG_DIST : TAP_POINT_DIST))
                                 {
                                     Mode = 1; //become a scroll
                                     if (TouchCam) Cam.BeginDrag(TapPoint.ToVector2()); // grab where the finger first went down
                                 }
-                                else if (++MiceDownTimer > TAP_TIMER)
+                                else if (++MiceDownTimer > (TouchCam ? TOUCH_HOLD_TIMER * FSOEnvironment.RefreshRate / 60 : TAP_TIMER))
                                 {
                                     Mode = 3;
                                     var screenMiddle = new Point(GameFacade.Screens.CurrentUIScreen.ScreenWidth / 2, GameFacade.Screens.CurrentUIScreen.ScreenHeight / 2);

@@ -158,6 +158,35 @@
             // disable context menu on right click
             canvas.addEventListener("contextmenu", e => e.preventDefault());
 
+            // Fingers: read here and turned into the game's own pixels, measured from where the
+            // picture really is on the page right now (it's stretched to fit, and phones move things
+            // around as their address bar comes and goes). Each touch gets its own number.
+            var srxTouchIds = {}, srxTouchNext = 1;
+            var srxTouch = function (e, phase)
+            {
+                var r = canvas.getBoundingClientRect(), used = false;
+                var sx = r.width > 0 ? canvas.width / r.width : 1, sy = r.height > 0 ? canvas.height / r.height : 1;
+                for (var i = 0; i < e.changedTouches.length; i++)
+                {
+                    var t = e.changedTouches[i];
+                    if (phase === 0 || srxTouchIds[t.identifier] === undefined) srxTouchIds[t.identifier] = srxTouchNext++;
+                    var id = srxTouchIds[t.identifier];
+                    if (phase >= 2) delete srxTouchIds[t.identifier];
+                    try
+                    {
+                        // (true when the game is on touch controls; on PC controls a tap stays a click)
+                        if (DotNet.invokeMethod('SimsRedux.Web', 'SimsReduxTouch', id,
+                            (t.clientX - r.left) * sx, (t.clientY - r.top) * sy, phase)) used = true;
+                    }
+                    catch (err) { }
+                }
+                if (used) e.preventDefault();
+            };
+            canvas.addEventListener('touchstart', function (e) { srxTouch(e, 0); }, { passive: false });
+            canvas.addEventListener('touchmove', function (e) { srxTouch(e, 1); }, { passive: false });
+            canvas.addEventListener('touchend', function (e) { srxTouch(e, 2); }, { passive: false });
+            canvas.addEventListener('touchcancel', function (e) { srxTouch(e, 3); }, { passive: false });
+
             // first make sure the player's Sims files are here (asks for the folder the first time),
             // then begin the game loop
             SimsFS.prepare().then(() => window.requestAnimationFrame(tickJS), e =>
