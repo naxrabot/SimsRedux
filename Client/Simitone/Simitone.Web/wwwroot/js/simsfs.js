@@ -118,8 +118,8 @@
         const style = document.createElement('style');
         style.textContent = `
 #srx-setup { position: fixed; inset: 0; z-index: 1000; color: #d7d7f5;
-  /* the Sims Redux wallpaper (the same one as the online loading screen), blue around it */
-  background: #002b87 url(img/redux-wallpaper.jpg) center / contain no-repeat; overflow: auto;
+  /* the landing page picture (scattered Sims photos), filling the screen; dark brown behind it while it loads */
+  background: #3a2a22 url(img/redux-landing.jpg) center / cover no-repeat; overflow: auto;
   font-family: 'Segoe UI', Tahoma, sans-serif; display: flex; align-items: center; justify-content: center; padding: 16px; }
 #srx-setup .box { width: 100%; max-width: 560px; background: rgba(0, 0, 58, .92); max-height: calc(100vh - 32px); overflow: auto; border: 2px solid #7878c8; border-right-color: #000028;
   border-bottom-color: #000028; box-shadow: 6px 6px 0 rgba(0,0,0,.35); padding: 24px 26px; }
@@ -208,6 +208,7 @@
 #srx-setup .dot.down { background: #ff5a5a; box-shadow: 0 0 8px #ff5a5a; }
 #srx-setup .vcheck { font-size: 12px; text-align: center; margin: 0 0 10px; color: #8a96d0; min-height: 16px; }
 #srx-setup .vcheck.ok { color: #78ff8c; } #srx-setup .vcheck.warn { color: #ffb547; }
+#srx-setup .vcheck .vsoon { color: #8f93ad; font-style: italic; margin-top: 3px; }
 #srx-setup .sitem .k { font-size: 10px; letter-spacing: .16em; font-weight: 700; color: #8a96d0; margin-bottom: 4px; }
 #srx-setup .sitem .v { font-size: 15px; font-weight: 600; color: #fff; display: flex; align-items: center; gap: 8px; }
 #srx-setup .sitem .v small { font-size: 12px; font-weight: 400; color: #8a96d0; margin-left: auto; }
@@ -902,10 +903,16 @@
             needsUpdate = !!webVersion && ((site && newer(site, webVersion)) || (srv && newer(srv, webVersion)));
             vcheck.className = 'vcheck';
             if (!webVersion) { vcheck.textContent = ''; }
-            else if (needsUpdate) { vcheck.classList.add('warn'); vcheck.textContent = 'A new version is out (v' + (srv && newer(srv, site || '0') ? srv : site) + ') \u2014 you have v' + webVersion + '.'; }
+            else if (needsUpdate) {
+                vcheck.classList.add('warn');
+                vcheck.textContent = 'A new version is out (v' + (srv && newer(srv, site || '0') ? srv : site) + ') \u2014 you have v' + webVersion + '.';
+                const soon = document.createElement('div'); soon.className = 'vsoon';
+                soon.textContent = 'The update will be available soon. It could take up to 20 minutes.';
+                vcheck.appendChild(soon);
+            }
             else if (srv && newer(webVersion, srv)) { vcheck.classList.add('warn'); vcheck.textContent = 'Up to date (v' + webVersion + '). The server is still on v' + srv + ' \u2014 online play waits for it to update; single player is fine.'; }
             else { vcheck.classList.add('ok'); vcheck.textContent = '\u2713 Up to date \u00b7 v' + webVersion; }
-            play.textContent = needsUpdate ? 'UPDATE' : 'PLAY';
+            play.textContent = needsUpdate ? 'REFRESH' : 'PLAY'; // a new version just needs the page reloaded
         };
         paintServers();
         const serverTimer = setInterval(paintServers, 15000);
@@ -963,7 +970,7 @@
                 play.disabled = true;
                 if (!needsUpdate) { finish('play'); return; }
                 // fetch the newest website: clear what the browser kept of the old one, then reload
-                vcheck.className = 'vcheck'; vcheck.textContent = 'Updating...';
+                vcheck.className = 'vcheck'; vcheck.textContent = 'Refreshing...';
                 try { if (window.caches) for (const k of await caches.keys()) await caches.delete(k); } catch (e) { }
                 try { if (navigator.serviceWorker) for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); } catch (e) { }
                 finish('update');

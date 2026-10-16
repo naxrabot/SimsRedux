@@ -2,6 +2,15 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "4.3",
+      "date": "Oct 15, 2026",
+      "features": [],
+      "updates": [
+        "Launcher background — a new photo-collage background.",
+        "Refresh button — when a new version is out, press Refresh to get it."
+      ]
+    },
+    {
       "version": "4.2",
       "date": "Oct 15, 2026",
       "features": [

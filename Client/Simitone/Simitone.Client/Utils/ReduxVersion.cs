@@ -18,6 +18,7 @@ namespace Simitone.Client.Utils
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Launcher: a new background, and a Refresh button when a new version is out.",
             "New logo: The Sims Redux logo on the neighborhood bar and the launcher.",
             "Family faces: each Sim's head is centred in its picture.",
             "Buy and Build: the icons sit right on the new bar.",
