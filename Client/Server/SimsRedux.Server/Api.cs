@@ -108,7 +108,9 @@ namespace SimsRedux.Server
             switch (req.Path)
             {
                 case "/healthz":
-                    await HttpServer.SendJson(stream, 200, Health(), cors);
+                    // from the internet: just "it's up" (the full details - folders, memory, files - are for the panel on this PC)
+                    if (req.Public) await HttpServer.SendJson(stream, 200, new { ok = true, channel = Config.Channel, players = LotConnections + (Lots?.PlayerCount ?? 0) }, cors);
+                    else await HttpServer.SendJson(stream, 200, Health(), cors);
                     return;
                 case "/lot":
                 case "/":

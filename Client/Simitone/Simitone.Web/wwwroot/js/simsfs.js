@@ -159,6 +159,8 @@
 #srx-setup .box.wide { max-width: 680px; padding: 0; background: rgba(4, 8, 38, .88); border: 1px solid rgba(143, 180, 255, .35);
   box-shadow: 0 24px 70px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.06); backdrop-filter: blur(6px);
   display: flex; flex-direction: column; overflow-x: hidden; overflow-y: auto; } /* (scrolls when it can't fit, e.g. on a phone: Play stays reachable) */
+/* the launcher always fills the height of the window (the patch notes take the spare room) */
+@media (min-width: 561px) { #srx-setup .box.wide { height: calc(100vh - 32px); height: calc(100dvh - 32px); } }
 #srx-setup .launcher { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
 #srx-setup .launcher.hidden { display: none; }
 #srx-setup .l-top { padding: 28px 30px 18px; text-align: center; background: linear-gradient(rgba(120,255,140,.07), transparent); }
@@ -207,6 +209,7 @@
 #srx-setup .vcheck { font-size: 12px; text-align: center; margin: 0 0 10px; color: #8a96d0; min-height: 16px; }
 #srx-setup .vcheck.ok { color: #78ff8c; } #srx-setup .vcheck.warn { color: #ffb547; }
 #srx-setup .vcheck .vsoon { color: #8f93ad; font-style: italic; margin-top: 3px; }
+#srx-setup .vcheck .vrefresh { font-size: 12px; margin-top: 4px; }
 #srx-setup .sitem .k { font-size: 10px; letter-spacing: .16em; font-weight: 700; color: #8a96d0; margin-bottom: 4px; }
 #srx-setup .sitem .v { font-size: 15px; font-weight: 600; color: #fff; display: flex; align-items: center; gap: 8px; }
 #srx-setup .sitem .v small { font-size: 12px; font-weight: 400; color: #8a96d0; margin-left: auto; }
@@ -307,7 +310,6 @@
   <h1><img class="logoimg" src="img/redux-logo.png" alt="The Sims Redux"></h1>
   <h2 class="title"></h2>
   <div class="acct">
-    <h3>YOUR ACCOUNT</h3>
     <div class="out">
       <div class="row"><input class="aname" type="text" autocomplete="username" placeholder="Account name" maxlength="20" spellcheck="false">
         <input class="apw" type="password" autocomplete="current-password" placeholder="Password"></div>
@@ -315,7 +317,7 @@
         <input class="areal" type="text" autocomplete="name" placeholder="Your real name" maxlength="60" spellcheck="false">
         <input class="aemail" type="email" autocomplete="email" placeholder="Email (for password resets)" maxlength="120" spellcheck="false"></div>
       <button class="login">Log in</button> <button class="second register">Create account</button>
-      <div class="small">You need an approved account to play. New accounts wait for the admin to approve them.</div>
+      <div class="small">You need an approved account in order to play. New accounts must wait for approval.</div>
     </div>
     <div class="in hidden">
       <div class="who">Logged in as <b class="aname2"></b> <span class="arole"></span></div>
@@ -787,6 +789,7 @@
         return 0;
     }
     let patchNotes = null;
+    let onlineBlocked = ''; // why online mode is shut for this visit ('' = open) - asked by the game
     async function getPatchNotes() {
         if (patchNotes) return patchNotes;
         const [shipped, changes] = await Promise.all([fetchJson('patchnotes.json', 5000, 'no-cache'), fetchJson(Account.SERVER + '/api/patchnotes', 5000, 'no-cache')]);
@@ -837,15 +840,17 @@
         L.querySelector('.vnum').textContent = latest ? latest.version : '?';
         L.querySelector('.ndate').textContent = latest ? 'v' + latest.version + (latest.date ? ' \u00b7 ' + latest.date : '') : '';
         const body = L.querySelector('.nbody');
-        body.innerHTML = latest ? patchHtml(latest, false) : '<p>Patch notes are unavailable right now.</p>';
         const older = L.querySelector('.nolder');
         older.classList.toggle('hidden', patches.length < 2);
-        older.textContent = 'Show earlier patches';
-        older.onclick = () => {
-            if (older.dataset.open) { body.innerHTML = patchHtml(latest, false); older.textContent = 'Show earlier patches'; delete older.dataset.open; return; }
-            body.innerHTML = patchHtml(latest, false) + patches.slice(1).map(p => patchHtml(p, true)).join('');
-            older.textContent = 'Hide earlier patches'; older.dataset.open = '1';
+        // all the patches show by default (the notes scroll); the link folds them away
+        const showPatches = (all) => {
+            body.innerHTML = !latest ? '<p>Patch notes are unavailable right now.</p>'
+                : patchHtml(latest, false) + (all ? patches.slice(1).map(p => patchHtml(p, true)).join('') : '');
+            older.textContent = all ? 'Hide earlier patches' : 'Show earlier patches';
+            if (all) older.dataset.open = '1'; else delete older.dataset.open;
         };
+        showPatches(true);
+        older.onclick = () => showPatches(!older.dataset.open);
 
         // the account
         const acc = Account.session;
@@ -925,6 +930,7 @@
         const newer = (a, b) => cmpVer(a, b) > 0; // is version a newer than b?
         if (webVersion) L.querySelector('.vnum').textContent = webVersion;
         let needsUpdate = false;
+        let refreshSite = () => { }; // (set once the launcher's buttons are wired up)
         const checkVersion = () => {
             const srv = srvStatus[chosen] && srvStatus[chosen].game;
             const site = (notes && notes.shippedLatest) || (latest && latest.version);
@@ -935,12 +941,15 @@
                 vcheck.classList.add('warn');
                 vcheck.textContent = 'A new version is out (v' + (srv && newer(srv, site || '0') ? srv : site) + ') \u2014 you have v' + webVersion + '.';
                 const soon = document.createElement('div'); soon.className = 'vsoon';
-                soon.textContent = 'The update will be available soon. It could take up to 20 minutes.';
+                soon.textContent = 'Your game will update shortly. It can take up to 20 minutes. Please refresh occasionally. Online mode is unavailable until the game has been updated.';
                 vcheck.appendChild(soon);
+                const now = document.createElement('button'); now.className = 'link vrefresh'; now.textContent = 'Refresh now';
+                now.onclick = () => refreshSite();
+                vcheck.appendChild(now);
             }
             else if (srv && newer(webVersion, srv)) { vcheck.classList.add('warn'); vcheck.textContent = 'Up to date (v' + webVersion + '). The server is still on v' + srv + ' \u2014 online play waits for it to update; single player is fine.'; }
             else { vcheck.classList.add('ok'); vcheck.textContent = '\u2713 Up to date \u00b7 v' + webVersion; }
-            play.textContent = needsUpdate ? 'REFRESH' : 'PLAY'; // a new version just needs the page reloaded
+            play.textContent = needsUpdate ? 'PLAY OFFLINE' : 'PLAY'; // out of date: single player only until the new version arrives
         };
         paintServers();
         const serverTimer = setInterval(paintServers, 15000);
@@ -1000,8 +1009,14 @@
             play.disabled = false;
             play.onclick = async () => {
                 play.disabled = true;
-                if (!needsUpdate) { finish('play'); return; }
-                // fetch the newest website: clear what the browser kept of the old one, then reload
+                // out of date: the game still starts, but online mode stays shut until it's updated
+                onlineBlocked = needsUpdate
+                    ? 'Online mode is unavailable until the game has been updated.\n\nYour game will update shortly - it can take up to 20 minutes. Refresh the page now and then to get it.'
+                    : '';
+                finish('play');
+            };
+            // fetch the newest website: clear what the browser kept of the old one, then reload
+            refreshSite = async () => {
                 vcheck.className = 'vcheck'; vcheck.textContent = 'Refreshing...';
                 try { if (window.caches) for (const k of await caches.keys()) await caches.delete(k); } catch (e) { }
                 try { if (navigator.serviceWorker) for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); } catch (e) { }
@@ -1274,6 +1289,8 @@
     // the game's online town reads who's logged in here (WebPlatform.cs)
     const accountServer = () => Account.SERVER;
     const accountToken = () => (Account.session && Account.session.token) || '';
+    // set when the game started out of date: the reason online mode is shut ('' = it's open)
+    const onlineBlockedReason = () => onlineBlocked || '';
     const accountName = () => (Account.session && Account.session.name) || '';
-    window.SimsFS = { accountServer, accountToken, accountName, changeFolder, setFullScreen, isFullScreen, prepare, fileExists, dirExists, fileSize, read, write, deleteFile, createDir, deleteDir, moveFile, list, normalize };
+    window.SimsFS = { accountServer, accountToken, accountName, onlineBlockedReason, changeFolder, setFullScreen, isFullScreen, prepare, fileExists, dirExists, fileSize, read, write, deleteFile, createDir, deleteDir, moveFile, list, normalize };
 })();

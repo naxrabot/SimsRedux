@@ -15,6 +15,7 @@ namespace Simitone.Web
         [JSImport("globalThis.SimsFS.accountServer")] internal static partial string JsAccountServer();
         [JSImport("globalThis.SimsFS.accountToken")] internal static partial string JsAccountToken();
         [JSImport("globalThis.SimsFS.accountName")] internal static partial string JsAccountName();
+        [JSImport("globalThis.SimsFS.onlineBlockedReason")] internal static partial string JsOnlineBlockedReason();
 
         public static void Install()
         {
@@ -25,6 +26,7 @@ namespace Simitone.Web
             ReduxPlatform.AccountServer = JsAccountServer;
             ReduxPlatform.AccountToken = JsAccountToken;
             ReduxPlatform.AccountName = JsAccountName;
+            ReduxPlatform.OnlineBlockedReason = JsOnlineBlockedReason;
         }
     }
 }

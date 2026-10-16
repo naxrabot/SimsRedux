@@ -21,5 +21,18 @@ namespace Simitone.Client.Utils
 
         /// <summary>The account the website is logged in with (browser): server address, token, name. Empty when none.</summary>
         public static Func<string> AccountServer, AccountToken, AccountName;
+
+        /// <summary>
+        /// SimsRedux: the browser version started out of date (the website has a newer game coming):
+        /// returns why online mode is shut, or "" / null when it's open.
+        /// </summary>
+        public static Func<string> OnlineBlockedReason;
+
+        /// <summary>Why online mode can't be used right now, or null if it can.</summary>
+        public static string OnlineBlocked()
+        {
+            try { var r = OnlineBlockedReason?.Invoke(); return string.IsNullOrEmpty(r) ? null : r; }
+            catch { return null; }
+        }
     }
 }

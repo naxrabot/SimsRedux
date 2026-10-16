@@ -198,6 +198,9 @@ namespace Simitone.Client.UI.Panels
         /// </summary>
         public static void AskToConnect()
         {
+            // SimsRedux: an out-of-date browser game plays single player only until it's updated
+            var blocked = ReduxPlatform.OnlineBlocked();
+            if (blocked != null) { UIClassicDialog.Ok("Online", blocked); return; }
             UIClassicDialog.YesNo("Online", "Connect to the online neighborhood?", () =>
             {
                 var screen = UIScreen.Current as TS1GameScreen;

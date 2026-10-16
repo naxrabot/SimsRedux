@@ -2,6 +2,17 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "4.5",
+      "date": "Oct 15, 2026",
+      "features": [],
+      "updates": [
+        "Smarter Sims — a Sim stops retrying a chore they can't get to and comes back to it later.",
+        "Updates — while a new version is on its way you can still play single player; online opens once your game is updated.",
+        "Launcher — a taller launcher with all the patch notes, and a simpler sign-in box.",
+        "Online play — smoother for everyone when a player's game falls out of step."
+      ]
+    },
+    {
       "version": "4.4",
       "date": "Oct 15, 2026",
       "features": [],

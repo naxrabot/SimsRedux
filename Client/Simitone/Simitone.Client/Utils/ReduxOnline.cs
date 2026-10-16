@@ -209,6 +209,8 @@ namespace Simitone.Client.Utils
         public bool IsOwner;
         public short OwnerFamily = -1;
         public DateTime LastControlTry;
+        /// <summary>SimsRedux: when this player last asked for a full resync (they're limited, a resync is big).</summary>
+        public DateTime LastResync = DateTime.MinValue;
         public int ControlTries;
 
         private Task SendChain = Task.CompletedTask;
@@ -348,6 +350,8 @@ namespace Simitone.Client.Utils
         // friends' Sims that were added to the host's neighbourhood for this session
         private List<Neighbour> VisitorNeighbours = new List<Neighbour>();
         private List<string> VisitorFiles = new List<string>();
+
+        private static readonly TimeSpan ResyncCooldown = TimeSpan.FromSeconds(20);
 
         // commands a friend's game is allowed to send (no buying, building, money or time changes)
         private static readonly HashSet<VMCommandType> GuestCommands = new HashSet<VMCommandType>()
@@ -613,6 +617,11 @@ namespace Simitone.Client.Utils
                     if (!sock.IsOwner && !GuestCommands.Contains(cmd)) return;
                     if (cmd == VMCommandType.RequestResync)
                     {
+                        // a resync sends the whole lot and neighbourhood: one every 20 seconds per player at most,
+                        // so nobody can slow the host down by asking over and over
+                        var now = DateTime.UtcNow;
+                        if (now - sock.LastResync < ResyncCooldown) return;
+                        sock.LastResync = now;
                         // their game went out of step: send a fresh neighbourhood before the fresh lot
                         sock.Send(BuildHoodPacket());
                     }

@@ -14,6 +14,8 @@ namespace SimsRedux.Server
         public byte[] Body = Array.Empty<byte>();
         /// <summary>The player's address: the real one Cloudflare passes along when it comes through the tunnel.</summary>
         public string From;
+        /// <summary>True when the request came from the internet (through the tunnel or straight in), not from this PC.</summary>
+        public bool Public;
         /// <summary>Everything read from the connection so far (for passing a connection on unchanged).</summary>
         public byte[] Raw;
 
@@ -212,10 +214,13 @@ namespace SimsRedux.Server
             // the real address: Cloudflare's tunnel connects from this PC and says who it's for
             var remote = (client.Client.RemoteEndPoint as IPEndPoint)?.Address;
             req.From = remote?.ToString() ?? "?";
+            req.Public = remote == null || !IPAddress.IsLoopback(remote);
             if (remote != null && IPAddress.IsLoopback(remote))
             {
                 var cf = req.Header("CF-Connecting-IP");
                 if (!string.IsNullOrEmpty(cf) && cf.Length < 64) req.From = cf;
+                // the tunnel always adds these; anything carrying them came from the internet
+                if (!string.IsNullOrEmpty(cf) || !string.IsNullOrEmpty(req.Header("CF-Ray"))) req.Public = true;
             }
             return req;
         }
