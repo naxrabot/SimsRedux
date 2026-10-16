@@ -44,8 +44,8 @@ namespace Simitone.Client.UI.Panels
         private int BarEnd = 800;
         private const int ReduxBarH = 40;
 
-        // SimsRedux: The Sims Redux logo replaces the original one (both looks), 52 tall like the original
-        private const int LogoH = 52;
+        // SimsRedux: The Sims Redux logo replaces the original one (both looks); its drips hang just below the bar
+        private const int LogoH = 64;
         private int LogoWidth
         {
             get
@@ -62,7 +62,7 @@ namespace Simitone.Client.UI.Panels
             if (l != null)
             {
                 float s = LogoH / (float)l.Height;
-                DrawLocalTexture(batch, l, null, new Vector2(6, 1), new Vector2(s, s));
+                DrawLocalTexture(batch, l, null, new Vector2(4, 0), new Vector2(s, s));
             }
             else DrawLocalTexture(batch, original, new Vector2(8, 4));
         }
@@ -143,7 +143,7 @@ namespace Simitone.Client.UI.Panels
             Add(NeighNumber);
 
             // SimsRedux: "Redux / Beta / v0.1" next to The Sims logo
-            int textX = 8 + LogoWidth + (Redux ? 8 : 2);
+            int textX = 4 + LogoWidth + (Redux ? 8 : 4);
             int textW = Math.Max(30, prevX - (Redux ? 10 : 4) - textX);
             if (ReduxTheme.Logo != null)
             {
