@@ -45,6 +45,7 @@ namespace Simitone.Client
             if (GameFacade.DirectX) TimedReferenceController.SetMode(CacheType.PERMANENT);
             Content.RootDirectory = FSOEnvironment.GFXContentDir;
 
+            if (GlobalSettings.Default.TargetRefreshRate <= 0) GlobalSettings.Default.TargetRefreshRate = 60; // (a damaged settings file)
             TargetElapsedTime = new TimeSpan(10000000 / GlobalSettings.Default.TargetRefreshRate);
             FSOEnvironment.RefreshRate = GlobalSettings.Default.TargetRefreshRate;
             FSOEnvironment.TexCompress = false;
@@ -170,7 +171,6 @@ namespace Simitone.Client
                 // SimsRedux: The Sims 1 keeps its cursors inside UIGraphics.far
                 CursorManager.ExtraSource = (name) => Simitone.Client.Utils.TS1UIGraphics.GetBytes("Shared/cursors/" + name);
                 GameFacade.Cursor.Init(GlobalSettings.Default.TS1HybridPath, true);
-                Simitone.Client.Utils.TS1UIGraphics.DumpFontsOnce(); // SimsRedux: copies the Sims 1 font files out for the font work
             }
 
             /** Init any computed values **/
@@ -241,17 +241,7 @@ namespace Simitone.Client
         /// </summary>
         void AddTextInput()
         {
-            this.Window.GetType().GetEvent("TextInput").AddEventHandler(this.Window, (EventHandler<TextInputEventArgs>)GameScreen.TextInput);
-        }
-
-        void RegainFocus(object sender, EventArgs e)
-        {
-            GameFacade.Focus = true;
-        }
-
-        void LostFocus(object sender, EventArgs e)
-        {
-            GameFacade.Focus = false;
+            this.Window.GetType().GetEvent("TextInput")?.AddEventHandler(this.Window, (EventHandler<TextInputEventArgs>)GameScreen.TextInput);
         }
 
         /// <summary>
@@ -321,8 +311,9 @@ namespace Simitone.Client
         protected override void OnExiting(object sender, ExitingEventArgs args)
         {
             base.OnExiting(sender, args);
-            GameThread.SetKilled();
-            args.Cancel = !(GameFacade.Screens.CurrentUIScreen?.CloseAttempt() ?? true);
+            args.Cancel = !(GameFacade.Screens?.CurrentUIScreen?.CloseAttempt() ?? true);
+            // only once the game is really closing (not when the player is just being asked "Quit?")
+            if (!args.Cancel) GameThread.SetKilled();
         }
 #endif
 

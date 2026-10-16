@@ -18,6 +18,8 @@ namespace Simitone.Client.Utils
     public static class ReduxSettings
     {
         private static Dictionary<string, string> Values;
+        /// <summary>The online town's login and downloads change settings from their own threads.</summary>
+        private static readonly object Lock = new object();
 
         private static string FilePath
         {
@@ -71,38 +73,54 @@ namespace Simitone.Client.Utils
 
         public static int GetInt(string key, int fallback)
         {
-            Load();
-            string v; int result;
-            if (Values.TryGetValue(key, out v) && int.TryParse(v, out result)) return result;
-            return fallback;
+            lock (Lock)
+            {
+                Load();
+                string v; int result;
+                if (Values.TryGetValue(key, out v) && int.TryParse(v, out result)) return result;
+                return fallback;
+            }
         }
 
         public static bool GetBool(string key, bool fallback)
         {
-            Load();
-            string v;
-            if (Values.TryGetValue(key, out v)) return v == "1" || v.Equals("true", StringComparison.OrdinalIgnoreCase);
-            return fallback;
+            lock (Lock)
+            {
+                Load();
+                string v;
+                if (Values.TryGetValue(key, out v)) return v == "1" || v.Equals("true", StringComparison.OrdinalIgnoreCase);
+                return fallback;
+            }
         }
 
         public static string GetString(string key, string fallback)
         {
-            Load();
-            string v;
-            return Values.TryGetValue(key.ToLowerInvariant(), out v) ? v : fallback;
+            lock (Lock)
+            {
+                Load();
+                string v;
+                return Values.TryGetValue(key.ToLowerInvariant(), out v) ? v : fallback;
+            }
         }
 
         public static bool Has(string key)
         {
-            Load();
-            return Values.ContainsKey(key);
+            lock (Lock)
+            {
+                Load();
+                return Values.ContainsKey(key);
+            }
         }
 
         public static void Set(string key, object value)
         {
-            Load();
-            Values[key] = (value is bool) ? (((bool)value) ? "1" : "0") : value.ToString();
-            Save();
+            lock (Lock)
+            {
+                Load();
+                // one line per setting: a line break in a value (a name from the server...) would start a made-up setting
+                Values[key] = (value is bool) ? (((bool)value) ? "1" : "0") : (value?.ToString() ?? "").Replace("\r", "").Replace("\n", " ");
+                Save();
+            }
         }
 
         // ---- named settings ----

@@ -67,33 +67,6 @@ namespace Simitone.Client.Utils
             }
         }
 
-        /// <summary>
-        /// SimsRedux: copies the original Sims 1 font files (Fonts/*.ffn) out of UIGraphics.far into
-        /// Documents\Simitone\redux_fonts, once, so the font format can be worked out.
-        /// </summary>
-        public static void DumpFontsOnce()
-        {
-            try
-            {
-                var dir = Path.Combine(FSO.Common.FSOEnvironment.UserDir, "redux_fonts");
-                if (FSODirectory.Exists(dir)) return;
-                Init();
-                if (Archive == null) return;
-                FSODirectory.CreateDirectory(dir);
-                foreach (var pair in Entries)
-                {
-                    var name = pair.Key;
-                    if (!name.StartsWith("fonts\\") || name.Substring(6).Contains("\\")) continue; // only the main fonts folder
-                    var data = Archive.GetEntry(pair.Value);
-                    FSOFile.WriteAllBytes(Path.Combine(dir, name.Substring(6)), data);
-                }
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("[SimsRedux] Font copy: " + e.Message);
-            }
-        }
-
         /// <summary>SimsRedux: the raw bytes of a file in UIGraphics.far (null if missing).</summary>
         public static byte[] GetBytes(string path)
         {
@@ -156,7 +129,7 @@ namespace Simitone.Client.Utils
 
             var source = Get(path);
             int w = source.Width, h = source.Height;
-            if (w < 4 || h < 4 || frames < 1)
+            if (w < 4 || h < 4 || frames < 1 || w / frames < 1)
             {
                 Cache[key] = source;
                 return source;

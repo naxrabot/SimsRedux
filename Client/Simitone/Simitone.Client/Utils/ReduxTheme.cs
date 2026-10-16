@@ -156,7 +156,8 @@ namespace Simitone.Client.Utils
             if (src == null || src.Width < 2) return src;
             if (TintVersion != Version)
             {
-                foreach (var t in TintCache.Values) { try { t.Dispose(); } catch { } }
+                // (a picture that couldn't be tinted is cached as itself: that's the game's own art, never disposed here)
+                foreach (var pair in TintCache) { if (pair.Value != pair.Key) { try { pair.Value.Dispose(); } catch { } } }
                 TintCache.Clear();
                 TintVersion = Version;
             }
@@ -375,7 +376,7 @@ namespace Simitone.Client.Utils
         /// </summary>
         public static Texture2D Box(int w, int h, int radius, Color top, Color bottom, Color border, int borderW, bool inset = false)
         {
-            var key = "box" + w + "x" + h + "r" + radius + top.PackedValue + "_" + bottom.PackedValue + "_" + border.PackedValue + "_" + borderW + (inset ? "i" : "");
+            var key = "box" + w + "x" + h + "r" + radius + "_" + top.PackedValue + "_" + bottom.PackedValue + "_" + border.PackedValue + "_" + borderW + (inset ? "i" : "");
             Texture2D tex;
             if (Cache.TryGetValue(key, out tex)) return tex;
             w = Math.Max(1, w); h = Math.Max(1, h);

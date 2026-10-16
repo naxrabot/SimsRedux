@@ -59,14 +59,18 @@ namespace Simitone.Windows
 
             foreach (var arg in args)
             {
-                if (arg[0] == '-')
+                if (!string.IsNullOrEmpty(arg) && arg[0] == '-')
                 {
                     var cmd = arg.Substring(1);
+                    // (a mistyped number is ignored rather than stopping the game before it opens)
                     if (cmd.StartsWith("lang"))
                     {
-                        GlobalSettings.Default.LanguageCode = byte.Parse(cmd.Substring(4));
+                        if (byte.TryParse(cmd.Substring(4), out var lang)) GlobalSettings.Default.LanguageCode = lang;
                     }
-                    else if (cmd.StartsWith("hz")) GlobalSettings.Default.TargetRefreshRate = int.Parse(cmd.Substring(2));
+                    else if (cmd.StartsWith("hz"))
+                    {
+                        if (int.TryParse(cmd.Substring(2), out var hz) && hz > 0) GlobalSettings.Default.TargetRefreshRate = hz;
+                    }
                     else
                     {
                         //normal style param
@@ -243,12 +247,10 @@ namespace Simitone.Windows
 
             try
             {
-                System.Drawing.Imaging.ImageAttributes ia = new System.Drawing.Imaging.ImageAttributes();
-                System.Drawing.Imaging.ColorMatrix cm = new System.Drawing.Imaging.ColorMatrix(rgbtobgr);
-
-                ia.SetColorMatrix(cm);
+                using (System.Drawing.Imaging.ImageAttributes ia = new System.Drawing.Imaging.ImageAttributes())
                 using (System.Drawing.Graphics g = System.Drawing.Graphics.FromImage(newBmp))
                 {
+                    ia.SetColorMatrix(new System.Drawing.Imaging.ColorMatrix(rgbtobgr));
                     g.Clear(Color.Transparent);
                     g.DrawImage(bmp, new System.Drawing.Rectangle(0, 0, bmp.Width, bmp.Height), 0, 0, bmp.Width, bmp.Height, System.Drawing.GraphicsUnit.Pixel, ia);
                 }

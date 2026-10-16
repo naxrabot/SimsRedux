@@ -118,11 +118,26 @@ namespace Simitone.Client.Utils
             return new Uri("wss://" + typed);
         }
 
+        private static bool LogChecked;
+        private const long MaxLogSize = 8 * 1024 * 1024;
+
         public static void Log(string text)
         {
             Console.WriteLine("[SimsRedux Online] " + text);
             if (OperatingSystem.IsBrowser()) return; // the browser console already has it
-            try { FSOFile.AppendAllText(Path.Combine(FSOEnvironment.UserDir, "online_debug.log"), DateTime.Now.ToString("HH:mm:ss") + " " + text + "\r\n"); }
+            try
+            {
+                var path = Path.Combine(FSOEnvironment.UserDir, "online_debug.log");
+                if (!LogChecked)
+                {
+                    // once per run: a log that has grown too big starts over (it's only for debugging)
+                    LogChecked = true;
+                    long size = 0;
+                    if (FSOFile.Exists(path)) using (var s = FSOFile.OpenRead(path)) size = s.Length;
+                    if (size > MaxLogSize) FSOFile.Delete(path);
+                }
+                FSOFile.AppendAllText(path, DateTime.Now.ToString("HH:mm:ss") + " " + text + "\r\n");
+            }
             catch { }
         }
 
@@ -177,6 +192,8 @@ namespace Simitone.Client.Utils
         public WebSocket Socket;
         public ConcurrentQueue<byte[]> Incoming = new ConcurrentQueue<byte[]>();
         public volatile bool Closed;
+        /// <summary>Close() has been asked for (it only takes effect once: goodbye, then close).</summary>
+        public volatile bool Closing;
         public string CloseReason = "";
         public string RemoteIP = "";
 
@@ -274,9 +291,12 @@ namespace Simitone.Client.Utils
         /// <summary>Sends a goodbye (if a reason is given), then closes once everything queued has gone.</summary>
         public void Close(string reason = null)
         {
-            if (reason != null) Send(ReduxOnlineInfo.PackBye(reason));
             lock (SendLock)
             {
+                // (asked again every frame by the time-out checks: only the first goodbye counts)
+                if (Closing) return;
+                Closing = true;
+                if (reason != null) Send(ReduxOnlineInfo.PackBye(reason));
                 SendChain = SendChain.ContinueWith(async (t) =>
                 {
                     try
@@ -389,6 +409,8 @@ namespace Simitone.Client.Utils
                 foreach (var s in Sockets) s.Close(reason);
                 Sockets.Clear();
             }
+            // friends still saying hello aren't in Sockets yet
+            while (Pending.TryDequeue(out var pending)) pending.Close(reason);
             RemoveVisitorsFromHood();
             ReduxOnlineInfo.Log("[host] Stopped hosting: " + reason);
         }
@@ -424,6 +446,7 @@ namespace Simitone.Client.Utils
                 }
                 var text = Encoding.ASCII.GetString(header.ToArray());
                 string key = null, realIP = null, account = null;
+                int accountLines = 0;
                 foreach (var line in text.Split(new[] { "\r\n" }, StringSplitOptions.None))
                 {
                     var colon = line.IndexOf(':');
@@ -432,7 +455,14 @@ namespace Simitone.Client.Utils
                     var value = line.Substring(colon + 1).Trim();
                     if (name == "sec-websocket-key") key = value;
                     else if (name == "cf-connecting-ip" || (name == "x-forwarded-for" && realIP == null)) realIP = value.Split(',')[0].Trim();
-                    else if (name == "x-redux-account" && ReduxWorker.Active) account = value; // added by the dedicated server
+                    else if (name == "x-redux-account") { accountLines++; account = value; } // added by the dedicated server
+                }
+                // the dedicated server sends exactly one (it removes any the player sent): only a lot
+                // worker trusts it, and never when there's more than one (someone added their own)
+                if (!ReduxWorker.Active || accountLines != 1)
+                {
+                    if (accountLines > 1) ReduxOnlineInfo.Log("[host] A connection came with " + accountLines + " account lines - not trusting any of them");
+                    account = null;
                 }
                 if (key == null)
                 {
@@ -458,6 +488,13 @@ namespace Simitone.Client.Utils
                 sock.RemoteIP = realIP ?? ((tcp.Client.RemoteEndPoint as IPEndPoint)?.Address.ToString() ?? "?");
                 sock.Account = account;
                 sock.Start();
+                if (!Running)
+                {
+                    // hosting stopped while this one was still saying hello
+                    sock.Close("The lot is closed.");
+                    sock.CloseHard(2000);
+                    return;
+                }
                 Pending.Enqueue(sock);
             }
             catch (Exception e)
@@ -526,11 +563,14 @@ namespace Simitone.Client.Utils
                     }
                 }
                 if (sock.IsOwner && sock.Client != null && !sock.Closed) GiveOwnerASim(sock);
-                if (sock.Client == null && !sock.Closed && (DateTime.UtcNow - sock.Opened).TotalSeconds > 60)
+                if (sock.Client == null && !sock.Closed && !sock.Closing && (DateTime.UtcNow - sock.Opened).TotalSeconds > 60)
+                {
                     sock.Close("Took too long to join.");
+                    sock.CloseHard(3000);
+                }
                 // a player whose game crashed or froze stops saying it's alive: they (and their Sim)
                 // are taken off the lot instead of their Sim carrying on by itself
-                if (sock.Client != null && !sock.Closed && (DateTime.UtcNow - sock.LastHeard).TotalSeconds > SilentLimit)
+                if (sock.Client != null && !sock.Closed && !sock.Closing && (DateTime.UtcNow - sock.LastHeard).TotalSeconds > SilentLimit)
                 {
                     ReduxOnlineInfo.Log("[host] " + sock.PlayerName + "'s game hasn't answered for " + SilentLimit + " seconds - taking them off the lot");
                     sock.Close("Your game stopped answering, so you were taken off the lot.");
@@ -812,9 +852,10 @@ namespace Simitone.Client.Utils
             ReduxOnlineInfo.Log(name + " (" + sock.Account + ") is visiting with Sim " + guid.ToString("X8") + " as player " + id);
         }
 
-        /// <summary>2C: an owner without a Sim to control gets one of their family (when one is on the lot).</summary>
+        /// <summary>A version number as players know it: 43 -> "4.3".</summary>
         private static string VersionText(int v) { var t = v.ToString(); return t.Length < 2 ? t : t.Substring(0, t.Length - 1) + "." + t.Substring(t.Length - 1); }
 
+        /// <summary>2D: the family's player has gone - visitors head back to the town (a player's family only, not a town family).</summary>
         private void SendVisitorsHomeIfOwnerGone()
         {
             List<ReduxSocket> visitors;
@@ -831,6 +872,7 @@ namespace Simitone.Client.Utils
             foreach (var v in visitors) v.Close("The " + famName + " family's player has gone out, so you headed back to the town.");
         }
 
+        /// <summary>2C: an owner without a Sim to control gets one of their family (when one is on the lot).</summary>
         private void GiveOwnerASim(ReduxSocket sock)
         {
             if ((DateTime.UtcNow - sock.LastControlTry).TotalSeconds < 2) return;
@@ -1122,13 +1164,23 @@ namespace Simitone.Client.Utils
                         await ws.ConnectAsync(uri, timeout.Token);
                     var sock = new ReduxSocket(ws);
                     sock.Start();
-                    sock.Send(JoinPacket);
-                    Sock = sock;
+                    if (Finished)
+                    {
+                        // the player gave up (left) while we were still connecting
+                        sock.Close("left");
+                        sock.CloseHard(2000);
+                    }
+                    else
+                    {
+                        sock.Send(JoinPacket);
+                        Sock = sock;
+                    }
                 }
                 catch (Exception e)
                 {
                     Failure = ConnectFailure(ws, uri, e);
-                    ReduxOnlineInfo.Log("[guest] Connect failed (" + HideLogin(uri.ToString()) + "): " + e.Message);
+                    ReduxOnlineInfo.Log("[guest] Connect failed (" + HideLogin(uri.ToString()) + "): " + HideLogin(e.Message));
+                    try { ws?.Dispose(); } catch { }
                 }
                 Connecting = false;
             });
@@ -1160,11 +1212,10 @@ namespace Simitone.Client.Utils
             if (status == 503) return "The server couldn't open that lot right now. Wait a moment and try again - if it keeps happening, the server's log says why.";
             if (status == 404) return "That lot isn't in the town.";
             if (status == 502 || status == 530) return "The server isn't reachable right now - it (or its tunnel) may be off.";
-            return "Couldn't reach the server (" + HideLogin(uri.ToString()) + ").\n\n" + e.Message
+            return "Couldn't reach the server (" + HideLogin(uri.ToString()) + ").\n\n" + HideLogin(e.Message)
                 + "\n\nThe server, or its tunnel, may be off - or still starting up.";
         }
 
-        /// <summary>Called every frame before the lot ticks. Returns false once the connection is over (see Failure).</summary>
         /// <summary>The lot this game is on right now (so a crash can leave it at once).</summary>
         public static ReduxGuest Current;
         private DateTime LastAlive;
@@ -1184,6 +1235,7 @@ namespace Simitone.Client.Utils
             sock.Send(new byte[] { (byte)ReduxPacket.Alive });
         }
 
+        /// <summary>Called every frame before the lot ticks. Returns false once the connection is over (see Failure).</summary>
         public bool Process()
         {
             if (Finished) return false;
@@ -1194,6 +1246,9 @@ namespace Simitone.Client.Utils
             // every few seconds, from the game loop itself: the host knows our game is still running
             SendAlive();
 
+            // (read before the messages: everything that arrived before the connection closed - like
+            // the host's goodbye with its reason - is then handled before it counts as lost)
+            bool closed = sock.Closed;
             byte[] data;
             while (sock.Incoming.TryDequeue(out data))
             {
@@ -1208,7 +1263,7 @@ namespace Simitone.Client.Utils
                 }
                 if (Failure != null) { Finished = true; return false; }
             }
-            if (sock.Closed)
+            if (closed)
             {
                 if (Failure == null) Failure = "The connection to the host was lost." + (string.IsNullOrEmpty(sock.CloseReason) ? "" : "\n\n" + sock.CloseReason);
                 Finished = true;
@@ -1287,6 +1342,7 @@ namespace Simitone.Client.Utils
                 var guid = r.ReadUInt32();
                 var name = r.ReadString();
                 var pdLen = r.ReadInt32();
+                if (pdLen < 0 || pdLen > 1024) throw new Exception("bad person data");
                 var pd = new short[pdLen];
                 for (int i = 0; i < pdLen; i++) pd[i] = r.ReadInt16();
                 if (!ReduxOnlineInfo.SafeRelativePath(fileName)) return;

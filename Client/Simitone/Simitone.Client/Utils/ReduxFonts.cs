@@ -70,8 +70,6 @@ namespace Simitone.Client.Utils
                     byte a = (byte)(v * 17);
                     pixels[y * width + x] = new Color(a, a, a, a);
                 }
-            var tex = new Texture2D(gd, width, height);
-            tex.SetData(pixels);
 
             var bounds = new List<Rectangle>();
             var cropping = new List<Rectangle>();
@@ -136,6 +134,9 @@ namespace Simitone.Client.Utils
             foreach (var i in order) { sb.Add(bounds[i]); sc.Add(cropping[i]); sch.Add(chars[i]); sk.Add(kerning[i]); }
 
             char? fallback = sch.Contains('*') ? '*' : (char?)null;
+            // (made only now: a file that turns out not to be usable leaves no texture behind)
+            var tex = new Texture2D(gd, width, height);
+            tex.SetData(pixels);
             return new SpriteFont(tex, sb, sc, sch, lineHeight + 2, 0, sk, fallback);
         }
     }

@@ -199,15 +199,17 @@ namespace Simitone.Client.Utils
             Run(async () =>
             {
                 Report(progress, "Checking the town...", 0.1f);
-                var info = await Send(HttpMethod.Get, "/api/town/info");
-                var infoText = await info.Content.ReadAsStringAsync();
-                var json = Parse(infoText);
-                if ((int)info.StatusCode == 401)
+                JsonElement? json;
+                using (var info = await Send(HttpMethod.Get, "/api/town/info"))
                 {
-                    ReduxSettings.Set("towntoken", "");
-                    return "You've been logged out of the server. Log in again from the Online window.";
+                    json = Parse(await info.Content.ReadAsStringAsync());
+                    if ((int)info.StatusCode == 401)
+                    {
+                        ReduxSettings.Set("towntoken", "");
+                        return "You've been logged out of the server. Log in again from the Online window.";
+                    }
+                    if (!info.IsSuccessStatusCode) return Error(json, "The server couldn't send the town (" + (int)info.StatusCode + ").");
                 }
-                if (!info.IsSuccessStatusCode) return Error(json, "The server couldn't send the town (" + (int)info.StatusCode + ").");
                 var stamp = Get(json, "stamp") ?? "";
                 ReadOwnership(json);
 
@@ -224,6 +226,8 @@ namespace Simitone.Client.Utils
                 }
 
                 Report(progress, "Unpacking the town...", 0.8f);
+                // (forgotten first: a download that fails half-way through is never taken as up to date)
+                ReduxSettings.Set("townstamp", "");
                 var newStamp = Unpack(bundle);
                 ReduxSettings.Set("townstamp", newStamp);
                 ReduxOnlineInfo.Log("[town] Downloaded the town (" + (bundle.Length / 1024) + " KB, " + newStamp + ")");
@@ -299,7 +303,7 @@ namespace Simitone.Client.Utils
                 var list = new List<Tuple<string, string>>();
                 try
                 {
-                    var r = await Send(HttpMethod.Get, "/api/notices?after=" + after);
+                    using var r = await Send(HttpMethod.Get, "/api/notices?after=" + after);
                     if (r.IsSuccessStatusCode)
                     {
                         var json = Parse(await r.Content.ReadAsStringAsync());
