@@ -769,6 +769,7 @@ namespace Simitone.Client.UI.Screens
                     + " lotVisible=" + (LotControl?.Visible.ToString() ?? "-")
                     + " onTop=" + string.Join(",", GetChildren().Skip(Math.Max(0, GetChildren().Count - 4)).Select(x => x.GetType().Name)));
             }
+            ReduxVisitors.Tick(this); // SimsRedux: townies and walk-bys (single player)
             if (vm != null) vm.Update();
 
             //SaveHouseButton_OnButtonClick(null);
@@ -1396,6 +1397,10 @@ namespace Simitone.Client.UI.Screens
             vm.SpeedMultiplier = -1;
             vm.Tick();
             vm.SpeedMultiplier = 1;
+            // SimsRedux: like Sims 1, every lot gets the game's global objects (lot controllers) a house
+            // was saved without. Single player only - online lots stay exactly as the server has them.
+            if (!isSurrounding && Host == null && !IsGuest && !ReduxTown.Active && !ReduxWorker.Active)
+                VMTS1Activator.EnsureGlobalSimObjects(vm);
 
             if (isSimless)
             {
@@ -1630,7 +1635,7 @@ namespace Simitone.Client.UI.Screens
             //save the house first
             var iff = new IffFile();
             vm.TS1State.UpdateSIMI(vm);
-            var marshal = vm.Save(Host != null); // SimsRedux: leaves visiting friends' Sims out
+            var marshal = vm.Save(true); // SimsRedux: leaves visiting friends' Sims and passing townies (ReduxVisitors) out
             var fsov = new FSOV();
             fsov.ChunkLabel = "Simitone Lot Data";
             fsov.ChunkID = 1;

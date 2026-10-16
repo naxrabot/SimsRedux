@@ -2,6 +2,19 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "4.7",
+      "date": "Oct 16, 2026",
+      "features": [
+        "Townies — lots have people around: some are already there when you arrive, and neighbours walk by your home.",
+        "Call a taxi — use the phone to visit a neighbour, a community lot or Downtown."
+      ],
+      "updates": [
+        "Smarter Sims — Sims find things to do on their own, and your orders always come first.",
+        "Shop staff — talk to and use the services of clerks, waiters and other staff.",
+        "Phone — calling a friend works again, even when your Sim doesn't know anyone yet."
+      ]
+    },
+    {
       "version": "4.6",
       "date": "Oct 16, 2026",
       "features": [

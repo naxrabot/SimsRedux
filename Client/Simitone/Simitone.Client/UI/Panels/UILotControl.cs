@@ -803,7 +803,15 @@ namespace Simitone.Client.UI.Panels
         {
             if (ava == null || ava.Dead) return false;
             var screen = Parent as TS1GameScreen;
-            if (screen == null || (screen.Host == null && !screen.IsGuest)) return true;
+            if (screen == null || (screen.Host == null && !screen.IsGuest))
+            {
+                // SimsRedux: offline too, only your own family's Sims - never shop staff, townies or visitors
+                // (you talk to them and use their services; you don't take them over)
+                var fam = vm.TS1State?.CurrentFamily;
+                if (fam == null) return true; // (no family playing this lot: as before)
+                return ava.GetPersonData(FSO.SimAntics.Model.VMPersonDataVariable.TS1FamilyNumber) == fam.ChunkID
+                    || (fam.FamilyGUIDs != null && fam.FamilyGUIDs.Contains(ava.Object.OBJ.GUID));
+            }
             if (screen.IsVisitor || screen.Watching) return false;
             if (ava.PersistID >= ReduxOnlineInfo.FirstGuestID && ava.PersistID != vm.MyUID) return false;
             if ((ava.GetValue(FSO.SimAntics.Model.VMStackObjectVariable.MovementFlags) & (short)VMMovementFlags.FSOExcludeUserSave) != 0) return false; // a visiting Sim

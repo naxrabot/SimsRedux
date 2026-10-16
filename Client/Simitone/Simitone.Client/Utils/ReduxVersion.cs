@@ -18,6 +18,10 @@ namespace Simitone.Client.Utils
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Townies: lots have people around - some are already there when you arrive, and neighbours walk by your home.",
+            "Call a taxi: use the phone to visit a neighbour, a community lot or Downtown.",
+            "Smarter Sims: Sims find things to do on their own, and your orders always come first.",
+            "Phone: calling a friend works again, even when your Sim doesn't know anyone yet.",
             "Coming soon: new floors, walls and wall pictures - they'll be tried out on the Test server first.",
             "Smarter Sims: a Sim stops retrying a chore they can't get to and comes back to it later.",
             "Launcher: you can still play single player while a new version is on its way.",
