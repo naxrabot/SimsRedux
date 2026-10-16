@@ -62,6 +62,17 @@ namespace Simitone.Client.UI.Panels.Desktop
         private List<Texture2D> OtherHeads = new List<Texture2D>();
         private int HoverSlot = -1;
 
+        // ---- touch layout: faces and page tabs on a strip above the bar, pages fitted to the bar ----
+        private bool TouchMode;
+        private int TX0 = 100, TRight = 480;
+        private List<UIMouseEventRef> FaceRefs = new List<UIMouseEventRef>();
+        private Dictionary<Page, Vector2> PagePos = new Dictionary<Page, Vector2>();
+        private static readonly Page[] TabOrder = { Page.Mood, Page.Personality, Page.Interests, Page.Job, Page.House, Page.Relationships, Page.Inventory };
+        private int TouchCX { get { return TX0 + 80; } }
+        private Rectangle TouchFace(int i) { return new Rectangle(TX0 + i * 27, 55, 24, 26); }
+        private Rectangle TabCell(int i) { return new Rectangle(TRight - 7 * 28 + 2 + i * 28, 55, 26, 26); }
+        private Rectangle FaceRect(int i) { return TouchMode ? TouchFace(i) : Offset(FamilySlots[i]); }
+
         public UIClassicLivePanel(TS1GameScreen game)
         {
             Game = game;
@@ -98,13 +109,13 @@ namespace Simitone.Client.UI.Panels.Desktop
             {
                 var slot = i;
                 var r = FamilySlots[i];
-                ListenForMouse(new Rectangle(GX + r.X, GY + r.Y, r.Width, r.Height), (type, state) =>
+                FaceRefs.Add(ListenForMouse(new Rectangle(GX + r.X, GY + r.Y, r.Width, r.Height), (type, state) =>
                 {
                     if (!Visible) { HoverSlot = -1; return; }
                     if (type == UIMouseEventType.MouseOver) HoverSlot = slot;
                     else if (type == UIMouseEventType.MouseOut) { if (HoverSlot == slot) HoverSlot = -1; }
                     else if (type == UIMouseEventType.MouseUp && HoverSlot == slot) SelectFamily(slot); // (not when dragged off the face)
-                });
+                }));
             }
         }
 
@@ -115,6 +126,7 @@ namespace Simitone.Client.UI.Panels.Desktop
             btn.OnButtonClick += (b) => SetPage(page);
             Add(btn);
             PageButtons[page] = btn;
+            PagePos[page] = btn.Position;
         }
 
         private void SetPage(Page page)
@@ -140,7 +152,40 @@ namespace Simitone.Client.UI.Panels.Desktop
             {
                 Add(sub);
                 Hosted = sub;
+                Hosted.Position = HostedPos();
             }
+        }
+
+        private Vector2 HostedPos()
+        {
+            // the Relationships / Inventory pages start at 440 on a PC
+            return TouchMode ? new Vector2(TouchCX - 440, 0) : Vector2.Zero;
+        }
+
+        /// <summary>Touch layout on or off (x0..right: where the bar's contents go).</summary>
+        public void SetTouch(bool on, float x0, float right)
+        {
+            int nx = (int)x0, nr = (int)right;
+            if (on == TouchMode && (!on || (nx == TX0 && nr == TRight))) return;
+            TouchMode = on; TX0 = nx; TRight = nr;
+            for (int i = 0; i < TabOrder.Length; i++)
+            {
+                UITS1Button b;
+                if (!PageButtons.TryGetValue(TabOrder[i], out b)) continue;
+                if (on)
+                {
+                    var c = TabCell(i);
+                    UIClassicUCP.FitButton(b, c.X, c.Y, c.Width, c.Height);
+                }
+                else
+                {
+                    b.ScaleX = b.ScaleY = 1;
+                    b.Position = PagePos[TabOrder[i]];
+                }
+            }
+            for (int i = 0; i < FaceRefs.Count && i < FamilySlots.Length; i++)
+                FaceRefs[i].Region = FaceRect(i);
+            if (Hosted != null) Hosted.Position = HostedPos();
         }
 
         private void SelectFamily(int slot)
@@ -188,6 +233,7 @@ namespace Simitone.Client.UI.Panels.Desktop
         public override void Draw(UISpriteBatch batch)
         {
             if (!Visible) return;
+            if (TouchMode) { DrawTouch(batch); base.Draw(batch); return; }
             DrawGadget(batch);
 
             if (Selected != null)
@@ -245,7 +291,7 @@ namespace Simitone.Client.UI.Panels.Desktop
         {
             if (HoverSlot >= 0 && HoverSlot < Others.Count)
             {
-                var r = Offset(FamilySlots[HoverSlot]);
+                var r = FaceRect(HoverSlot);
                 Fill(batch, new Rectangle(r.X - 1, r.Y - 1, r.Width + 2, 1), Color.Cyan);
                 Fill(batch, new Rectangle(r.X - 1, r.Bottom, r.Width + 2, 1), Color.Cyan);
                 Fill(batch, new Rectangle(r.X - 1, r.Y, 1, r.Height), Color.Cyan);
@@ -301,6 +347,185 @@ namespace Simitone.Client.UI.Panels.Desktop
             }
 
             DrawHoverName(batch);
+        }
+
+        // ------------------------------------------------------------------
+        // Touch layout
+        // ------------------------------------------------------------------
+
+        private void DrawTouch(UISpriteBatch batch)
+        {
+            int x0 = TX0;
+
+            // the strip above the bar: the rest of the family (left), the page tabs (right)
+            if (OtherHeads.Count > 0)
+                DrawLocalTexture(batch, ReduxTheme.Box(OtherHeads.Count * 27 + 3, 30, 8, ReduxTheme.Deeper * 0.9f, ReduxTheme.Edge * 0.9f, ReduxTheme.Rim * 0.5f, 1), new Vector2(x0 - 2, 53));
+            DrawLocalTexture(batch, ReduxTheme.Box(7 * 28 + 2, 30, 8, ReduxTheme.Deeper * 0.9f, ReduxTheme.Edge * 0.9f, ReduxTheme.Rim * 0.5f, 1), new Vector2(TRight - 7 * 28, 53));
+            for (int i = 0; i < TabOrder.Length; i++)
+            {
+                if (TabOrder[i] != Current) continue;
+                var c = TabCell(i);
+                DrawLocalTexture(batch, ReduxTheme.Box(c.Width, c.Height, 7, ReduxTheme.Gloss * 0.9f, ReduxTheme.Hi * 0.9f, ReduxTheme.Glow, 1), new Vector2(c.X, c.Y));
+            }
+            for (int i = 0; i < OtherHeads.Count && i < FamilySlots.Length; i++)
+            {
+                var r = TouchFace(i);
+                DrawLocalTexture(batch, ReduxTheme.Box(r.Width, r.Height, 6, ReduxTheme.Gloss, ReduxTheme.Deep, ReduxTheme.Rim, 1), new Vector2(r.X, r.Y));
+                if (OtherHeads[i] != null) DrawFace(batch, OtherHeads[i], new Rectangle(r.X + 1, r.Y + 1, r.Width - 2, r.Height - 2));
+            }
+
+            // mood meter: 4 green bars on top (good mood), 4 red below (bad mood)
+            DrawLocalTexture(batch, ReduxTheme.Box(12, 92, 5, ReduxTheme.Deeper, ReduxTheme.Edge, Color.Transparent, 0, true), new Vector2(x0, 87));
+            int mood = (Selected == null) ? 0 : Selected.GetMotiveData(VMMotive.Mood);
+            int lit = (int)Math.Ceiling(Math.Min(100, Math.Abs(mood)) / 25.0);
+            var off = Color.White * 0.08f;
+            for (int i = 0; i < 4; i++)
+            {
+                bool g = mood > 0 && i >= 4 - lit;
+                bool r = mood < 0 && i < lit;
+                Fill(batch, new Rectangle(x0 + 2, 90 + i * 11, 8, 9), g ? new Color(123, 224, 107) : off);
+                Fill(batch, new Rectangle(x0 + 2, 135 + i * 11, 8, 9), r ? new Color(240, 102, 79) : off);
+            }
+
+            // the selected Sim, big, with their name
+            DrawLocalTexture(batch, ReduxTheme.Box(56, 62, 8, ReduxTheme.Gloss, ReduxTheme.Deep, ReduxTheme.Glow, 2), new Vector2(x0 + 16, 87));
+            if (SelectedHead != null) DrawFace(batch, SelectedHead, new Rectangle(x0 + 18, 89, 52, 58));
+            if (Selected != null)
+                DrawLocalString(batch, FirstName(Selected.Name), new Vector2(x0 + 12, 152), Small, new Rectangle(0, 0, 64, 14), TextAlignment.Center | TextAlignment.Middle);
+
+            if (Selected != null)
+            {
+                switch (Current)
+                {
+                    case Page.Mood: DrawMotivesT(batch); break;
+                    case Page.Personality: DrawPersonalityT(batch); break;
+                    case Page.Interests: DrawInterestsT(batch); break;
+                    case Page.Job: DrawJobT(batch); break;
+                    case Page.House: DrawHouseT(batch); break;
+                }
+            }
+            DrawHoverName(batch);
+        }
+
+        private static string FirstName(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return "";
+            var sp = name.IndexOf(' ');
+            return sp > 0 ? name.Substring(0, sp) : name;
+        }
+
+        private void DrawMotivesT(UISpriteBatch batch)
+        {
+            int cx = TouchCX, w = TRight - cx;
+            int colW = (w - 8) / 2;
+            for (int i = 0; i < 8; i++)
+            {
+                int col = i / 4, row = i % 4;
+                int x = cx + col * (colW + 8), y = 87 + row * 23;
+                var name = GameFacade.Strings.GetString("f102", (i + 1).ToString());
+                DrawLocalString(batch, name, new Vector2(x, y), Small, new Rectangle(0, 0, 54, 16), TextAlignment.Right | TextAlignment.Middle);
+                DrawMotiveBar(batch, new Rectangle(x + 58, y + 2, Math.Max(20, colW - 58), 13), Selected.GetMotiveData(Motives[i]));
+            }
+        }
+
+        private void DrawPersonalityT(UISpriteBatch batch)
+        {
+            int cx = TouchCX;
+            for (int i = 0; i < 5; i++)
+            {
+                int y = 87 + i * 19;
+                DrawLocalString(batch, PersonalityNames[i], new Vector2(cx, y), Small, new Rectangle(0, 0, 60, 14), TextAlignment.Right | TextAlignment.Middle);
+                DrawPoints(batch, PersOff, BarsOn, new Vector2(cx + 66, y), Points(Selected.GetPersonData(PersonalityVars[i])), 14);
+            }
+        }
+
+        private void DrawInterestsT(UISpriteBatch batch)
+        {
+            int cx = TouchCX, w = TRight - cx;
+            int colW = (w - 8) / 2;
+            var names = Selected.IsChild ? ChildInterests : AdultInterests;
+            for (int i = 0; i < 8; i++)
+            {
+                int col = i / 4, row = i % 4;
+                int x = cx + col * (colW + 8), y = 86 + row * 24;
+                var icon = TS1UIGraphics.Get("cpanel/Buttons/Interest" + names[i] + ".bmp");
+                if (icon.Width >= 3)
+                {
+                    int fw = icon.Width / 3;
+                    DrawLocalTexture(batch, icon, new Rectangle(0, 0, fw, icon.Height), new Vector2(x, y), new Vector2(20f / fw, 20f / icon.Height));
+                }
+                var label = (names[i] == "The60s") ? "The 60s" : names[i];
+                DrawLocalString(batch, label, new Vector2(x + 23, y), Small, new Rectangle(0, 0, Math.Max(20, colW - 23 - 44), 20), TextAlignment.Left | TextAlignment.Middle);
+                DrawPoints(batch, IntOff, BarsOn, new Vector2(x + colW - 42, y + 3), Points(Selected.GetPersonData(InterestVars[i])), 16);
+            }
+        }
+
+        private void DrawJobT(UISpriteBatch batch)
+        {
+            int cx = TouchCX, w = TRight - cx;
+            int L = Math.Max(90, Math.Min(140, w - 124));
+            var type = Selected.GetPersonData(VMPersonDataVariable.JobType);
+            var level = Selected.GetPersonData(VMPersonDataVariable.JobPromotionLevel);
+            var performance = Selected.GetPersonData(VMPersonDataVariable.JobPerformance);
+            var job = Content.Get().Jobs.GetJob((ushort)type);
+            FSO.Files.Formats.IFF.Chunks.JobLevel myLevel = null;
+            if (job != null && level >= 0 && level < job.JobLevels.Length) myLevel = job.JobLevels[level];
+
+            if (myLevel == null)
+            {
+                DrawLocalString(batch, "Unemployed", new Vector2(cx, 88), Title, new Rectangle(0, 0, L, 16), TextAlignment.Left | TextAlignment.Middle);
+                DrawLocalString(batch, "Find a job in the", new Vector2(cx, 110), Small, new Rectangle(0, 0, L, 14), TextAlignment.Left | TextAlignment.Middle);
+                DrawLocalString(batch, "paper or on the", new Vector2(cx, 125), Small, new Rectangle(0, 0, L, 14), TextAlignment.Left | TextAlignment.Middle);
+                DrawLocalString(batch, "computer.", new Vector2(cx, 140), Small, new Rectangle(0, 0, L, 14), TextAlignment.Left | TextAlignment.Middle);
+            }
+            else
+            {
+                DrawLocalString(batch, myLevel.JobName, new Vector2(cx, 86), Title, new Rectangle(0, 0, L, 16), TextAlignment.Left | TextAlignment.Middle);
+                DrawLocalString(batch, "Salary: §" + myLevel.Salary, new Vector2(cx, 104), Small, new Rectangle(0, 0, L, 14), TextAlignment.Left | TextAlignment.Middle);
+                DrawLocalString(batch, ToTime(myLevel.StartTime) + " - " + ToTime(myLevel.EndTime), new Vector2(cx, 119), Small, new Rectangle(0, 0, L, 14), TextAlignment.Left | TextAlignment.Middle);
+                var friendsNeeded = myLevel.MinRequired[0];
+                var friends = Game.ActiveFamily?.FamilyFriends ?? 0;
+                DrawLocalString(batch, "Friends: " + friends + (friendsNeeded > 0 ? " / " + friendsNeeded : ""), new Vector2(cx, 134), Small, new Rectangle(0, 0, L, 14), TextAlignment.Left | TextAlignment.Middle);
+                DrawLocalString(batch, "Performance", new Vector2(cx, 150), Small, new Rectangle(0, 0, L, 14), TextAlignment.Left | TextAlignment.Middle);
+                DrawMotiveBar(batch, new Rectangle(cx, 166, L - 6, 11), performance);
+            }
+
+            // skills, one column
+            int sx = cx + L + 6;
+            for (int i = 0; i < 6; i++)
+            {
+                int y = 87 + i * 15;
+                DrawLocalString(batch, SkillNames[i], new Vector2(sx, y), Small, new Rectangle(0, 0, 62, 12), TextAlignment.Right | TextAlignment.Middle);
+                var pos = new Vector2(sx + 66, y + 1);
+                DrawPoints(batch, JobOff, JobOn, pos, Points(Selected.GetPersonData(SkillVars[i])), 11);
+                if (myLevel != null && SkillMark.Width > 1)
+                {
+                    var need = Math.Max(0, Math.Min(10, myLevel.MinRequired[i + 1] / 100));
+                    if (need > 0) DrawLocalTexture(batch, SkillMark, pos + new Vector2(need * 4 - 4, 0));
+                }
+            }
+        }
+
+        private void DrawHouseT(UISpriteBatch batch)
+        {
+            int cx = TouchCX, w = TRight - cx;
+            var family = Game.ActiveFamily;
+            if (family == null)
+            {
+                DrawLocalString(batch, "This lot has no family.", new Vector2(cx, 88), Title, new Rectangle(0, 0, w, 16), TextAlignment.Left | TextAlignment.Middle);
+                return;
+            }
+            var lines = new string[]
+            {
+                "Home Value:  §" + family.ValueInArch.ToString("##,#0"),
+                "Family Funds:  §" + family.Budget.ToString("##,#0"),
+                "Total Worth:  §" + (family.ValueInArch + family.Budget).ToString("##,#0"),
+                "Family Friends:  " + family.FamilyFriends,
+            };
+            for (int i = 0; i < lines.Length; i++)
+                DrawLocalString(batch, lines[i], new Vector2(cx, 86 + i * 18), i == 0 ? Title : Small, new Rectangle(0, 0, w, 16), TextAlignment.Left | TextAlignment.Middle);
+            DrawLocalString(batch, "Room", new Vector2(cx, 160), Small, new Rectangle(0, 0, 50, 14), TextAlignment.Left | TextAlignment.Middle);
+            DrawMotiveBar(batch, new Rectangle(cx + 54, 161, Math.Max(40, Math.Min(150, w - 58)), 12), Selected.GetMotiveData(VMMotive.Room));
         }
 
         private static Dictionary<Texture2D, Rectangle> HeadBounds = new Dictionary<Texture2D, Rectangle>();

@@ -507,9 +507,7 @@ namespace Simitone.Client.UI.Panels.Desktop
         {
             get
             {
-                var ucp = Parent?.Parent as UIClassicUCP;
-                float scale = ucp?.UIScale ?? 1f;
-                float width = GlobalSettings.Default.GraphicsWidth / scale;
+                float width = UIClassicUCP.RightEdge(this);
                 return Math.Max(1, (int)((width - ThumbStart - 24) / ThumbStep));
             }
         }
@@ -821,18 +819,39 @@ namespace Simitone.Client.UI.Panels.Desktop
             if (SellCatcher != null)
             {
                 SellCatcher.Visible = Visible && holding != null && holding.IsBought;
-                if (SellCatcher.Visible) SellCatcher.Width = (int)(GlobalSettings.Default.GraphicsWidth / ((Parent?.Parent as UIClassicUCP)?.UIScale ?? 1f)) - 218;
+                if (SellCatcher.Visible) SellCatcher.Width = (int)UIClassicUCP.RightEdge(this) - 218;
             }
             if (Game.LotControl != null && Visible)
             {
                 Game.LotControl.PickupPanel.Opacity = 0f;
                 Game.LotControl.QueryPanel.Active = false; // the Simitone info card - the classic bar shows it instead
                 // search and dropper sit on the bar's top edge, at the right
-                var width = GlobalSettings.Default.GraphicsWidth / ((Parent?.Parent as UIClassicUCP)?.UIScale ?? 1f);
+                var width = UIClassicUCP.RightEdge(this);
                 Search.Position = new Vector2((int)Math.Max(ThumbStart + UIReduxGrowTab.W + 12, width - UIReduxCatalogSearch.TotalW - 12), GridTop - UIReduxCatalogSearch.BoxH);
             }
             if (Visible || ShownCursor != null) UpdateCursor();
             base.Update(state);
+        }
+
+        /// <summary>Text that wraps onto more lines when the bar is narrow (the touch layout).</summary>
+        private void DrawWrapped(UISpriteBatch batch, string text, int x, int y, int maxW, int boxH, TextStyle style)
+        {
+            maxW = Math.Max(40, maxW);
+            var lines = new List<string>();
+            var line = "";
+            foreach (var word in (text ?? "").Split(' '))
+            {
+                var test = line.Length == 0 ? word : line + " " + word;
+                float tw;
+                try { tw = style.MeasureString(test).X; } catch { tw = test.Length * 6; }
+                if (tw > maxW && line.Length > 0) { lines.Add(line); line = word; }
+                else line = test;
+            }
+            if (line.Length > 0) lines.Add(line);
+            int lh = style.Size + 4;
+            int top = y + (boxH - lines.Count * lh) / 2;
+            for (int i = 0; i < lines.Count; i++)
+                DrawLocalString(batch, lines[i], new Vector2(x, top + i * lh), style, new Rectangle(0, 0, maxW, lh), TextAlignment.Left | TextAlignment.Middle);
         }
 
         public override void Draw(UISpriteBatch batch)
@@ -843,7 +862,8 @@ namespace Simitone.Client.UI.Panels.Desktop
             if (!ReduxTheme.Redux) Fill(batch, new Rectangle(ToolX - 4, BarY + 4, ToolStep * 6 + 8, 92), new Color(0, 0, 50) * 0.6f);
             if (Divider != null && Divider.Width > 1) DrawLocalTexture(batch, Divider, new Vector2(DividerX, BarY + 6));
 
-            if (CurrentTool == Tool.Terrain)
+            int barRight = (int)UIClassicUCP.RightEdge(this);
+            if (CurrentTool == Tool.Terrain && barRight - (AreaX + 104) >= 90) // (touch: no room - the buttons say what they are when tapped)
             {
                 DrawLocalString(batch, "Raise / Lower", new Vector2(AreaX + 104, BarY + 14), Small, new Rectangle(0, 0, 160, 16), TextAlignment.Left | TextAlignment.Middle);
                 DrawLocalString(batch, "Level", new Vector2(AreaX + 48, BarY + 60), Small, new Rectangle(0, 0, 160, 16), TextAlignment.Left | TextAlignment.Middle);
@@ -852,10 +872,10 @@ namespace Simitone.Client.UI.Panels.Desktop
             if (AreaHint != null && CurrentTool != Tool.Terrain)
             {
                 int x = (CurrentTool == Tool.Water) ? AreaX + 116 : AreaX + 4;
-                DrawLocalString(batch, AreaHint, new Vector2(x, BarY + 30), Title, new Rectangle(0, 0, 520, 40), TextAlignment.Left | TextAlignment.Middle);
+                DrawWrapped(batch, AreaHint, x, BarY + 30, Math.Min(520, barRight - x - 4), 40, Title);
             }
             if (CurrentTool == Tool.None)
-                DrawLocalString(batch, "Pick a tool.", new Vector2(AreaX + 4, BarY + 30), Title, new Rectangle(0, 0, 300, 40), TextAlignment.Left | TextAlignment.Middle);
+                DrawWrapped(batch, "Pick a tool.", AreaX + 4, BarY + 30, Math.Min(300, barRight - AreaX - 8), 40, Title);
             // SimsRedux: the grown grid sits on a panel that rises out of the bar
             if (GridTop < BarY)
             {

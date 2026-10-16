@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework;
 using Simitone.Client.UI.Controls;
 using Simitone.Client.UI.Screens;
 using Simitone.Client.Utils;
+using System;
 
 namespace Simitone.Client.UI.Panels.Desktop
 {
@@ -66,10 +67,14 @@ namespace Simitone.Client.UI.Panels.Desktop
                 Sell.Caption = holder.Holding.IsBought ? "Sell" : "Cancel";
                 // bottom right, just above the control panel
                 var ucp = Game.Frontend?.DesktopUCP as UIClassicUCP;
-                float scale = ucp?.UIScale ?? 1f;
                 var w = GlobalSettings.Default.GraphicsWidth;
                 var h = GlobalSettings.Default.GraphicsHeight;
-                Position = new Vector2(w - Width - 14, h - UIClassicUCP.WingH * scale - BtnH - 12);
+                // touch layout: as big as the panel's buttons (about 50 screen points tall on a phone)
+                float k = (ucp != null && ucp.Touch) ? Math.Max(1f, ucp.UIScale * 0.62f) : 1f;
+                if (Width * k > w - 28) k = Math.Max(0.5f, (w - 28) / (float)Width);
+                ScaleX = ScaleY = k;
+                float top = ucp != null ? ucp.PanelTopScreen : h;
+                Position = new Vector2(w - Width * k - 14, top - BtnH * k - 10);
             }
             if (Visible) base.Update(state);
         }

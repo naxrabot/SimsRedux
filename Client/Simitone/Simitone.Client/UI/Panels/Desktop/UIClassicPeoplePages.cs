@@ -101,10 +101,7 @@ namespace Simitone.Client.UI.Panels.Desktop
         {
             get
             {
-                float scale = 1f;
-                UIElement p = Parent;
-                while (p != null) { if (p is UIClassicUCP) { scale = ((UIClassicUCP)p).UIScale; break; } p = p.Parent; }
-                float width = GlobalSettings.Default.GraphicsWidth / scale;
+                float width = UIClassicUCP.RightEdge(this);
                 return Math.Max(1, (int)((width - CellX - 30) / CellStep));
             }
         }

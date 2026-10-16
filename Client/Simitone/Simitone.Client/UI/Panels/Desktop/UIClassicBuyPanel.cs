@@ -580,9 +580,7 @@ namespace Simitone.Client.UI.Panels.Desktop
         {
             get
             {
-                var ucp = Parent?.Parent as UIClassicUCP;
-                float scale = ucp?.UIScale ?? 1f;
-                float width = GlobalSettings.Default.GraphicsWidth / scale;
+                float width = UIClassicUCP.RightEdge(this);
                 return Math.Max(1, (int)((width - ThumbStart - 24) / ThumbStep));
             }
         }
@@ -974,7 +972,7 @@ namespace Simitone.Client.UI.Panels.Desktop
             {
                 SellCatcher.Visible = Visible && holding != null && holding.IsBought;
                 if (!SellCatcher.Visible && SellExtras.Count > 0) ClearSellExtras();
-                if (SellCatcher.Visible) SellCatcher.Width = (int)(GlobalSettings.Default.GraphicsWidth / ((Parent?.Parent as UIClassicUCP)?.UIScale ?? 1f)) - 218;
+                if (SellCatcher.Visible) SellCatcher.Width = (int)UIClassicUCP.RightEdge(this) - 218;
             }
             if (Game.LotControl != null && Visible)
             {
@@ -986,7 +984,7 @@ namespace Simitone.Client.UI.Panels.Desktop
             if (Visible)
             {
                 // search and dropper sit on the bar's top edge, at the right
-                var width = GlobalSettings.Default.GraphicsWidth / ((Parent?.Parent as UIClassicUCP)?.UIScale ?? 1f);
+                var width = UIClassicUCP.RightEdge(this);
                 Search.Position = new Vector2((int)Math.Max(ThumbStart + UIReduxGrowTab.W + 12, width - UIReduxCatalogSearch.TotalW - 12), GridTop - UIReduxCatalogSearch.BoxH);
                 if (GrowTab != null && CurrentView == View.Start) GrowTab.Visible = false;
                 // the dropper: I to pick up / put away, Esc to put it away
@@ -1018,7 +1016,11 @@ namespace Simitone.Client.UI.Panels.Desktop
                     Fill(batch, new Rectangle(CatX - 4, RowBY - 22, CatW * 8 + 8, 44), new Color(0, 0, 50) * 0.6f);
                 }
                 var label = HoverText ?? "";
-                DrawLocalString(batch, label, new Vector2(CatX + CatW * 8 + 16, BarY + 38), Title, new Rectangle(0, 0, 220, 20), TextAlignment.Left | TextAlignment.Middle);
+                // (touch: no room right of the icons, so the name goes just above them)
+                if (UIClassicUCP.RightEdge(this) - (CatX + CatW * 8 + 16) < 120)
+                    DrawLocalString(batch, label, new Vector2(CatX, BarY - 22), Title, new Rectangle(0, 0, 220, 20), TextAlignment.Left | TextAlignment.Middle);
+                else
+                    DrawLocalString(batch, label, new Vector2(CatX + CatW * 8 + 16, BarY + 38), Title, new Rectangle(0, 0, 220, 20), TextAlignment.Left | TextAlignment.Middle);
             }
             else
             {

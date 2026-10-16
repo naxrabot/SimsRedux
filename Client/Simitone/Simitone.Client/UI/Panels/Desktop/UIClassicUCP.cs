@@ -11,6 +11,7 @@ using Simitone.Client.UI.Controls;
 using Simitone.Client.UI.Screens;
 using Simitone.Client.Utils;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace Simitone.Client.UI.Panels.Desktop
@@ -57,6 +58,25 @@ namespace Simitone.Client.UI.Panels.Desktop
 
         public float UIScale = 1f;
 
+        // ---- SimsRedux touch layout ("B": the Sims 1 panel, grown for fingers) ----
+        public enum PanelLayout { Classic, TouchWide, TouchTall }
+        /// <summary>Classic (PC), TouchWide (phone/tablet held sideways) or TouchTall (held upright).</summary>
+        public PanelLayout Layout { get; private set; } = PanelLayout.Classic;
+        public bool Touch { get { return Layout != PanelLayout.Classic; } }
+        /// <summary>Where the bar's contents start and end (in the panel's own units).</summary>
+        public float ContentX = BarX, BarRight = 1024;
+        /// <summary>On the screen: the top of everything the panel shows, the top and left of the bar's contents.</summary>
+        public float PanelTopScreen, BarTopScreen, BarLeftScreen;
+        private float LayoutWu = -1;
+        private Dictionary<UIElement, Vector4> ClassicPlace = new Dictionary<UIElement, Vector4>();
+        private UIMouseEventRef BarCatcher;
+        private UIReduxTextButton BackBtn;
+        private UIElement[] RightBlock;
+        private bool RightBlockShown = true;
+        private float RX, RY;
+        private Vector2 DiamondC;
+        private Rectangle ClockBox;
+
         public UIClassicUCP(TS1GameScreen screen) : base(screen)
         {
             Screen = screen;
@@ -87,7 +107,12 @@ namespace Simitone.Client.UI.Panels.Desktop
             LiveButton.OnButtonClick += (b) => { if (SelectedMode() != UIMainPanelMode.LIVE) OnModeClick?.Invoke(UIMainPanelMode.LIVE); };
             BuyButton.OnButtonClick += (b) => { if (!WatchBlocked()) OnModeClick?.Invoke(UIMainPanelMode.BUY); };
             BuildButton.OnButtonClick += (b) => { if (!WatchBlocked()) OnModeClick?.Invoke(UIMainPanelMode.BUILD); };
-            OptionsButton.OnButtonClick += (b) => OnModeClick?.Invoke(UIMainPanelMode.OPTIONS);
+            OptionsButton.OnButtonClick += (b) =>
+            {
+                // touch: Options again closes the open page (the page covers the Options buttons)
+                if (Touch && OptionPages != null && OptionPages.Current != UIClassicOptionsPages.Page.None) ShowOptionsPage(UIClassicOptionsPages.Page.None);
+                OnModeClick?.Invoke(UIMainPanelMode.OPTIONS);
+            };
             CameraBtn.Disabled = true; // camera mode: coming later
 
             // floors
@@ -191,7 +216,25 @@ namespace Simitone.Client.UI.Panels.Desktop
 
             // clicks on the bottom bar (and the solid lower part of the wing, between its buttons)
             // shouldn't fall through to the lot
-            ListenForMouse(new Rectangle(0, BarY, BarX + 4000, BarH), (t, s) => { });
+            BarCatcher = ListenForMouse(new Rectangle(0, BarY, BarX + 4000, BarH), (t, s) => { });
+
+            // touch: back from an Options page to the Options buttons
+            BackBtn = new UIReduxTextButton("< Back", 64, 24);
+            BackBtn.OnButtonClick += (b) => ShowOptionsPage(UIClassicOptionsPages.Page.None);
+            BackBtn.Visible = false;
+            Add(BackBtn);
+
+            RightBlock = new UIElement[]
+            {
+                SpeedButtons[3], SpeedButtons[0], SpeedButtons[1], SpeedButtons[2], HelpBtn,
+                RotateCCWButton, ZoomInButton, ZoomOutButton, RotateCWButton, FloorUpButton,
+                RoofButton, WallsUpButton, WallsCutButton, WallsDownButton, FloorDownButton
+            };
+
+            // remember where everything goes on a PC, to put it back when touch is switched off
+            foreach (var child in GetChildren())
+                if (child != DynamicOverlay && child != BackBtn)
+                    ClassicPlace[child] = new Vector4(child.X, child.Y, child.ScaleX, child.ScaleY);
 
             Size = new Vector2(1024, WingH); // wide enough for the bar contents
             UpdateBuildBuy();
@@ -263,9 +306,172 @@ namespace Simitone.Client.UI.Panels.Desktop
 
         private void Reposition()
         {
-            UIScale = ReduxTheme.PanelScale(GlobalSettings.Default.GraphicsHeight);
-            ScaleX = ScaleY = UIScale;
-            Position = new Vector2(0, GlobalSettings.Default.GraphicsHeight - WingH * UIScale);
+            int W = GlobalSettings.Default.GraphicsWidth, H = GlobalSettings.Default.GraphicsHeight;
+            var want = !ReduxTouch.ReduxLayout ? PanelLayout.Classic
+                : (H > W ? PanelLayout.TouchTall : PanelLayout.TouchWide);
+            float s;
+            // touch, sideways: the panel (with the strip of faces and tabs above it) takes a bit under half
+            //   the screen's height, but the screen is always at least 620 panel units wide
+            // touch, upright: the screen is 400 units wide (the panel is in two rows)
+            if (want == PanelLayout.TouchWide) s = Math.Max(0.5f, Math.Min(0.46f * H / 128f, W / 620f));
+            else if (want == PanelLayout.TouchTall) s = Math.Max(0.5f, Math.Min(W / 400f, 0.42f * H / 226f));
+            else s = ReduxTheme.PanelScale(H);
+            UIScale = s;
+            ScaleX = ScaleY = s;
+            float wu = W / s;
+            if (want != Layout || Math.Abs(wu - LayoutWu) > 0.5f) ApplyLayout(want, wu);
+            float bottom = want == PanelLayout.TouchTall ? 281 : WingH;
+            Position = new Vector2(0, H - bottom * s);
+            if (want == PanelLayout.Classic)
+            {
+                ContentX = BarX;
+                BarRight = wu;
+                PanelTopScreen = Position.Y;
+                BarLeftScreen = Position.X + (WingW + 6) * s;
+            }
+            else
+            {
+                PanelTopScreen = Position.Y + 55 * s;
+                BarLeftScreen = Position.X + ContentX * s;
+            }
+            BarTopScreen = Position.Y + BarY * s;
+        }
+
+        /// <summary>Scales a Sims 1 art button to fit a box, keeping its shape, centred in the box.</summary>
+        public static void FitButton(UIButton b, float x, float y, float w, float h)
+        {
+            var t = b.Texture;
+            int frames = (b as UITS1Button)?.Frames ?? 4;
+            int rows = (b as UITS1Button)?.Rows ?? 1;
+            if (t == null || t.Width < frames * 2 || t.Height < rows * 2)
+            {
+                b.ScaleX = b.ScaleY = 1;
+                b.Position = new Vector2(x, y);
+                return;
+            }
+            float fw = t.Width / (float)frames, fh = t.Height / (float)rows;
+            float k = Math.Min(w / fw, h / fh);
+            b.ScaleX = b.ScaleY = k;
+            b.Position = new Vector2(x + (w - fw * k) / 2f, y + (h - fh * k) / 2f);
+        }
+
+        /// <summary>
+        /// The right edge of the bar's contents in an element's own units (it may be moved or scaled
+        /// inside the panel). Used by the catalogs to work out how many pictures fit.
+        /// </summary>
+        public static float RightEdge(UIElement e)
+        {
+            if (e == null) return GlobalSettings.Default.GraphicsWidth;
+            var ucp = e as UIClassicUCP;
+            if (ucp != null) return ucp.BarRight;
+            float sx = e.ScaleX == 0 ? 1 : e.ScaleX;
+            return (RightEdge(e.Parent) - e.X) / sx;
+        }
+
+        private void ApplyLayout(PanelLayout want, float wu)
+        {
+            Layout = want;
+            LayoutWu = wu;
+            foreach (var pair in ClassicPlace)
+            {
+                pair.Key.Position = new Vector2(pair.Value.X, pair.Value.Y);
+                pair.Key.ScaleX = pair.Value.Z;
+                pair.Key.ScaleY = pair.Value.W;
+            }
+            CameraBtn.Visible = want == PanelLayout.Classic;
+            FriendsCount.Visible = want == PanelLayout.Classic;
+            ClockLabel.CaptionStyle.Size = want == PanelLayout.Classic ? 10 : 12;
+            MoneyLabel.CaptionStyle.Size = want == PanelLayout.Classic ? 11 : 12;
+
+            if (want == PanelLayout.Classic)
+            {
+                BackBtn.Visible = false;
+                ClockLabel.Size = new Vector2(74, 15);
+                MoneyLabel.Size = new Vector2(82, 17);
+                Size = new Vector2(1024, WingH);
+                BarCatcher.Region = new Rectangle(0, BarY, BarX + 4000, BarH);
+                Invalidate();
+                return;
+            }
+
+            bool tall = want == PanelLayout.TouchTall;
+            ContentX = tall ? 4 : 100;
+            BarRight = tall ? wu - 4 : wu - 136;
+
+            // Live / Buy / Build / Options: a diamond of big buttons
+            float cy = tall ? 233 : 133;
+            DiamondC = new Vector2(48, cy);
+            FitButton(LiveButton, 33, cy - 46, 30, 30);
+            FitButton(BuyButton, 2, cy - 15, 30, 30);
+            FitButton(BuildButton, 64, cy - 15, 30, 30);
+            FitButton(OptionsButton, 33, cy + 16, 30, 30);
+
+            // speed, camera, walls and floors: a block of buttons at the right
+            RX = wu - 132;
+            RY = tall ? 187 : 87;
+            for (int i = 0; i < RightBlock.Length; i++)
+                FitButton((UIButton)RightBlock[i], RX + (i % 5) * 26, RY + (i / 5) * 32, 24, 24);
+
+            // clock and money: above the block (sideways), or between the diamond and the block (upright)
+            if (tall)
+            {
+                ClockBox = new Rectangle(100, 191, (int)(RX - 108), 56);
+                ClockLabel.Position = new Vector2(104, 195); ClockLabel.Size = new Vector2(ClockBox.Width - 8, 22);
+                MoneyLabel.Position = new Vector2(104, 221); MoneyLabel.Size = new Vector2(ClockBox.Width - 8, 22);
+            }
+            else
+            {
+                ClockBox = new Rectangle((int)RX - 3, 55, 134, 26);
+                ClockLabel.Position = new Vector2(RX + 1, 57); ClockLabel.Size = new Vector2(60, 22);
+                MoneyLabel.Position = new Vector2(RX + 61, 57); MoneyLabel.Size = new Vector2(66, 22);
+            }
+
+            // Options: Save / Neighborhood / Quit, Graphics / Sound / Play, straight after the diamond
+            float dx = ContentX + 4 - 249;
+            foreach (var b in OptionButtons)
+            {
+                var v = ClassicPlace[b];
+                b.Position = new Vector2(v.X + dx, v.Y);
+            }
+            BackBtn.Position = new Vector2(ContentX, 56);
+
+            Size = new Vector2(wu + 8, tall ? 284 : WingH);
+            BarCatcher.Region = new Rectangle(0, BarY, (int)wu + 8, tall ? 200 : BarH);
+            Invalidate();
+        }
+
+        /// <summary>Touch: puts the bar's panels where the touch layout wants them.</summary>
+        private void PlaceBarPanels(bool options)
+        {
+            float panelX = Touch ? ContentX - 232 : 0; // (the Buy and Build bars start at 232 on a PC)
+            BuyPanel.X = panelX;
+            BuildPanel.X = panelX;
+            LivePanel.SetTouch(Touch, ContentX, BarRight);
+
+            bool pageOpen = OptionPages.Current != UIClassicOptionsPages.Page.None;
+            if (Touch && options && pageOpen)
+            {
+                // the page takes the whole bar (the speed block makes way), shrunk if it doesn't fit
+                float avail = (LayoutWu - 4) - ContentX;
+                float f = Math.Min(1f, avail / (930f - 452f));
+                OptionPages.ScaleX = OptionPages.ScaleY = f;
+                OptionPages.Position = new Vector2(ContentX - 452 * f, BarY - BarY * f);
+            }
+            else
+            {
+                OptionPages.ScaleX = OptionPages.ScaleY = 1;
+                OptionPages.Position = Vector2.Zero;
+            }
+
+            bool hideForPage = Touch && options && pageOpen;
+            if (BackBtn.Visible != hideForPage) { BackBtn.Visible = hideForPage; Invalidate(); }
+            bool showBlock = !hideForPage;
+            if (showBlock != RightBlockShown)
+            {
+                RightBlockShown = showBlock;
+                foreach (var e in RightBlock) e.Visible = showBlock;
+                Invalidate();
+            }
         }
 
         private string LastClockText = "";
@@ -279,7 +485,9 @@ namespace Simitone.Client.UI.Panels.Desktop
 
             // bar contents that are already classic: show ours, hide Simitone's
             bool options = CurrentMode == UIMainPanelMode.OPTIONS;
-            foreach (var b in OptionButtons) b.Visible = options;
+            // (touch: an open Options page covers the Options buttons)
+            bool optPage = Touch && OptionPages.Current != UIClassicOptionsPages.Page.None;
+            foreach (var b in OptionButtons) b.Visible = options && !optPage;
             bool live = CurrentMode == UIMainPanelMode.LIVE;
             bool buy = CurrentMode == UIMainPanelMode.BUY;
             bool build = CurrentMode == UIMainPanelMode.BUILD;
@@ -288,6 +496,7 @@ namespace Simitone.Client.UI.Panels.Desktop
             BuildPanel.Visible = build;
             OptionPages.Visible = options;
             if (!options && OptionPages.Current != UIClassicOptionsPages.Page.None) ShowOptionsPage(UIClassicOptionsPages.Page.None);
+            PlaceBarPanels(options);
             if (ModeContents != null)
             {
                 ModeContents.ClassicHidden = options || live || buy || build;
@@ -311,6 +520,7 @@ namespace Simitone.Client.UI.Panels.Desktop
         public override void Draw(UISpriteBatch batch)
         {
             if (!Visible) return;
+            if (Touch) { DrawTouch(batch); base.Draw(batch); return; }
             float screenRight = (GlobalSettings.Default.GraphicsWidth / UIScale) + 4;
             bool redux = ReduxTheme.Redux;
             if (redux)
@@ -344,6 +554,24 @@ namespace Simitone.Client.UI.Panels.Desktop
             }
 
             base.Draw(batch);
+        }
+
+        /// <summary>Touch: one bar across the bottom, wells behind the diamond, the speed block and the clock.</summary>
+        private void DrawTouch(UISpriteBatch batch)
+        {
+            var px = TextureGenerator.GetPxWhite(GameFacade.GraphicsDevice);
+            float w = LayoutWu + 8;
+            bool tall = Layout == PanelLayout.TouchTall;
+            int h = (tall ? 284 : WingH) - BarY;
+            DrawLocalTexture(batch, px, null, new Vector2(0, BarY - 4), new Vector2(w, 4), Color.Black * 0.22f);
+            DrawLocalTexture(batch, px, null, new Vector2(0, BarY - 1), new Vector2(w, 1), ReduxTheme.Edge);
+            DrawLocalTexture(batch, ReduxTheme.BarGradient(h), null, new Vector2(0, BarY), new Vector2(w, 1));
+            if (tall) DrawLocalTexture(batch, px, null, new Vector2(4, 184), new Vector2(LayoutWu - 8, 1), ReduxTheme.Edge * 0.6f);
+
+            DrawLocalTexture(batch, ReduxTheme.Box(72, 72, 36, ReduxTheme.Deeper, ReduxTheme.Edge, ReduxTheme.Rim * 0.6f, 1, true), DiamondC - new Vector2(36, 36));
+            if (RightBlockShown)
+                DrawLocalTexture(batch, ReduxTheme.Box(134, 96, 10, ReduxTheme.Deeper * 0.8f, ReduxTheme.Edge * 0.8f, Color.Transparent, 0, true), new Vector2(RX - 3, RY - 4));
+            DrawLocalTexture(batch, ReduxTheme.Box(ClockBox.Width, ClockBox.Height, 8, ReduxTheme.Deeper, ReduxTheme.Edge, ReduxTheme.Rim * 0.5f, 1, true), new Vector2(ClockBox.X, ClockBox.Y));
         }
 
         private int ModeIndex(UIMainPanelMode mode)

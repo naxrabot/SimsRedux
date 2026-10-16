@@ -2,6 +2,18 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "7.5",
+      "date": "Oct 16, 2026",
+      "features": [
+        "Touch control panel — a new, bigger control panel for phones and tablets: the Sims 1 panel grown for fingers, with the real Sims 1 buttons."
+      ],
+      "updates": [
+        "Touch layout — Live, Buy, Build and Options sit in a diamond; speed, camera, walls and floors are in one block on the right; your family and the Mood / Personality / Job tabs sit just above the panel.",
+        "Upright phones — the panel splits into two rows so everything stays big enough to tap.",
+        "Hold buttons — Turn, Place and Sell are bigger on touch screens."
+      ]
+    },
+    {
       "version": "7.4",
       "date": "Oct 16, 2026",
       "features": [],
