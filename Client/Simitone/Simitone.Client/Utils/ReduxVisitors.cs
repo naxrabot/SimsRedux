@@ -307,7 +307,7 @@ namespace Simitone.Client.Utils
                 var famNum = Data(n, VMPersonDataVariable.TS1FamilyNumber);
                 var nfam = (famNum > 0) ? neigh.GetFamily((ushort)famNum) : null;
                 if (nfam != null && fam != null && nfam.ChunkID == fam.ChunkID) continue;
-                if (nfam == null || (nfam.HouseNumber <= 0 && nfam.Unknown == 0)) townies.Add(n); // townies (no family, or the townie family)
+                if (nfam == null || (nfam.HouseNumber <= 0 && (nfam.Unknown == 0 || ReduxPopulation.IsGenerated(nfam.ChunkID)))) townies.Add(n); // townies (no family, the townie family, or the extra families made for the town)
                 else if (nfam.HouseNumber > 0) neighbours.Add(n); // a family living in the neighbourhood
                 // (families in the family bin don't wander about)
             }

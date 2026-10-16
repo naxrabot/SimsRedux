@@ -18,6 +18,7 @@ namespace Simitone.Client.Utils
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "New neighbours: each neighbourhood gets 14 new families and singles - find them in the family bin, downtown and walking past your home.",
             "Shop staff: you can talk to clerks, waiters, chefs and other workers on community lots.",
             "Talking to Sims: townies and guests on community lots can be talked to again.",
             "No more trolleys: the Old Town trolley stops pulling up and piling up in front of your lot.",

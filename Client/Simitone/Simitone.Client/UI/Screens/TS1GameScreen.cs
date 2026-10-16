@@ -243,6 +243,8 @@ namespace Simitone.Client.UI.Screens
         {
             Content.Get().Neighborhood.PreparePersonDataFromObject = PersonGeneratorHelper.PreparePersonDataFromObject;
             Content.Get().Neighborhood.AddMissingNeighbors();
+            // SimsRedux: single player - a neighbourhood gets a batch of extra families the first time it opens
+            if (!ReduxTown.Active && Host == null && !IsGuest && !ReduxWorker.Active) ReduxPopulation.EnsurePopulated();
             var nbd = (ushort)((mode == NeighSelectionMode.MoveInMagic) ? 7 : 4);
             // SimsRedux: the classic top bar replaces the side buttons (and needs to know about
             // move-in mode before the screen is built, so it's only built once)

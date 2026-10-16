@@ -2,6 +2,14 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "5.4",
+      "date": "Oct 16, 2026",
+      "features": [
+        "New neighbours — each neighbourhood gets 14 new families and singles. Find them in the family bin, on community lots and walking past your home."
+      ],
+      "updates": []
+    },
+    {
       "version": "5.3",
       "date": "Oct 16, 2026",
       "features": [],
