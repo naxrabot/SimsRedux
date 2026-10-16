@@ -2,6 +2,16 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "6.1",
+      "date": "Oct 16, 2026",
+      "features": [
+        "Tint — right-click an object in Buy or Build mode to recolour it. Pick a colour (white and black included), then fine-tune Colour, Strength and Brightness."
+      ],
+      "updates": [
+        "Tint — the old list of other colours to swap to is gone; Tint does any colour."
+      ]
+    },
+    {
       "version": "6.0",
       "date": "Oct 16, 2026",
       "features": [

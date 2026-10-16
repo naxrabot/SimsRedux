@@ -18,6 +18,7 @@ namespace Simitone.Client.Utils
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Tint: right-click an object in Buy or Build mode to recolour it - pick a colour (white and black too), then set Colour, Strength and Brightness.",
             "Bigger catalog: click the arrow on top of the Buy or Build pictures to show up to 5 rows at once.",
             "Cleaner icons: the small category icons in Buy mode are just the icons now, with a glow on the one you picked.",
             "Item cards: point at anything in Buy or Build mode to see a big picture, the price, the description and what it does.",

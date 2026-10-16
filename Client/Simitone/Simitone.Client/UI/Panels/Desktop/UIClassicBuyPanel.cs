@@ -813,7 +813,7 @@ namespace Simitone.Client.UI.Panels.Desktop
                 var value = entity.MultitileGroup.Price;
                 EnsureSellCatcher();
                 SellCatcher.Title = canSell ? ("Sell " + name + (value > 0 ? " for §" + value.ToString("##,#0") : "")) : (name + " can't be sold");
-                SellCatcher.Hint = canSell ? "Click here to sell it.  Esc puts it back.  Or pick a new colour below (or right-click it on the lot)." : "Esc puts it back.";
+                SellCatcher.Hint = canSell ? "Click here to sell it.  Esc puts it back.  Tint (below, or right-click it on the lot) changes its colour." : "Esc puts it back.";
                 var guid = (entity.MultitileGroup.MultiTile && entity.MasterDefinition != null) ? entity.MasterDefinition.GUID : entity.Object.OBJ.GUID;
                 ShowSellExtras(holding.MoveTarget != 0 ? holding.MoveTarget : entity.ObjectID, guid);
             }
@@ -841,7 +841,7 @@ namespace Simitone.Client.UI.Panels.Desktop
         {
             ClearSellExtras();
             int x = 300;
-            var variants = ReduxColourVariants.Get(currentGUID);
+            var variants = new List<uint>(); // SimsRedux: no other-colours swap row any more - Tint does any colour
             var catalog = Content.Get().WorldCatalog;
             var current = catalog.GetItemByGUID(currentGUID);
             int currentPrice = (current == null) ? 0 : (int)current.Value.Price;

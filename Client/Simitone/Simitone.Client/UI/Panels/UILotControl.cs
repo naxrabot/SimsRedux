@@ -997,7 +997,9 @@ namespace Simitone.Client.UI.Panels
                 if (id <= 0) return;
                 var obj = vm.GetObjectById(id) as VMGameObject;
                 if (obj == null) return;
-                Simitone.Client.UI.Panels.Desktop.UIClassicColourDialog.Open(game, obj);
+                // SimsRedux: right-click goes straight to Tint (the whole object takes a new colour)
+                var lead = obj.MultitileGroup?.BaseObject as VMGameObject ?? obj;
+                UIScreen.GlobalShowDialog(new Simitone.Client.UI.Panels.Desktop.UIClassicTintDialog(game, lead.ObjectID), true);
             }
             catch (Exception e)
             {
