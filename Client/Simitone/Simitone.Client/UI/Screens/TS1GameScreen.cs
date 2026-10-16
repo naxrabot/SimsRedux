@@ -777,17 +777,290 @@ namespace Simitone.Client.UI.Screens
         private void DoSwitchLot(int target)
         {
             if (vm == null) return;
+            // SimsRedux: a taxi called from the phone (only if it's this trip - the game's own travel may have come first)
+            var taxi = PendingTaxi;
+            PendingTaxi = null;
+            if (taxi != null && taxi.House != target) taxi = null;
             if (!Downtown) SavedLot = vm.Save();
             if (ActiveFamily != null && target == ActiveFamily.HouseNumber && SavedLot != null)
             {
                 Downtown = false;
+                if (taxi != null) ActiveFamily.SelectWholeFamily(); // home: the whole family is playable again
                 InitializeLot(SavedLot);
                 SavedLot = null;
+                if (taxi != null) ApplyTaxiMotives(taxi);
             }
             else
             {
                 Downtown = true;
-                InitializeLot(Content.Get().Neighborhood.GetHousePath(target), false);
+                TaxiArrival = (taxi != null && taxi.Visit) ? taxi : null;
+                try { InitializeLot(Content.Get().Neighborhood.GetHousePath(target), false); }
+                finally { TaxiArrival = null; }
+                VisitingHouse = taxi != null && taxi.Visit;
+            }
+        }
+
+        // ================= SimsRedux: Call Taxi (single player) =================
+
+        private class TaxiTrip
+        {
+            public short House;
+            /// <summary>Visiting another family's house (not a community lot, not home).</summary>
+            public bool Visit;
+            /// <summary>The Sims going (object GUIDs).</summary>
+            public uint[] Travellers = new uint[0];
+            /// <summary>Their motives when they left: bladder, comfort, energy, fun, hunger, hygiene, social.</summary>
+            public Dictionary<uint, short[]> Motives = new Dictionary<uint, short[]>();
+        }
+        private TaxiTrip PendingTaxi;
+        private TaxiTrip TaxiArrival;
+
+        /// <summary>
+        /// SimsRedux: on another family's house, reached by taxi. That house is never saved
+        /// (your Sims would end up living in it); going home restores your own lot.
+        /// </summary>
+        public bool VisitingHouse;
+
+        /// <summary>SimsRedux: the phone can call a taxi: single player, playing a family, not already travelling.</summary>
+        public bool CanCallTaxi
+        {
+            get
+            {
+                return vm != null && vm.TS1 && !IsGuest && Host == null && !ReduxTown.Active && !ReduxWorker.Active
+                    && !Watching && ActiveFamily != null && SwitchLot <= 0;
+            }
+        }
+
+        /// <summary>SimsRedux: where a taxi can go from here (home first when away, then houses, then community lots).</summary>
+        public List<Simitone.Client.UI.Panels.LotControls.UICallTaxiAlert.Destination> TaxiDestinations()
+        {
+            var result = new List<Simitone.Client.UI.Panels.LotControls.UICallTaxiAlert.Destination>();
+            if (!CanCallTaxi) return result;
+            var neigh = Content.Get().Neighborhood;
+            short current = vm.GetGlobalValue(10);
+            short home = (short)ActiveFamily.HouseNumber;
+            if (home > 0 && current != home && Downtown && SavedLot != null)
+                result.Add(new Simitone.Client.UI.Panels.LotControls.UICallTaxiAlert.Destination(home, "Home - " + TaxiFamilyName(ActiveFamily)));
+
+            var seen = new HashSet<short>() { current, home };
+            var community = new List<Simitone.Client.UI.Panels.LotControls.UICallTaxiAlert.Destination>();
+            foreach (var mode in new int[] { 4, 2, 3, 5, 7 })
+            {
+                STR str = null;
+                try { str = neigh.LotLocations?.Get<STR>((ushort)mode); } catch { }
+                if (str == null) continue;
+                string area = TaxiAreaName(mode);
+                for (int i = 0; i < str.Length; i++)
+                {
+                    short num;
+                    var parts = (str.GetString(i) ?? "").Split(',');
+                    if (parts.Length == 0 || !short.TryParse(parts[0].Trim(), out num)) continue;
+                    if (num <= 0 || num == 99 || seen.Contains(num)) continue;
+                    seen.Add(num);
+                    try
+                    {
+                        if (!FSOFile.Exists(neigh.GetHousePath(num))) continue;
+                        var fam = neigh.GetFamilyForHouse(num);
+                        var name = TaxiLotName(num);
+                        if (fam != null)
+                        {
+                            // someone lives here: visit them
+                            result.Add(new Simitone.Client.UI.Panels.LotControls.UICallTaxiAlert.Destination(num,
+                                area + "The " + TaxiFamilyName(fam) + " family (" + name + ")"));
+                        }
+                        else if (neigh.IsCommunity(num))
+                        {
+                            community.Add(new Simitone.Client.UI.Panels.LotControls.UICallTaxiAlert.Destination(num,
+                                area + name + (mode == 4 ? " (community lot)" : "")));
+                        }
+                        // (empty houses and houses for sale: nobody to visit, and no phone to get home)
+                    }
+                    catch (Exception e) { Console.WriteLine("[SimsRedux] taxi: skipped lot " + num + ": " + e.Message); }
+                }
+            }
+            result.AddRange(community);
+            return result;
+        }
+
+        private static string TaxiAreaName(int mode)
+        {
+            switch (mode)
+            {
+                case 2: return "Downtown: ";
+                case 3: return "Vacation Island: ";
+                case 5: return "Studio Town: ";
+                case 7: return "Magic Town: ";
+                default: return "";
+            }
+        }
+
+        private static string TaxiFamilyName(FAMI fam)
+        {
+            string name = null;
+            try { name = Content.Get().Neighborhood.MainResource.Get<FAMs>(fam.ChunkID)?.GetString(0); } catch { }
+            return string.IsNullOrEmpty(name) ? "Unknown" : name;
+        }
+
+        private static string TaxiLotName(short house)
+        {
+            var neigh = Content.Get().Neighborhood;
+            string name = null;
+            try { name = neigh.GetHouseNameDesc(house)?.Item1; } catch { }
+            if (string.IsNullOrEmpty(name))
+            {
+                try
+                {
+                    var street = neigh.StreetNames;
+                    var assignment = street?.Get<STR>(2001)?.GetString(house - 1);
+                    int streetName;
+                    if (int.TryParse(assignment, out streetName))
+                        name = street.Get<STR>(2000)?.GetString(streetName - 1)?.Replace("%s", house.ToString());
+                }
+                catch { }
+            }
+            return string.IsNullOrEmpty(name) ? ("Lot " + house) : name;
+        }
+
+        /// <summary>
+        /// SimsRedux: a taxi takes "caller" (and, except to Downtown, the rest of the family on this lot)
+        /// to another lot. Works like the game's own travel: this lot is kept to come back to, the
+        /// Sims' motives and the time go with them, and Downtown / Vacation / Studio Town / Magic Town
+        /// and community lots build the arriving Sims with their own scripts. Another family's house
+        /// has no such script, so the Sims are walked in at the mailbox here (see ArriveAtHouse).
+        /// </summary>
+        public bool TaxiTo(short house, VMAvatar caller)
+        {
+            try
+            {
+                if (!CanCallTaxi || caller == null || caller.Dead || house <= 0) return false;
+                if (vm.GetObjectById(caller.ObjectID) != caller) return false; // not on this lot any more
+                if (house == vm.GetGlobalValue(10)) return false;
+                var neigh = Content.Get().Neighborhood;
+                var family = vm.TS1State.CurrentFamily ?? ActiveFamily;
+                bool home = house == ActiveFamily.HouseNumber;
+                if (home && (SavedLot == null || !Downtown)) return false;
+                if (!home && !FSOFile.Exists(neigh.GetHousePath(house))) return false;
+                bool community = !home && neigh.IsCommunity(house) && neigh.GetFamilyForHouse(house) == null;
+                int mode = UIClassicLoadScreen.ModeForHouse(house);
+                // Downtown (Hot Date) is a trip for one; everywhere else the family on the lot comes along
+                short transit = (short)((community && mode == 2) ? 0 : 1);
+
+                var people = new List<VMAvatar>() { caller };
+                if (transit >= 1)
+                {
+                    foreach (var ava in vm.Context.ObjectQueries.Avatars.OfType<VMAvatar>())
+                    {
+                        if (ava == caller || ava.Dead || ava.Position == LotTilePos.OUT_OF_WORLD) continue;
+                        if (ava.GetPersonData(VMPersonDataVariable.TS1FamilyNumber) == family.ChunkID) people.Add(ava);
+                    }
+                }
+
+                var trip = new TaxiTrip() { House = house, Visit = !home && !community };
+                int pi = 0;
+                foreach (var person in people)
+                {
+                    var m = new short[] {
+                        person.GetMotiveData(VMMotive.Bladder),
+                        person.GetMotiveData(VMMotive.Comfort),
+                        person.GetMotiveData(VMMotive.Energy),
+                        person.GetMotiveData(VMMotive.Fun),
+                        person.GetMotiveData(VMMotive.Hunger),
+                        person.GetMotiveData(VMMotive.Hygiene),
+                        person.GetMotiveData(VMMotive.Social)
+                    };
+                    trip.Motives[person.Object.OBJ.GUID] = m;
+                    if (home) continue; // home is restored as it was left; the motives are put back after
+                    // the same "sim data effects" the game's own travel writes (lots read them on arrival)
+                    var nid = person.GetPersonData(VMPersonDataVariable.NeighborId);
+                    var inv = neigh.GetInventoryByNID(nid);
+                    if (inv == null)
+                    {
+                        inv = new List<InventoryItem>();
+                        neigh.SetInventoryForNID(nid, inv);
+                    }
+                    for (int i = 0; i < m.Length; i++) SetTaxiData(inv, (uint)i, m[i]);
+                    if (pi++ == 0)
+                    {
+                        SetTaxiData(inv, 7, (short)vm.Context.Clock.Hours);
+                        SetTaxiData(inv, 8, (short)vm.Context.Clock.Minutes);
+                    }
+                }
+                trip.Travellers = people.Select(x => x.Object.OBJ.GUID).Distinct().ToArray();
+
+                if (!home)
+                {
+                    var cross = neigh.GameState;
+                    cross.ActiveFamily = family;
+                    cross.DowntownSimGUID = caller.Object.OBJ.GUID;
+                    cross.LotTransitInfo = transit;
+                }
+
+                Console.WriteLine("[SimsRedux] taxi: " + caller.Name + " to lot " + house + (home ? " (home)" : (community ? " (community)" : " (visiting)"))
+                    + ", " + people.Count + " Sim(s)");
+                PendingTaxi = trip;
+                vm.SpeedMultiplier = 0;
+                SwitchLot = house;
+                return true;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("[SimsRedux] taxi couldn't leave: " + e);
+                PendingTaxi = null;
+                return false;
+            }
+        }
+
+        private static void SetTaxiData(List<InventoryItem> inventory, uint guid, short data)
+        {
+            var replace = inventory.FirstOrDefault(x => x.Type == 2 && x.GUID == guid);
+            if (replace == null)
+            {
+                replace = new InventoryItem() { Type = 2, GUID = guid };
+                inventory.Add(replace);
+            }
+            replace.Count = (ushort)data;
+        }
+
+        /// <summary>SimsRedux: the travellers get the motives they left with.</summary>
+        private void ApplyTaxiMotives(TaxiTrip trip)
+        {
+            if (vm == null || trip?.Motives == null) return;
+            try
+            {
+                foreach (var ava in vm.Context.ObjectQueries.Avatars.OfType<VMAvatar>().ToList())
+                {
+                    short[] m;
+                    if (ava.Dead || !trip.Motives.TryGetValue(ava.Object.OBJ.GUID, out m) || m == null || m.Length < 7) continue;
+                    ava.SetMotiveData(VMMotive.Bladder, m[0]);
+                    ava.SetMotiveData(VMMotive.Comfort, m[1]);
+                    ava.SetMotiveData(VMMotive.Energy, m[2]);
+                    ava.SetMotiveData(VMMotive.Fun, m[3]);
+                    ava.SetMotiveData(VMMotive.Hunger, m[4]);
+                    ava.SetMotiveData(VMMotive.Hygiene, m[5]);
+                    ava.SetMotiveData(VMMotive.Social, m[6]);
+                }
+            }
+            catch (Exception e) { Console.WriteLine("[SimsRedux] taxi: couldn't restore motives: " + e.Message); }
+        }
+
+        /// <summary>
+        /// SimsRedux: arrived at another family's house by taxi. The travellers are this lot's
+        /// playable family while here: they walk in at the mailbox, and nothing can be bought or
+        /// built (it isn't your house, and it's never saved).
+        /// </summary>
+        private void ArriveAtHouse(TaxiTrip trip)
+        {
+            try
+            {
+                ActiveFamily.RuntimeSubset = trip.Travellers;
+                vm.TS1State.ActivateFamily(vm, ActiveFamily); // the house's own save put its family's number back
+                vm.TS1State.VerifyFamily(vm);
+                ApplyTaxiMotives(trip);
+                vm.Context.Architecture.BuildBuyEnabled = false;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("[SimsRedux] taxi: arriving at lot " + trip.House + " went wrong: " + e);
             }
         }
 
@@ -850,6 +1123,7 @@ namespace Simitone.Client.UI.Screens
         public void InitializeLot()
         {
             CleanupLastWorld();
+            VisitingHouse = false; // (DoSwitchLot sets it again after arriving at another family's house)
             World = new FSO.LotView.World(GameFacade.GraphicsDevice);
 
             World.Opacity = 1;
@@ -969,7 +1243,15 @@ namespace Simitone.Client.UI.Screens
                     ActiveFamily.SelectWholeFamily();
                     vm.TS1State.ActivateFamily(vm, ActiveFamily);
                 }
+                // SimsRedux taxi: visiting another family's house - the travellers are the family played here
+                var taxiArrival = (Downtown && ActiveFamily != null) ? TaxiArrival : null;
+                if (taxiArrival != null)
+                {
+                    ActiveFamily.RuntimeSubset = taxiArrival.Travellers;
+                    vm.TS1State.ActivateFamily(vm, ActiveFamily);
+                }
                 BlueprintReset(lotName, null);
+                if (taxiArrival != null) ArriveAtHouse(taxiArrival);
                 
                 if (vm.LoadErrors.Count > 0) GameThread.NextUpdate((state) => ShowLoadErrors(vm.LoadErrors, true));
 
@@ -1330,6 +1612,15 @@ namespace Simitone.Client.UI.Screens
             // SimsRedux online: a visitor never saves the host's lot or neighbourhood, and the
             // host saves without the visiting Sims (they belong to the friends' own games)
             if (IsGuest || vm == null) return;
+            if (VisitingHouse)
+            {
+                // SimsRedux taxi: another family's house is never saved (your Sims would move in);
+                // only the neighbourhood (who met whom) is. Your own lot is kept to go home to.
+                Console.WriteLine("[SimsRedux] visiting by taxi: saving the neighbourhood, not this house");
+                try { Content.Get().Neighborhood.SaveNeighbourhood(true); }
+                catch (Exception e) { Console.WriteLine("[SimsRedux] couldn't save the neighbourhood: " + e.Message); }
+                return;
+            }
             if (Host != null) { Host.SaveWithoutVisitors(SaveLot); return; }
             SaveLot();
         }
@@ -1411,6 +1702,8 @@ namespace Simitone.Client.UI.Screens
             if (JoinScreen != null) { JoinScreen.Close(); JoinScreen = null; }
             CleanupLastWorld();
             Downtown = false;
+            VisitingHouse = false;
+            PendingTaxi = null;
             SavedLot = null;
             Watching = false;
             if (wasGuest && ReduxTown.Active)
