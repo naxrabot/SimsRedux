@@ -213,6 +213,7 @@ namespace Simitone.Client.UI.Panels.Desktop
             if (ArrowLeft != null) { Remove(ArrowLeft); ArrowLeft = null; }
             if (ArrowRight != null) { Remove(ArrowRight); ArrowRight = null; }
             if (TypeTabs != null) { Remove(TypeTabs); TypeTabs = null; }
+            if (GrowTab != null) GrowTab.Visible = false;
             ThumbStart = ThumbX;
             HoverText = null;
         }
