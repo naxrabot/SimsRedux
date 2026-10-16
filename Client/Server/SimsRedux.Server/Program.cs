@@ -82,6 +82,20 @@ namespace SimsRedux.Server
             if (Accounts.All().All(a => a.Role != Roles.Admin))
                 Log.Info("no Admin account yet: make yours with  /account add <name> <password> admin");
             Log.Info("Console ready - type /help for commands.");
+            // SimsRedux: a town without its extra background Sims gets them (once, while no lot is open yet)
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(3000);
+                    if (Lots.TownReady && !lots.TownPopulated && lots.Running().Count == 0)
+                    {
+                        Log.Info("town: adding the extra background Sims (once)...");
+                        Log.Info("town: " + await lots.PopulateTown());
+                    }
+                }
+                catch (Exception e) { Log.Warn("town: couldn't add the extra Sims: " + e.Message); }
+            });
 
             // housekeeping: save logins now and then, forget old rate-limit counts
             var timer = new Timer(_ => { try { Accounts.SaveSessions(); api.Tidy(); } catch { } }, null, 30000, 30000);

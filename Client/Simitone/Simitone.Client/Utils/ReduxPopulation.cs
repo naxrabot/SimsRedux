@@ -10,12 +10,16 @@ using System.Linq;
 namespace Simitone.Client.Utils
 {
     /// <summary>
-    /// SimsRedux (single player): fills a neighbourhood with more people. Sims 1 only ships a handful
-    /// of families, so townies and walk-bys kept being the same few faces. The first time a
-    /// neighbourhood is opened, this makes a batch of random families and single Sims the same way
-    /// Create-A-Family does (random heads, bodies, skin, names and personalities). They go in the
-    /// family bin (you can move any of them in), and until they have a house they're out and about
-    /// as townies: on community lots and walking past your home.
+    /// SimsRedux: fills a neighbourhood with more people. Sims 1 only ships a handful of families, so
+    /// townies and walk-bys kept being the same few faces. The first time a neighbourhood is opened
+    /// (single player), or when the server sets up its town (online), this makes a batch of random
+    /// families and single Sims the same way Create-A-Family does (random heads, bodies, skin, names
+    /// and personalities).
+    ///
+    /// They're background Sims, like the Goths: never in the family bin and never one of the player's
+    /// families. The families move into houses that are for sale (a few are always left for the
+    /// player), and the singles are townies. All of them are out and about - on community lots and
+    /// walking past your home.
     ///
     /// It runs once per neighbourhood (a "redux_population.txt" file in the neighbourhood folder
     /// remembers it, and which families it made). Off with the setting "populate" = false.
@@ -23,8 +27,8 @@ namespace Simitone.Client.Utils
     public static class ReduxPopulation
     {
         private const string MarkerFile = "redux_population.txt";
-        private const int Families = 7;
-        private const int Singles = 7;
+        /// <summary>Written into the marker by this version (5.4 put its families in the family bin; they're moved out of it).</summary>
+        private const string Version = "v2";
 
         private static HashSet<int> Generated;
         private static List<string> TexNames;
@@ -84,42 +88,103 @@ namespace Simitone.Client.Utils
             return Generated.Contains(familyChunkID);
         }
 
-        /// <summary>Called when the neighbourhood opens in single player: makes the extra Sims once.</summary>
-        public static void EnsurePopulated()
+        /// <summary>
+        /// Makes the extra Sims once (or brings 5.4's ones up to date). families/singles: how many;
+        /// keepFree: how many houses for sale are always left empty for players. Returns a line about
+        /// what it did (or null if there was nothing to do).
+        /// </summary>
+        public static string EnsurePopulated(int families = 8, int singles = 8, int keepFree = 2)
         {
             try
             {
-                if (!ReduxSettings.GetBool("populate", true)) return;
+                if (!ReduxSettings.GetBool("populate", true)) return null;
                 var marker = Marker;
-                if (marker == null || FSOFile.Exists(marker)) return;
-                // written first: if anything goes wrong part way, it's never made twice
-                FSOFile.WriteAllText(marker, "SimsRedux: extra Sims made " + DateTime.Now.ToString("yyyy-MM-dd HH:mm") + "\r\n");
+                if (marker == null) return null;
+                var neigh = Content.Get().Neighborhood;
                 var rand = new Random();
-                var surnames = Surnames.OrderBy(x => rand.Next()).ToList();
-                int made = 0;
-                for (int i = 0; i < Families + Singles && i < surnames.Count; i++)
+                if (FSOFile.Exists(marker))
                 {
-                    bool single = i >= Families;
+                    var text = FSOFile.ReadAllText(marker);
+                    if (text.Contains(Version)) return null;
+                    // made by 5.4: those families were put in the family bin - they become background Sims
+                    GeneratedFor = null;
+                    var old = new List<FSO.Files.Formats.IFF.Chunks.FAMI>();
+                    foreach (var f in neigh.MainResource.List<FSO.Files.Formats.IFF.Chunks.FAMI>() ?? new List<FSO.Files.Formats.IFF.Chunks.FAMI>())
+                        if (IsGenerated(f.ChunkID)) old.Add(f);
+                    foreach (var f in old) f.Unknown = 0;
+                    int moved = MoveIntoHouses(neigh, old, keepFree, rand);
+                    neigh.SaveNeighbourhood(true);
+                    FSOFile.AppendAllText(marker, Version + "\r\n");
+                    return "the town's extra Sims are background Sims now (" + moved + " families moved into houses)";
+                }
+
+                // written first: if anything goes wrong part way, it's never made twice
+                FSOFile.WriteAllText(marker, "SimsRedux: extra Sims made " + DateTime.Now.ToString("yyyy-MM-dd HH:mm") + "\r\n" + Version + "\r\n");
+                var surnames = Surnames.OrderBy(x => rand.Next()).ToList();
+                var made = new List<FSO.Files.Formats.IFF.Chunks.FAMI>();
+                int sims = 0;
+                for (int i = 0; i < families + singles && i < surnames.Count; i++)
+                {
+                    bool single = i >= families;
                     try
                     {
-                        if (MakeFamily(rand, surnames[i], single, marker)) made++;
+                        var fam = MakeFamily(rand, surnames[i], single, marker);
+                        if (fam != null) { made.Add(fam); sims += fam.FamilyGUIDs?.Length ?? 0; }
                     }
                     catch (Exception e)
                     {
                         Console.WriteLine("[SimsRedux] population: couldn't make the " + surnames[i] + " family: " + e.Message);
                     }
                 }
+                // background Sims: not waiting in the family bin, not one of the player's families
+                foreach (var f in made) f.Unknown = 0;
+                int housed = MoveIntoHouses(neigh, made, keepFree, rand);
+                neigh.SaveNeighbourhood(true);
                 GeneratedFor = null; // re-read the list
                 TexNames = null;
-                Console.WriteLine("[SimsRedux] population: made " + made + " new families");
+                var line = "made " + sims + " new Sims in " + made.Count + " households (" + housed + " moved into houses, the rest are townies)";
+                Console.WriteLine("[SimsRedux] population: " + line);
+                return line;
             }
             catch (Exception e)
             {
                 Console.WriteLine("[SimsRedux] population failed: " + e.Message);
+                return "couldn't make the extra Sims: " + e.Message;
             }
         }
 
-        private static bool MakeFamily(Random rand, string surname, bool single, string marker)
+        /// <summary>
+        /// Families (two or more Sims) move into houses that are for sale, leaving keepFree of them empty.
+        /// Singles stay townies. Returns how many moved in.
+        /// </summary>
+        private static int MoveIntoHouses(TS1NeighborhoodProvider neigh, List<FSO.Files.Formats.IFF.Chunks.FAMI> fams, int keepFree, Random rand)
+        {
+            var forSale = new List<short>();
+            foreach (var h in ReduxFreshHood.MainLots(neigh))
+            {
+                if (!ReduxFreshHood.Residential(neigh, h) || neigh.GetFamilyForHouse(h) != null) continue;
+                var simi = ReduxFreshHood.SimiOf(neigh, h);
+                if (simi == null || simi.ArchitectureValue <= 0) continue; // an empty lot, not a home
+                forSale.Add(h);
+            }
+            forSale = forSale.OrderBy(x => rand.Next()).ToList();
+            int canUse = Math.Max(0, forSale.Count - keepFree);
+            int moved = 0;
+            foreach (var fam in fams.OrderByDescending(x => x.FamilyGUIDs?.Length ?? 0))
+            {
+                if (moved >= canUse) break;
+                if (fam.HouseNumber > 0 || (fam.FamilyGUIDs?.Length ?? 0) < 2) continue;
+                var house = forSale[moved];
+                neigh.SetFamilyForHouse(house, fam, false);
+                fam.Unknown = 1; // a family living in the neighbourhood (like the game's own)
+                fam.Budget = 8000 + rand.Next(20) * 1000;
+                moved++;
+                Console.WriteLine("[SimsRedux] population: family " + fam.ChunkID + " moved into house " + house);
+            }
+            return moved;
+        }
+
+        private static FSO.Files.Formats.IFF.Chunks.FAMI MakeFamily(Random rand, string surname, bool single, string marker)
         {
             var skin = Skins[rand.Next(Skins.Length)];
             var members = new List<SimTemplateCreateInfo>();
@@ -149,12 +214,12 @@ namespace Simitone.Client.Utils
                 for (int k = 0; k < kids; k++) members.Add(MakeSim(rand, rand.Next(2) == 0, true, skin, surname));
             }
             members.RemoveAll(x => x == null);
-            if (members.Count == 0) return false;
+            if (members.Count == 0) return null;
 
             var fam = SimitoneNeighbourGenerator.CreateFamily(surname, members.Count, members.ToArray());
-            if (fam == null) return false;
+            if (fam == null) return null;
             FSOFile.AppendAllText(marker, "family " + fam.ChunkID + "\r\n");
-            return true;
+            return fam;
         }
 
         /// <summary>One random Sim, the way Create-A-Sim would make them (null if no clothes fit).</summary>

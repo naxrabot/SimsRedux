@@ -13,6 +13,13 @@ namespace SimsRedux.Server
         private readonly GameFiles Files;
         private readonly Api Api;
         public Lots Lots;
+
+        /// <summary>A new town gets its extra background Sims straight away (once no lot is open).</summary>
+        private void AutoPopulate()
+        {
+            if (!Lots.TownReady || Lots.TownPopulated) return;
+            _ = Task.Run(async () => { try { Log.Reply("town: " + await Lots.PopulateTown()); } catch (Exception e) { Log.Warn("town: couldn't add the extra Sims: " + e.Message); } });
+        }
         public Action<int> Quit; // exit code: 0 stop, 75 restart
 
         public Commands(ServerConfig config, Accounts accounts, GameFiles files, Api api)
@@ -43,6 +50,7 @@ namespace SimsRedux.Server
             new[] { "/town fresh", "start a brand-new town: the game's Neighbourhood 1 with its starting families (the old one goes to backups/)" },
             new[] { "/town fresh empty", "start a brand-new town with houses but no families" },
             new[] { "/town sources", "every neighbourhood the server can find, with how many families live in it" },
+            new[] { "/town populate", "give the town its extra background Sims (families in houses for sale, townies) - done by itself once per town" },
             new[] { "/town time [<day> <time>]", "the online town's clock (runs while anyone plays) - e.g. /town time 2 7:30pm" },
             new[] { "/town owners", "which account's family lives in which house" },
             new[] { "/town disown <account>", "the account no longer owns its town family (they stay as a town family)" },
@@ -233,9 +241,15 @@ namespace SimsRedux.Server
                     break;
 
                 case "/town":
-                    if (Arg(1)?.ToLowerInvariant() == "import") { Log.Reply(Lots.ImportTown(Rest(2).Trim('"'))); break; }
-                    if (Arg(1)?.ToLowerInvariant() == "fresh") { Log.Reply("setting up a fresh town (this can take a minute)..."); Log.Reply(Lots.FreshTown(Arg(2)?.ToLowerInvariant() == "empty")); break; }
+                    if (Arg(1)?.ToLowerInvariant() == "import") { Log.Reply(Lots.ImportTown(Rest(2).Trim('"'))); AutoPopulate(); break; }
+                    if (Arg(1)?.ToLowerInvariant() == "fresh") { Log.Reply("setting up a fresh town (this can take a minute)..."); Log.Reply(Lots.FreshTown(Arg(2)?.ToLowerInvariant() == "empty")); AutoPopulate(); break; }
                     if (Arg(1)?.ToLowerInvariant() == "sources") { Log.Reply(Lots.Sources()); break; }
+                    if (Arg(1)?.ToLowerInvariant() == "populate")
+                    {
+                        Log.Reply("giving the town its new neighbours (this takes a minute)...");
+                        _ = Task.Run(async () => { try { Log.Reply(await Lots.PopulateTown()); } catch (Exception e) { Log.Reply("couldn't: " + e.Message); } });
+                        break;
+                    }
                     if (Arg(1)?.ToLowerInvariant() == "owners")
                     {
                         var owners = Owners.All();

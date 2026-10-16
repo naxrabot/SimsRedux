@@ -164,7 +164,7 @@ namespace Simitone.Client.Utils
         }
 
         /// <summary>The house numbers on the main neighbourhood map (not Downtown, Vacation Island...).</summary>
-        private static System.Collections.Generic.List<short> MainLots(TS1NeighborhoodProvider neigh)
+        internal static System.Collections.Generic.List<short> MainLots(TS1NeighborhoodProvider neigh)
         {
             var list = new System.Collections.Generic.List<short>();
             var str = neigh.LotLocations?.Get<FSO.Files.Formats.IFF.Chunks.STR>(4);
@@ -177,7 +177,7 @@ namespace Simitone.Client.Utils
             return list;
         }
 
-        private static bool Residential(TS1NeighborhoodProvider neigh, short house)
+        internal static bool Residential(TS1NeighborhoodProvider neigh, short house)
         {
             return neigh.ZoningDictionary.TryGetValue(house, out var z) && z == 0;
         }
@@ -214,7 +214,7 @@ namespace Simitone.Client.Utils
             return moved;
         }
 
-        private static FSO.Files.Formats.IFF.Chunks.SIMI SimiOf(TS1NeighborhoodProvider neigh, short house)
+        internal static FSO.Files.Formats.IFF.Chunks.SIMI SimiOf(TS1NeighborhoodProvider neigh, short house)
         {
             try
             {

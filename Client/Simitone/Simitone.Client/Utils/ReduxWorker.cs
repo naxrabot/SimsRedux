@@ -35,6 +35,8 @@ namespace Simitone.Client.Utils
         public static int MoveOutFamily = -1;
         /// <summary>The admin giving (or taking) money while the lot is closed: family number and amount.</summary>
         public static int MoneyFamily = -1, MoneyAmount;
+        /// <summary>Fill the town with extra background Sims (ReduxPopulation), then close - run by the server with no lots open.</summary>
+        public static bool Populate;
         /// <summary>2D: the town's time when this lot opened (Sim minutes since day 1, midnight), or -1.</summary>
         public static long TownMinutes = -1;
 
@@ -71,6 +73,7 @@ namespace Simitone.Client.Utils
                     if (parts.Length == 2 && int.TryParse(parts[0], out var mf) && int.TryParse(parts[1], out var ma)) { MoneyFamily = mf; MoneyAmount = ma; }
                 }
                 else if (s.StartsWith("movein")) MoveInFile = s.Substring(6).Trim('"');
+                else if (s == "populate") Populate = true;
                 else if (s.StartsWith("owner")) MoveInOwner = s.Substring(5).Trim('"');
             }
             if (!Active) return false;
@@ -197,6 +200,31 @@ namespace Simitone.Client.Utils
             return null;
         }
 
+        private static HashSet<int> OwnedCache = new HashSet<int>();
+        private static DateTime OwnedRead;
+
+        /// <summary>The town families that belong to players (from owners.json, read at most once a minute). Empty off the server.</summary>
+        public static HashSet<int> OwnedFamilies()
+        {
+            if (!Active || string.IsNullOrEmpty(Town)) return new HashSet<int>();
+            if ((DateTime.UtcNow - OwnedRead).TotalSeconds < 60) return OwnedCache;
+            OwnedRead = DateTime.UtcNow;
+            var set = new HashSet<int>();
+            try
+            {
+                var path = Path.Combine(Town, "owners.json");
+                if (File.Exists(path))
+                {
+                    using (var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(path)))
+                        foreach (var p in doc.RootElement.EnumerateObject())
+                            if (p.Value.TryGetProperty("Family", out var f) && f.TryGetInt32(out var n)) set.Add(n);
+                }
+            }
+            catch (Exception e) { Say("error reading owners: " + e.Message); }
+            OwnedCache = set;
+            return set;
+        }
+
         /// <summary>The families this lot looks after (whoever lives here, or moved in / out here).</summary>
         private static readonly HashSet<int> MyFamilies = new HashSet<int>();
 
@@ -250,6 +278,17 @@ namespace Simitone.Client.Utils
                     Environment.Exit(3);
                 }
                 HideWindow();
+                if (Populate)
+                {
+                    // the server asked for the town's extra Sims (with no other lot open, so nothing else is writing the town)
+                    try
+                    {
+                        var line = ReduxPopulation.EnsurePopulated(10, 10, 4);
+                        Say("populated " + (line ?? "nothing to do - the town already has its extra Sims"));
+                    }
+                    catch (Exception e) { Say("error populate " + e.Message); Environment.Exit(8); }
+                    Environment.Exit(0);
+                }
                 // 2D: other lots are open too - this one only ever saves its own family and Sims
                 var houseFam = hood.GetFamilyForHouse(House);
                 if (houseFam != null) MyFamilies.Add(houseFam.ChunkID);

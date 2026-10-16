@@ -26,6 +26,8 @@ namespace SimsRedux.Server
             public volatile bool MovedOut;
             /// <summary>The family's money after the admin's /money (or -1 until then).</summary>
             public volatile int MoneyNow = -1;
+            /// <summary>What the game said after filling the town with extra Sims (-populate).</summary>
+            public volatile string PopulateResult;
         }
 
         private readonly ServerConfig Config;
@@ -51,6 +53,51 @@ namespace SimsRedux.Server
             }
             list.Sort();
             return list;
+        }
+
+        public const string PopulationMarker = "redux_population.txt";
+        private volatile bool Populating;
+
+        /// <summary>The town already has its extra background Sims (made by this version or later).</summary>
+        public bool TownPopulated
+        {
+            get
+            {
+                try
+                {
+                    var p = Path.Combine(TownDir, PopulationMarker);
+                    return File.Exists(p) && File.ReadAllText(p).Contains("v2");
+                }
+                catch { return false; }
+            }
+        }
+
+        /// <summary>
+        /// Fills the town with extra background Sims: families move into houses for sale (a few are kept
+        /// for players) and singles become townies. Runs the game once, on its own, while no lot is open
+        /// (so nothing else is writing the town). It only ever happens once per town.
+        /// </summary>
+        public async Task<string> PopulateTown()
+        {
+            if (!TownReady) return "there's no town yet - start one with  /town fresh";
+            if (TownPopulated) return "the town already has its extra Sims";
+            short house;
+            lock (Lock)
+            {
+                if (Populating) return "already doing that";
+                if (Open.Values.Any(w => !w.Finished)) return "close every lot first (/lots close all), then try again";
+                house = Houses().FirstOrDefault();
+                if (house == 0) return "the town has no houses";
+                Populating = true;
+            }
+            try
+            {
+                var w = Get(house, out var error, new[] { "-populate" });
+                if (w == null) return "couldn't start the game for it: " + error;
+                await WaitExit(w, TimeSpan.FromMinutes(4));
+                return w.PopulateResult ?? (w.Problem ?? "the game didn't finish").Replace("error ", "");
+            }
+            finally { Populating = false; }
         }
 
         public List<Worker> Running() { lock (Lock) return Open.Values.Where(w => !w.Finished).OrderBy(w => w.House).ToList(); }
@@ -96,6 +143,7 @@ namespace SimsRedux.Server
                     return w;
                 }
                 if (!TownReady) { error = "the town hasn't been set up yet (/town import)"; return null; }
+                if (Populating && !(extraArgs != null && extraArgs.Contains("-populate"))) { error = "the town is getting its new neighbours - try again in a minute"; return null; }
                 if (!Houses().Contains(house)) { error = "there's no house " + house + " in the town"; return null; }
                 var exe = GameExe();
                 if (exe == null) { error = "the game program wasn't found - build the solution, or set it with /lots game <path to Simitone.exe>"; return null; }
@@ -171,6 +219,7 @@ namespace SimsRedux.Server
             }
             if (text.StartsWith("error")) { w.Problem = text; Log.Warn("lot " + w.House + ": " + text); return; }
             if (text.StartsWith("money ") && int.TryParse(text.Substring(6).Trim(), out var cash)) { w.MoneyNow = cash; Log.Info("lot " + w.House + ": the family now has \u00a7" + cash); return; }
+            if (text.StartsWith("populated ")) { w.PopulateResult = text.Substring(10); Log.Info("town: " + w.PopulateResult); return; }
             if (text == "movedout") { w.MovedOut = true; Log.Info("lot " + w.House + ": the family moved out"); return; }
             if (text.StartsWith("movedin ") && int.TryParse(text.Substring(8).Trim(), out var fam)) { w.MovedInFamily = fam; Log.Info("lot " + w.House + ": a family moved in (family " + fam + ")"); return; }
             if (text.StartsWith("closing")) w.Closing = true; // new arrivals wait for it to finish, then it reopens
@@ -340,7 +389,11 @@ namespace SimsRedux.Server
         {
             Directory.CreateDirectory(to);
             foreach (var f in Directory.EnumerateFiles(from))
+            {
+                // (a single-player neighbourhood's note about its own extra Sims isn't the town's)
+                if (string.Equals(Path.GetFileName(f), PopulationMarker, StringComparison.OrdinalIgnoreCase)) continue;
                 File.Copy(f, Path.Combine(to, Path.GetFileName(f)), true);
+            }
             foreach (var sub in new[] { "Houses", "Characters" })
             {
                 var src = Path.Combine(from, sub);

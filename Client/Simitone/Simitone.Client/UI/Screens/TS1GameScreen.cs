@@ -771,7 +771,7 @@ namespace Simitone.Client.UI.Screens
                     + " lotVisible=" + (LotControl?.Visible.ToString() ?? "-")
                     + " onTop=" + string.Join(",", GetChildren().Skip(Math.Max(0, GetChildren().Count - 4)).Select(x => x.GetType().Name)));
             }
-            ReduxVisitors.Tick(this); // SimsRedux: townies and walk-bys (single player)
+            ReduxVisitors.Tick(this); // SimsRedux: townies and walk-bys (single player, and the lots this game hosts)
             if (vm != null) vm.Update();
 
             //SaveHouseButton_OnButtonClick(null);
