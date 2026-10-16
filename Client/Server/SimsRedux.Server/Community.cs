@@ -144,9 +144,9 @@ namespace SimsRedux.Server
 
         public static string Add(string kind, DateTime startUtc, double hours, string title)
         {
-            kind = kind.ToLowerInvariant();
+            kind = (kind ?? "").ToLowerInvariant();
             if (!Kinds.TryGetValue(kind, out var k)) return "no such event - choose one of: " + string.Join(", ", Kinds.Keys);
-            if (hours <= 0 || hours > 24 * 14) return "an event lasts between a few minutes and 14 days";
+            if (!(hours > 0 && hours <= 24 * 14)) return "an event lasts between a few minutes and 14 days";
             var ev = new Ev { Kind = kind, Title = string.IsNullOrWhiteSpace(title) ? k.Title : title.Trim(), Start = startUtc, End = startUtc.AddHours(hours) };
             lock (Lock) { D.Events.Add(ev); Store.Save(File, D); }
             Tick();
@@ -158,7 +158,8 @@ namespace SimsRedux.Server
             int n;
             lock (Lock)
             {
-                var gone = D.Events.Where(e => kindOrAll == "all" || e.Kind == kindOrAll.ToLowerInvariant()).ToList();
+                kindOrAll = (kindOrAll ?? "").ToLowerInvariant();
+                var gone = D.Events.Where(e => kindOrAll == "all" || e.Kind == kindOrAll).ToList();
                 foreach (var e in gone)
                 {
                     D.Events.Remove(e);
@@ -640,7 +641,7 @@ namespace SimsRedux.Server
             var name = System.IO.File.ReadAllText(marker).Trim();
             System.IO.File.Delete(marker);
             var src = Path.Combine(Dir, name);
-            if (name.Length == 0 || name.Contains("..") || !Directory.Exists(src)) { Log.Warn("restore: no backup called " + name); return; }
+            if (name.Length == 0 || name.Contains("..") || Path.GetFileName(name) != name || !Directory.Exists(src)) { Log.Warn("restore: no backup called " + name); return; }
             try
             {
                 foreach (var f in Directory.GetFiles(src, "*", SearchOption.AllDirectories))

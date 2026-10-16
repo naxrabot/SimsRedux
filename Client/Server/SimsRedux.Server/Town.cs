@@ -150,15 +150,18 @@ namespace SimsRedux.Server
         private static readonly object Lock = new object();
         private static string FilePath => Path.Combine(Lots.TownDir, "owners.json");
 
+        /// <summary>Throws if owners.json is there but can't be read.</summary>
+        private static Dictionary<string, Owner> Read()
+        {
+            if (!File.Exists(FilePath)) return new Dictionary<string, Owner>();
+            return System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, Owner>>(File.ReadAllText(FilePath)) ?? new Dictionary<string, Owner>();
+        }
+
         public static Dictionary<string, Owner> All()
         {
             lock (Lock)
             {
-                try
-                {
-                    if (!File.Exists(FilePath)) return new Dictionary<string, Owner>();
-                    return System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, Owner>>(File.ReadAllText(FilePath)) ?? new Dictionary<string, Owner>();
-                }
+                try { return Read(); }
                 catch (Exception e)
                 {
                     Log.Warn("town: couldn't read owners.json: " + e.Message);
@@ -173,15 +176,28 @@ namespace SimsRedux.Server
             return all.TryGetValue(accountKey ?? "", out var o) ? o : null;
         }
 
-        public static void Set(string accountKey, Owner owner)
+        /// <summary>
+        /// Records (or with null, forgets) an account's family. False if it couldn't be saved - and a file
+        /// that couldn't be read is never written over, so the other accounts' families aren't lost.
+        /// </summary>
+        public static bool Set(string accountKey, Owner owner)
         {
             lock (Lock)
             {
-                var all = All();
-                if (owner == null) all.Remove(accountKey); else all[accountKey] = owner;
-                var tmp = FilePath + ".tmp";
-                File.WriteAllText(tmp, System.Text.Json.JsonSerializer.Serialize(all, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
-                File.Move(tmp, FilePath, true);
+                try
+                {
+                    var all = Read();
+                    if (owner == null) all.Remove(accountKey); else all[accountKey] = owner;
+                    var tmp = FilePath + ".tmp";
+                    File.WriteAllText(tmp, System.Text.Json.JsonSerializer.Serialize(all, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+                    File.Move(tmp, FilePath, true);
+                    return true;
+                }
+                catch (Exception e)
+                {
+                    Log.Warn("town: couldn't save owners.json (" + e.Message + ") - " + accountKey + "'s family wasn't " + (owner == null ? "forgotten" : "recorded"));
+                    return false;
+                }
             }
         }
     }

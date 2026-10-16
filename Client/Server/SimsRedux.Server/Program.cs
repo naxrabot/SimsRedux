@@ -98,6 +98,8 @@ namespace SimsRedux.Server
             var shutdownTimer = new Timer(_ => { try { Shutdown.Tick(code => { Log.Info(code == 75 ? "restarting now" : "shutting down now"); ExitCode = code; Done.Set(); }); } catch { } }, null, 1000, 1000);
             // one automatic backup a day (checked every 10 minutes)
             var backupTimer = new Timer(_ => { try { Backups.Tick(Config, () => { Accounts.SaveAll(); Config.Save(); Progress.Save(); }); } catch (Exception e) { Log.Warn("backup: " + e.Message); } }, null, 120000, 600000);
+            // (held here: a timer nothing refers to can be collected and silently stop)
+            var timers = new[] { timer, clockTimer, eventTimer, xpTimer, shutdownTimer, backupTimer };
 
             // console commands come in on stdin (the panel writes them there)
             var input = new Thread(() =>
@@ -121,7 +123,7 @@ namespace SimsRedux.Server
             AppDomain.CurrentDomain.ProcessExit += (s, e) => { try { Accounts?.SaveAll(); } catch { } };
 
             Done.Wait();
-            timer.Dispose();
+            foreach (var t in timers) t.Dispose(); // nothing (a backup, XP, the clock) runs while everything is saved and stopped
             lots.CloseAll();
             TownClock.Flush();
             Progress.Save();

@@ -52,12 +52,13 @@ namespace SimsRedux.Server
 
         public void Tidy()
         {
-            LoginByAddress.Tidy(); LoginByName.Tidy(); RegisterByAddress.Tidy(); Everything.Tidy();
+            LoginByAddress.Tidy(); LoginByName.Tidy(); RegisterByAddress.Tidy(); Everything.Tidy(); ReportsByAccount.Tidy(); ModActions.Tidy();
         }
 
         public object Health()
         {
-            var proc = Process.GetCurrentProcess();
+            long rss;
+            using (var proc = Process.GetCurrentProcess()) rss = proc.WorkingSet64;
             return new
             {
                 ok = true,
@@ -74,7 +75,7 @@ namespace SimsRedux.Server
                 shutdownIn = Shutdown.SecondsLeft,
                 shutdownRestart = Shutdown.Restarting,
                 uptime = (int)(DateTime.UtcNow - Started).TotalSeconds,
-                rssMB = (int)(proc.WorkingSet64 / 1048576),
+                rssMB = (int)(rss / 1048576),
                 files = new { ready = Files.Ready, count = Files.Count, mb = (int)(Files.TotalBytes / 1048576), problem = Files.Problem },
                 motd = Config.Motd,
             };
@@ -492,6 +493,7 @@ namespace SimsRedux.Server
             }
             lock (TownAnnounced)
             {
+                if (TownAnnounced.Count > 5000) TownAnnounced.Clear(); // (one per account per town change: don't grow forever)
                 if (TownAnnounced.Add(a.Key + stamp)) Log.Info(a.Name + " is getting the town (" + (bundle.Length / 1024) + " KB)");
             }
             await HttpServer.Send(stream, 200, "application/octet-stream", bundle, cors);
@@ -511,34 +513,67 @@ namespace SimsRedux.Server
             if (Owners.Of(a.Key) is Owners.Owner mine) { await HttpServer.SendJson(stream, 409, new { error = "Your family already lives in the town (house " + mine.House + ")." }, cors); return; }
             if (req.Body.Length < 16 || req.Body[0] != 'S' || req.Body[1] != 'R' || req.Body[2] != 'X' || req.Body[3] != 'F')
             { await HttpServer.SendJson(stream, 400, new { error = "That wasn't a family." }, cors); return; }
-            var fams = IffPeek.Families(Path.Combine(Lots.TownDir, "Neighborhood.iff"));
-            if (fams != null && fams.Houses.Contains(house)) { await HttpServer.SendJson(stream, 409, new { error = "Someone already lives there." }, cors); return; }
-            if (Lots.Running().Any(w => w.House == house)) { await HttpServer.SendJson(stream, 409, new { error = "Someone is on that lot right now - try again in a few minutes." }, cors); return; }
-
-            var dir = Path.Combine(Program.DataDir, "Town", "incoming");
-            Directory.CreateDirectory(dir);
-            var file = Path.Combine(dir, a.Key + "-" + DateTime.UtcNow.Ticks + ".srxf");
-            File.WriteAllBytes(file, req.Body);
-            Log.Info(a.Name + " is moving their family into house " + house + " (" + (req.Body.Length / 1024) + " KB)");
-
-            var w = Lots.Get(house, out var error, new[] { "-movein" + file, "-owner" + a.Name });
-            if (w == null) { await HttpServer.SendJson(stream, 503, new { error }, cors); return; }
-            // wait for the family to move in (the lot loads, adds them, buys the house) and the lot to open
-            var until = DateTime.UtcNow.AddSeconds(90);
-            while (DateTime.UtcNow < until && !w.Finished && (w.MovedInFamily < 0 || !w.Ready) && w.Problem == null) await Task.Delay(250);
-            try { File.Delete(file); } catch { }
-            if (w.MovedInFamily < 0)
+            // one move at a time per account and per house (two at once could give an account two families, or a house two)
+            if (!BeginMove(a.Key, house)) { await HttpServer.SendJson(stream, 409, new { error = "A move for you or that house is already happening - try again in a minute." }, cors); return; }
+            try
             {
-                var why = w.Problem ?? (w.Finished ? "the lot closed" : "it took too long");
-                Log.Warn("moving " + a.Name + "'s family in failed: " + why);
-                await HttpServer.SendJson(stream, 500, new { error = "Your family couldn't move in: " + why.Replace("error ", "") }, cors);
-                return;
+                if (Owners.Of(a.Key) is Owners.Owner mineNow) { await HttpServer.SendJson(stream, 409, new { error = "Your family already lives in the town (house " + mineNow.House + ")." }, cors); return; }
+                var fams = IffPeek.Families(Path.Combine(Lots.TownDir, "Neighborhood.iff"));
+                if (fams != null && fams.Houses.Contains(house)) { await HttpServer.SendJson(stream, 409, new { error = "Someone already lives there." }, cors); return; }
+                if (Lots.Running().Any(w => w.House == house)) { await HttpServer.SendJson(stream, 409, new { error = "Someone is on that lot right now - try again in a few minutes." }, cors); return; }
+
+                var dir = Path.Combine(Program.DataDir, "Town", "incoming");
+                Directory.CreateDirectory(dir);
+                var file = Path.Combine(dir, a.Key + "-" + DateTime.UtcNow.Ticks + ".srxf");
+                try
+                {
+                    File.WriteAllBytes(file, req.Body);
+                    Log.Info(a.Name + " is moving their family into house " + house + " (" + (req.Body.Length / 1024) + " KB)");
+
+                    var w = Lots.Get(house, out var error, new[] { "-movein" + file, "-owner" + a.Name });
+                    if (w == null) { await HttpServer.SendJson(stream, 503, new { error }, cors); return; }
+                    // wait for the family to move in (the lot loads, adds them, buys the house) and the lot to open
+                    var until = DateTime.UtcNow.AddSeconds(90);
+                    while (DateTime.UtcNow < until && !w.Finished && (w.MovedInFamily < 0 || !w.Ready) && w.Problem == null) await Task.Delay(250);
+                    if (w.MovedInFamily < 0)
+                    {
+                        var why = w.Problem ?? (w.Finished ? "the lot closed" : "it took too long");
+                        Log.Warn("moving " + a.Name + "'s family in failed: " + why);
+                        await HttpServer.SendJson(stream, 500, new { error = "Your family couldn't move in: " + why.Replace("error ", "") }, cors);
+                        return;
+                    }
+                    var name = new string((req.QueryValue("name") ?? "").Where(c => c >= 32).ToArray()).Trim();
+                    if (name.Length > 40) name = name.Substring(0, 40);
+                    if (!Owners.Set(a.Key, new Owners.Owner { Account = a.Name, Family = w.MovedInFamily, House = house, Name = name }))
+                    {
+                        await HttpServer.SendJson(stream, 500, new { error = "Your family moved in, but the server couldn't record that it's yours - ask the admin." }, cors);
+                        return;
+                    }
+                    Log.Info(a.Name + "'s family (" + name + ") now lives in house " + house);
+                    await HttpServer.SendJson(stream, 200, new { ok = true, family = w.MovedInFamily, house }, cors);
+                }
+                finally { try { File.Delete(file); } catch { } }
             }
-            var name = req.QueryValue("name") ?? "";
-            if (name.Length > 40) name = name.Substring(0, 40);
-            Owners.Set(a.Key, new Owners.Owner { Account = a.Name, Family = w.MovedInFamily, House = house, Name = name });
-            Log.Info(a.Name + "'s family (" + name + ") now lives in house " + house);
-            await HttpServer.SendJson(stream, 200, new { ok = true, family = w.MovedInFamily, house }, cors);
+            finally { EndMove(a.Key, house); }
+        }
+
+        /// <summary>Accounts and houses with a move in or out under way.</summary>
+        private readonly HashSet<string> Moving = new HashSet<string>();
+
+        private bool BeginMove(string accountKey, short house)
+        {
+            lock (Moving)
+            {
+                if (Moving.Contains("a:" + accountKey) || Moving.Contains("h:" + house)) return false;
+                Moving.Add("a:" + accountKey);
+                Moving.Add("h:" + house);
+                return true;
+            }
+        }
+
+        private void EndMove(string accountKey, short house)
+        {
+            lock (Moving) { Moving.Remove("a:" + accountKey); Moving.Remove("h:" + house); }
         }
 
         /// <summary>
@@ -553,28 +588,36 @@ namespace SimsRedux.Server
             var mine = Owners.Of(a.Key);
             if (mine == null) { await HttpServer.SendJson(stream, 409, new { error = "You don't have a family in the town." }, cors); return; }
             var house = (short)mine.House;
-
-            // the lot closes first if it's open (anyone there is sent back to the town)
-            var open = Lots.Running().FirstOrDefault(x => x.House == house);
-            if (open != null)
+            if (!BeginMove(a.Key, house)) { await HttpServer.SendJson(stream, 409, new { error = "A move for you or that house is already happening - try again in a minute." }, cors); return; }
+            try
             {
-                Lots.Close(house);
-                await Lots.WaitExit(open, TimeSpan.FromSeconds(30));
+                // the lot closes first if it's open (anyone there is sent back to the town)
+                var open = Lots.Running().FirstOrDefault(x => x.House == house);
+                if (open != null)
+                {
+                    Lots.Close(house);
+                    await Lots.WaitExit(open, TimeSpan.FromSeconds(30));
+                }
+                Log.Info(a.Name + " is moving their family (" + mine.Name + ") out of house " + house);
+                var w = Lots.Get(house, out var error, new[] { "-moveout" + mine.Family });
+                if (w == null) { await HttpServer.SendJson(stream, 503, new { error }, cors); return; }
+                await Lots.WaitExit(w, TimeSpan.FromSeconds(90));
+                if (!w.MovedOut)
+                {
+                    var why = w.Problem ?? "the lot didn't finish";
+                    Log.Warn("moving " + a.Name + "'s family out failed: " + why);
+                    await HttpServer.SendJson(stream, 500, new { error = "Your family couldn't move out: " + why.Replace("error ", "") }, cors);
+                    return;
+                }
+                if (!Owners.Set(a.Key, null))
+                {
+                    await HttpServer.SendJson(stream, 500, new { error = "Your family moved out, but the server couldn't record it - ask the admin." }, cors);
+                    return;
+                }
+                Log.Info(a.Name + "'s family has left the town (house " + house + " is for sale)");
+                await HttpServer.SendJson(stream, 200, new { ok = true }, cors);
             }
-            Log.Info(a.Name + " is moving their family (" + mine.Name + ") out of house " + house);
-            var w = Lots.Get(house, out var error, new[] { "-moveout" + mine.Family });
-            if (w == null) { await HttpServer.SendJson(stream, 503, new { error }, cors); return; }
-            await Lots.WaitExit(w, TimeSpan.FromSeconds(90));
-            if (!w.MovedOut)
-            {
-                var why = w.Problem ?? "the lot didn't finish";
-                Log.Warn("moving " + a.Name + "'s family out failed: " + why);
-                await HttpServer.SendJson(stream, 500, new { error = "Your family couldn't move out: " + why.Replace("error ", "") }, cors);
-                return;
-            }
-            Owners.Set(a.Key, null);
-            Log.Info(a.Name + "'s family has left the town (house " + house + " is for sale)");
-            await HttpServer.SendJson(stream, 200, new { ok = true }, cors);
+            finally { EndMove(a.Key, house); }
         }
 
         /// <summary>
@@ -701,9 +744,16 @@ namespace SimsRedux.Server
             var text = Encoding.ASCII.GetString(raw);
             var end = text.IndexOf("\r\n\r\n", StringComparison.Ordinal);
             if (end < 0) return raw;
-            var lines = text.Substring(0, end).Split("\r\n").Where(l => !l.StartsWith("X-Redux-Account", StringComparison.OrdinalIgnoreCase)).ToList();
+            // the lot reads header names trimmed and the last one wins, so " X-Redux-Account:" counts too:
+            // drop any line whose trimmed name is ours, then add the real one last
+            static bool IsAccountLine(string l)
+            {
+                var c = l.IndexOf(':');
+                return c > 0 && l.Substring(0, c).Trim().Equals("X-Redux-Account", StringComparison.OrdinalIgnoreCase);
+            }
+            var lines = text.Substring(0, end).Split("\r\n").Where(l => !IsAccountLine(l)).ToList();
             var safe = new string((account ?? "").Where(c => c >= 32 && c < 127).ToArray());
-            lines.Insert(1, "X-Redux-Account: " + safe);
+            lines.Add("X-Redux-Account: " + safe);
             var head = Encoding.ASCII.GetBytes(string.Join("\r\n", lines) + "\r\n\r\n");
             var rest = raw.AsSpan(Encoding.ASCII.GetByteCount(text.Substring(0, end + 4))).ToArray();
             return head.Concat(rest).ToArray();

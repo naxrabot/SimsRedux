@@ -39,7 +39,7 @@ namespace SimsRedux.Server
 
         public JsonElement? JsonBody()
         {
-            try { return JsonDocument.Parse(Body).RootElement; } catch { return null; }
+            try { using var doc = JsonDocument.Parse(Body); return doc.RootElement.Clone(); } catch { return null; }
         }
     }
 
@@ -144,6 +144,7 @@ namespace SimsRedux.Server
             }
             catch (IOException) { }
             catch (ObjectDisposedException) { }
+            catch (OperationCanceledException) { } // a connection that never finished sending its request (20 s)
             catch (Exception e) { Log.Warn("request failed: " + e.Message); }
             finally
             {
@@ -257,11 +258,7 @@ namespace SimsRedux.Server
             }
         }
 
-        private static int IndexOf(byte[] buf, int len, ReadOnlySpan<byte> what)
-        {
-            var i = buf.AsSpan(0, len).IndexOf(what);
-            return i;
-        }
+        private static int IndexOf(byte[] buf, int len, ReadOnlySpan<byte> what) => buf.AsSpan(0, len).IndexOf(what);
 
         // ---------- answers ----------
 

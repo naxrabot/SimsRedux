@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Net.Sockets;
 using System.Text.RegularExpressions;
 
 namespace SimsRedux.Server
@@ -89,7 +88,13 @@ namespace SimsRedux.Server
             error = null;
             lock (Lock)
             {
-                if (Open.TryGetValue(house, out var w) && !w.Finished) return w;
+                if (Open.TryGetValue(house, out var w) && !w.Finished)
+                {
+                    // a move in/out or /money needs a lot started for it: the open one never got those
+                    // instructions, and waiting on it would end with it killed under its players
+                    if (extraArgs != null) { error = "someone is on that lot right now - try again in a few minutes"; return null; }
+                    return w;
+                }
                 if (!TownReady) { error = "the town hasn't been set up yet (/town import)"; return null; }
                 if (!Houses().Contains(house)) { error = "there's no house " + house + " in the town"; return null; }
                 var exe = GameExe();
@@ -206,6 +211,13 @@ namespace SimsRedux.Server
             var until = DateTime.UtcNow + max;
             while (!w.Finished && DateTime.UtcNow < until) await Task.Delay(200);
             if (!w.Finished) { try { w.Process.Kill(); } catch { } await Task.Delay(500); }
+            // "exited" can come before the game's last lines (movedout, money...) have been read: let them arrive
+            try
+            {
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                await w.Process.WaitForExitAsync(cts.Token);
+            }
+            catch { }
             lock (Lock) { if (Open.TryGetValue(w.House, out var cur) && cur == w) Open.Remove(w.House); }
         }
 
@@ -373,17 +385,6 @@ namespace SimsRedux.Server
                 Directory.CreateDirectory(Path.Combine(to, Path.GetRelativePath(from, d)));
             foreach (var f in Directory.EnumerateFiles(from, "*", SearchOption.AllDirectories))
                 File.Copy(f, Path.Combine(to, Path.GetRelativePath(from, f)), true);
-        }
-
-        /// <summary>Is something listening on this port (the worker, once it's hosting)?</summary>
-        public static bool Listening(int port)
-        {
-            try
-            {
-                using var c = new TcpClient();
-                return c.ConnectAsync("127.0.0.1", port).Wait(300) && c.Connected;
-            }
-            catch { return false; }
         }
     }
 }

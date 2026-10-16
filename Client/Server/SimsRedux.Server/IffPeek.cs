@@ -22,7 +22,15 @@ namespace SimsRedux.Server
         {
             var result = new FamilyCount();
             byte[] d;
-            try { d = File.ReadAllBytes(neighborhoodIff); }
+            try
+            {
+                // (a lot may be saving it right now)
+                using var fs = new FileStream(neighborhoodIff, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                d = new byte[fs.Length];
+                int read = 0, n;
+                while (read < d.Length && (n = fs.Read(d, read, d.Length - read)) > 0) read += n;
+                if (read < d.Length) Array.Resize(ref d, read);
+            }
             catch { return null; }
             if (d.Length < 64 || !Encoding.ASCII.GetString(d, 0, 8).StartsWith("IFF FILE")) return null;
             int pos = 64;

@@ -78,12 +78,18 @@ namespace SimsRedux.Server
     public static class DataFile
     {
         /// <summary>Writes to a temporary file first, then swaps it in, so a crash mid-write can't leave half a file.</summary>
+        private static readonly object Gate = new object();
+
         public static void WriteAllTextSafely(string path, string text)
         {
-            var tmp = path + ".tmp";
-            File.WriteAllText(tmp, text);
-            if (File.Exists(path)) File.Replace(tmp, path, null);
-            else File.Move(tmp, path);
+            // one at a time: two threads saving the same file (the console and a timer) would share one .tmp
+            lock (Gate)
+            {
+                var tmp = path + ".tmp";
+                File.WriteAllText(tmp, text);
+                if (File.Exists(path)) File.Replace(tmp, path, null);
+                else File.Move(tmp, path);
+            }
         }
     }
 }

@@ -124,7 +124,8 @@ namespace SimsRedux.Server
 
                 case "/status":
                     var active = Accounts.RecentlyActive(TimeSpan.FromMinutes(5));
-                    var mem = System.Diagnostics.Process.GetCurrentProcess().WorkingSet64 / 1048576;
+                    long mem;
+                    using (var proc = System.Diagnostics.Process.GetCurrentProcess()) mem = proc.WorkingSet64 / 1048576;
                     Log.Reply(Config.Name + " (" + Config.Channel + ") v" + Api.Version + "\n" +
                         "  accounts: " + Accounts.Count + ", active now: " + active.Count + ", on lots: " + (Api.LotConnections + Lots.PlayerCount) + "\n" +
                         "  town: " + (Lots.TownReady ? Lots.Houses().Count + " houses, " + Lots.Running().Count + " open" : "not set up (/town import)") + "\n" +
@@ -257,8 +258,7 @@ namespace SimsRedux.Server
                     {
                         var key = Accounts.KeyOf(Rest(2));
                         if (Owners.Of(key) == null) { Log.Reply(Rest(2) + " doesn't own a family in the town"); break; }
-                        Owners.Set(key, null);
-                        Log.Reply(Rest(2) + " no longer owns their town family");
+                        Log.Reply(Owners.Set(key, null) ? Rest(2) + " no longer owns their town family" : "couldn't change owners.json - see the warning above");
                         break;
                     }
                     if (!Lots.TownReady) { Log.Reply("no town yet - start one with  /town fresh"); break; }
