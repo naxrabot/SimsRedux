@@ -64,6 +64,7 @@ namespace Simitone.Client.Utils
         private static bool Seeded;
         private static int Extra; // this visit's own +-1 on how busy a community lot is
         private static bool Enabled = true;
+        private static long LastFix = -1;
 
         private static long GameMinute(VM vm)
         {
@@ -94,10 +95,16 @@ namespace Simitone.Client.Utils
                 Extra = 0;
                 Enabled = ReduxSettings.GetBool("townies", true);
             }
-            if (!Enabled || !vm.Ready || vm.SpeedMultiplier <= 0 || !SinglePlayer(screen)) return;
+            if (!vm.Ready || vm.SpeedMultiplier <= 0 || !SinglePlayer(screen)) return;
             if (vm.TS1State?.CurrentFamily == null || vm.GetGlobalValue(32) != 0) return; // no family playing here
 
             var now = GameMinute(vm);
+            if (now != LastFix)
+            {
+                LastFix = now;
+                try { FixCommunityPeople(vm); } catch (Exception e) { Console.WriteLine("[SimsRedux] townies (fix): " + e.Message); }
+            }
+            if (!Enabled) return;
             if (FirstMinute < 0) FirstMinute = now;
             try
             {
@@ -170,6 +177,35 @@ namespace Simitone.Client.Utils
         {
             return people.Where(x => x.Position != LotTilePos.OUT_OF_WORLD
                 && x.GetPersonData(VMPersonDataVariable.PersonType) == 1 && !IsFamily(vm, x)).ToList();
+        }
+
+        /// <summary>
+        /// Your own Sims always count as family (never visitors), on every lot. On a community lot nobody
+        /// greets anybody, so everyone there counts as greeted (an ungreeted visitor only offers "Greet",
+        /// which community lots don't have).
+        /// </summary>
+        private static void FixCommunityPeople(VM vm)
+        {
+            bool community = IsCommunity(vm);
+            foreach (var ava in People(vm))
+            {
+                if (ava.Position == LotTilePos.OUT_OF_WORLD) continue;
+                if (IsFamily(vm, ava) || IsTraveller(vm, ava))
+                {
+                    // your own Sims are never visitors (a trip downtown could leave them marked as one, and a
+                    // visitor can't talk to other visitors - so no menu on guests, townies or staff)
+                    if (ava.GetPersonData(VMPersonDataVariable.PersonType) == 1) ava.SetPersonData(VMPersonDataVariable.PersonType, 0);
+                    continue;
+                }
+                if (community && ava.GetPersonData(VMPersonDataVariable.PersonType) == 1 && ava.GetPersonData(VMPersonDataVariable.GreetStatus) < 2)
+                    ava.SetPersonData(VMPersonDataVariable.GreetStatus, 2);
+            }
+        }
+
+        private static bool IsTraveller(VM vm, VMAvatar ava)
+        {
+            var subset = vm.TS1State.CurrentFamily?.RuntimeSubset;
+            return subset != null && subset.Contains(ava.Object.OBJ.GUID);
         }
 
         // ------------------------------------------------------------------
@@ -283,6 +319,7 @@ namespace Simitone.Client.Utils
 
             // a visitor who hasn't been greeted (the game set this up from their neighbour data already)
             ava.SetPersonData(VMPersonDataVariable.PersonType, 1);
+            if (IsCommunity(vm)) ava.SetPersonData(VMPersonDataVariable.GreetStatus, 2); // (nobody greets anyone downtown)
             // passing through: never saved into the lot (Sims 1 sends visitors home when you leave)
             ava.SetValue(VMStackObjectVariable.MovementFlags,
                 (short)(ava.GetValue(VMStackObjectVariable.MovementFlags) | (short)VMMovementFlags.FSOExcludeUserSave));

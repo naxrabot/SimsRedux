@@ -2,6 +2,16 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "4.9",
+      "date": "Oct 16, 2026",
+      "features": [],
+      "updates": [
+        "Talking to Sims — you can talk to guests, townies and shop staff again; your own Sims always count as family.",
+        "Fewer popups — the cab company, Magic Town and Studio Town letters no longer pop up.",
+        "Fixes — an error popup about a hidden lot controller no longer appears."
+      ]
+    },
+    {
       "version": "4.8",
       "date": "Oct 16, 2026",
       "features": [

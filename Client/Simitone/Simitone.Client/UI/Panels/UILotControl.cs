@@ -113,6 +113,30 @@ namespace Simitone.Client.UI.Panels
         private FSO.SimAntics.Model.VMDialogInfo LastBlockInfo;
         private int StuckFrames, StuckRetries;
 
+        /// <summary>SimsRedux: when clicking a Sim shows no menu, notes who was clicked and by whom (pie_debug.log).</summary>
+        private void PieLog(VMAvatar target)
+        {
+            try
+            {
+                Func<VMEntity, string> who = (e) =>
+                {
+                    var a = e as VMAvatar;
+                    if (a == null) return e?.ToString() ?? "none";
+                    return a.Name + " guid=" + a.Object.OBJ.GUID.ToString("X8")
+                        + " type=" + a.GetPersonData(FSO.SimAntics.Model.VMPersonDataVariable.PersonType)
+                        + " greet=" + a.GetPersonData(FSO.SimAntics.Model.VMPersonDataVariable.GreetStatus)
+                        + " familyNo=" + a.GetPersonData(FSO.SimAntics.Model.VMPersonDataVariable.TS1FamilyNumber)
+                        + " age=" + a.GetPersonData(FSO.SimAntics.Model.VMPersonDataVariable.PersonsAge)
+                        + " pos=" + a.Position + " hidden=" + a.GetValue(FSO.SimAntics.Model.VMStackObjectVariable.Hidden);
+                };
+                int count = target.TreeTable?.Interactions?.Length ?? -1;
+                var path = System.IO.Path.Combine(FSO.Common.FSOEnvironment.UserDir, "pie_debug.log");
+                FSOFile.AppendAllText(path, DateTime.Now.ToString("HH:mm:ss") + " lot " + vm.GetGlobalValue(10) + " no menu for " + who(target)
+                    + " (" + count + " interactions) | clicked by " + who(ActiveEntity) + "\r\n");
+            }
+            catch { }
+        }
+
         private static void DialogLog(string text)
         {
             try
@@ -269,6 +293,11 @@ namespace Simitone.Client.UI.Panels
         {
             // SimsRedux: the game's nag popups (Help System, expansion announcements) never show -
             // the game running the lot answers them at once; players on someone else's lot just skip them
+            if (info != null && !info.Block && Simitone.Client.Utils.ReduxDialogs.IsTownLetter(info))
+            {
+                DialogLog("(town letter, not shown) " + info.Title);
+                return;
+            }
             var auto = Simitone.Client.Utils.ReduxDialogs.AutoAnswer(info);
             if (auto != null)
             {
@@ -729,6 +758,7 @@ namespace Simitone.Client.UI.Panels
                         else
                         {
                             var menu = obj.GetPieMenu(vm, ActiveEntity, false, true);
+                            if (menu.Count == 0 && obj is VMAvatar) PieLog((VMAvatar)obj);
                             if (menu.Count != 0)
                             {
                                 HITVM.Get().PlaySoundEvent(UISounds.PieMenuAppear);
