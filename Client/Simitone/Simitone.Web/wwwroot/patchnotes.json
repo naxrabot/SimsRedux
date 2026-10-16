@@ -2,6 +2,14 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "6.3",
+      "date": "Oct 16, 2026",
+      "features": [],
+      "updates": [
+        "Play button on phones — it now stays at the bottom of the screen while you scroll the launcher."
+      ]
+    },
+    {
       "version": "6.2",
       "date": "Oct 16, 2026",
       "features": [

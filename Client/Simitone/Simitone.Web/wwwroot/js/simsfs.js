@@ -249,7 +249,8 @@
 #srx-setup .cat.feat + ul li::before { background: #78ff8c; opacity: 1; }
 #srx-setup .cat.upd + ul li::before { background: #7fc4ff; opacity: 1; }
 #srx-setup .nolder { margin-top: 12px; font-size: 12px; }
-#srx-setup .l-bottom { padding: 18px 30px 22px; }
+#srx-setup .l-bottom { padding: 18px 30px 22px; position: sticky; bottom: 0; z-index: 2; margin-top: auto; background: rgba(4, 8, 38, .97); }
+#srx-setup .l-bottom::before { content: ''; position: absolute; left: 0; right: 0; bottom: 100%; height: 22px; pointer-events: none; background: linear-gradient(transparent, rgba(4, 8, 38, .97)); } /* (Play stays on screen; the page scrolls behind it) */
 #srx-setup button.play { display: block; width: 100%; margin: 0; padding: 15px; font-size: 20px; font-weight: 800; letter-spacing: .3em;
   color: #04220d; background: linear-gradient(#9fffb0, #3bc25a); border: none; box-shadow: 0 6px 24px rgba(80,230,110,.25), inset 0 1px 0 rgba(255,255,255,.5); }
 #srx-setup button.play:hover { background: linear-gradient(#b8ffc5, #4fd56d); }
@@ -260,7 +261,7 @@
   #srx-setup .l-acct { margin: 0 16px; grid-template-columns: auto 1fr; }
   #srx-setup .avatar { grid-column: 1; grid-row: 1 / span 2; } #srx-setup .lname { grid-column: 2; grid-row: 1; } #srx-setup .lstatus { grid-column: 2; grid-row: 2; }
   #srx-setup .lbtns { grid-row: 3; grid-column: 1 / -1; justify-content: flex-start; margin-top: 10px; } #srx-setup .llevel { grid-row: 4; } #srx-setup .lreport { grid-row: 5; } #srx-setup .lfolder { grid-row: 6; }
-  #srx-setup .l-srv { margin: 10px 16px 0; } #srx-setup .smotd { margin: 12px 16px 0; } #srx-setup .notes, #srx-setup .modbox { margin: 14px 16px 0; flex: none; } /* (the whole launcher scrolls on a phone, not a sliver of it) */ #srx-setup .l-bottom { padding: 14px 16px 18px; }
+  #srx-setup .l-srv { margin: 10px 16px 0; } #srx-setup .smotd { margin: 12px 16px 0; } #srx-setup .notes, #srx-setup .modbox { margin: 14px 16px 0; flex: none; } /* (the whole launcher scrolls on a phone, not a sliver of it) */ #srx-setup .l-bottom { padding: 10px 16px max(14px, env(safe-area-inset-bottom)); } #srx-setup .vcheck { margin-bottom: 8px; } #srx-setup button.play { padding: 13px; } #srx-setup .notes, #srx-setup .modbox { padding-bottom: 8px; }
 }`;
         document.head.appendChild(style);
         const el = document.createElement('div');
