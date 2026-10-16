@@ -2,6 +2,14 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "6.8",
+      "date": "Oct 16, 2026",
+      "features": [],
+      "updates": [
+        "Account menu — click your initial next to your name for Report a player, Switch account and Log out."
+      ]
+    },
+    {
       "version": "6.7",
       "date": "Oct 16, 2026",
       "features": [],

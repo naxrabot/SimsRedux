@@ -175,6 +175,23 @@
 #srx-setup .avatar { grid-row: span 2; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 19px;
   color: #04102a; background: linear-gradient(135deg, #9fffb0, #3bc25a); }
 #srx-setup .avatar.off { background: #2a335e; color: #9fb4ff; }
+/* the account menu: the round initial opens it */
+#srx-setup .l-acct { position: relative; }
+#srx-setup button.avatar { margin: 0; padding: 0; border: none; position: relative; cursor: pointer; font: inherit; font-weight: 700; font-size: 19px; color: #04102a;
+  background: linear-gradient(135deg, #9fffb0, #3bc25a); box-shadow: 0 0 0 0 rgba(120,255,140,0); transition: box-shadow .15s; }
+#srx-setup button.avatar:hover, #srx-setup button.avatar[aria-expanded="true"] { background: linear-gradient(135deg, #b8ffc5, #4fd56d); box-shadow: 0 0 0 3px rgba(120,255,140,.35); }
+#srx-setup button.avatar::after { content: ''; position: absolute; right: -2px; bottom: -2px; width: 16px; height: 16px; border-radius: 50%;
+  background: #0b1238 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 6.5l3.5 3.5 3.5-3.5' fill='none' stroke='%23c8d4ff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/12px no-repeat;
+  border: 1px solid rgba(143,180,255,.5); }
+#srx-setup button.avatar[aria-expanded="true"]::after { transform: rotate(180deg); }
+#srx-setup .lbtns.menu { position: absolute; z-index: 5; top: 66px; left: 12px; grid-row: auto; grid-column: auto; margin: 0; max-width: none; min-width: 210px;
+  flex-direction: column; flex-wrap: nowrap; gap: 2px; justify-content: flex-start; padding: 6px; background: #0b1238; border: 1px solid rgba(143,180,255,.35);
+  box-shadow: 0 14px 34px rgba(0,0,0,.55); }
+#srx-setup .lbtns.menu:not(.open) { display: none; }
+#srx-setup .l-acct:has(.lbtns.menu) .lname { grid-column: 2; grid-row: 1; } #srx-setup .l-acct:has(.lbtns.menu) .lstatus { grid-column: 2; grid-row: 2; }
+#srx-setup .lbtns.menu button.ghost { border: none; text-align: left; padding: 9px 12px; font-size: 13px; width: 100%; }
+#srx-setup .lbtns.menu button.ghost.danger { color: #ffb0a0; }
+#srx-setup .lbtns.menu hr { border: none; border-top: 1px solid rgba(143,180,255,.15); margin: 4px 2px; }
 #srx-setup .lname { font-size: 16px; font-weight: 600; color: #fff; overflow-wrap: anywhere; }
 #srx-setup .badge { font-size: 10px; letter-spacing: .1em; font-weight: 700; color: #9fb4ff; border: 1px solid #5a6ab8; padding: 1px 5px; margin-left: 6px; vertical-align: 2px; }
 #srx-setup .lstatus { font-size: 12px; color: #8a96d0; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
@@ -273,7 +290,7 @@
     <div class="ver"><span class="stage">BETA</span>Version <b class="vnum">&mdash;</b></div>
   </div>
   <div class="l-acct">
-    <div class="avatar">?</div>
+    <button class="avatar" type="button" aria-haspopup="menu" aria-expanded="false" title="Account">?</button>
     <div class="lname"></div>
     <div class="lbtns"></div>
     <div class="lstatus"><i class="dot"></i><span class="ltext"></span></div>
@@ -958,8 +975,21 @@
         return new Promise(done => {
             const btns = L.querySelector('.lbtns');
             const isMod = on && Array.isArray(acc.powers) && acc.powers.length > 0;
-            btns.innerHTML = on ? (isMod ? '<button class="ghost lmod">Moderator tools</button>' : '') + '<button class="ghost lrep">Report a player</button><button class="ghost lswitch">Switch account</button><button class="ghost llogout">Log out</button>'
+            btns.innerHTML = on ? (isMod ? '<button class="ghost lmod" role="menuitem">Moderator tools</button>' : '') + '<button class="ghost lrep" role="menuitem">Report a player</button><hr><button class="ghost lswitch" role="menuitem">Switch account</button><button class="ghost llogout danger" role="menuitem">Log out</button>'
                 : '<button class="ghost llogin">Log in</button>';
+            // logged in: the buttons live in a menu that the round initial opens (logged out: just Log in, shown)
+            btns.classList.toggle('menu', on);
+            btns.classList.remove('open');
+            btns.setAttribute('role', on ? 'menu' : '');
+            av.setAttribute('aria-expanded', 'false');
+            av.disabled = !on;
+            av.style.cursor = on ? '' : 'default';
+            const setMenu = (open) => { btns.classList.toggle('open', open); av.setAttribute('aria-expanded', open ? 'true' : 'false'); };
+            av.onclick = (e) => { if (!on) return; e.stopPropagation(); setMenu(!btns.classList.contains('open')); };
+            btns.onclick = (e) => { if (e.target && e.target.tagName === 'BUTTON') setMenu(false); }; // a choice closes the menu
+            if (L._srxMenuClose) document.removeEventListener('pointerdown', L._srxMenuClose, true);
+            L._srxMenuClose = (e) => { if (btns.classList.contains('open') && !btns.contains(e.target) && e.target !== av) setMenu(false); };
+            document.addEventListener('pointerdown', L._srxMenuClose, true);
             const modbox = L.querySelector('.modbox'), notesBox = L.querySelector('.notes');
             modbox.classList.add('hidden'); notesBox.classList.remove('hidden');
             if (isMod) btns.querySelector('.lmod').onclick = () => openMod(L);
@@ -1024,6 +1054,7 @@
                 finish('update');
             };
             const onKey = (e) => {
+                if (e.key === 'Escape' && btns.classList.contains('open')) { btns.classList.remove('open'); av.setAttribute('aria-expanded', 'false'); return; }
                 if (e.key !== 'Enter' || L.classList.contains('hidden')) return;
                 const t = e.target && e.target.tagName;
                 if (t === 'INPUT' || t === 'TEXTAREA' || t === 'BUTTON' || t === 'SELECT') return;
