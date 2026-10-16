@@ -2,6 +2,15 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "6.2",
+      "date": "Oct 16, 2026",
+      "features": [
+        "Tint colour dropper — Pick colour from lot, then click any object to copy its colour.",
+        "Tint hex code — see the exact colour as a hex code like #A0522D, or type one in."
+      ],
+      "updates": []
+    },
+    {
       "version": "6.1",
       "date": "Oct 16, 2026",
       "features": [

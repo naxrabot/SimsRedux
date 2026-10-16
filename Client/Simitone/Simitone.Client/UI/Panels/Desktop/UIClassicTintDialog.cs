@@ -1,4 +1,5 @@
 using FSO.Client;
+using FSO.Client.UI.Controls;
 using FSO.Client.UI.Framework;
 using FSO.Common.Rendering.Framework.IO;
 using FSO.Common.Rendering.Framework.Model;
@@ -30,7 +31,7 @@ namespace Simitone.Client.UI.Panels.Desktop
         private uint OriginalTint;
         private float Hue = 200, Colourful = 0.85f, Brightness = 0, Strength = 0.75f;
 
-        private const int W = 470, H = 372, Pad = 22, StripW = 426;
+        private const int W = 470, H = 404, Pad = 22, StripW = 426;
         private TextStyle Style, TitleStyle;
         private UIClassicStrip HueStrip, StrengthStrip, BrightStrip;
         private string ObjectName = "";
@@ -95,7 +96,25 @@ namespace Simitone.Client.UI.Panels.Desktop
                 Add(cell);
             }
 
-            int y = SwY + 2 * (SwH + SwGap) + 30;
+            // the colour's hex code (type one in too) and the colour dropper
+            int rowY = SwY + 2 * (SwH + SwGap) + 2;
+            Hex = new UITextBox();
+            Hex.BackgroundTextureReference = null;
+            Hex.SetSize(96, 24);
+            Hex.Position = new Vector2(Pad + 34, rowY);
+            Hex.TextMargin = new Rectangle(6, 2, 6, 2);
+            Hex.TextStyle = Hex.TextStyle.Clone();
+            Hex.TextStyle.Size = 12;
+            Hex.TextStyle.Color = Color.White;
+            Hex.OnChange += (e) => HexTyped();
+            Add(Hex);
+            var pick = new UIReduxButton("Pick colour from lot", 190, 24);
+            pick.TextSize = 11;
+            pick.Position = new Vector2(W - Pad - 190, rowY);
+            pick.OnButtonClick += (b) => StartPick();
+            Add(pick);
+
+            int y = rowY + 26 + 30;
             HueStrip = AddStrip(UIClassicStrip.Kind.Hue, Pad, y, (v) => { Hue = v * 359; if (Colourful < 0.2f) Colourful = 0.8f; SwatchIndex = -1; Preview(); });
             y += 56;
             StrengthStrip = AddStrip(UIClassicStrip.Kind.Strength, Pad, y, (v) => { Strength = v; Preview(); });
@@ -156,14 +175,130 @@ namespace Simitone.Client.UI.Panels.Desktop
             BrightStrip.Value = (Brightness + 1) / 2f;
         }
 
+        // ------------------------------------------------------------------
+        // The hex code and the colour dropper
+        // ------------------------------------------------------------------
+
+        private UITextBox Hex;
+
+        /// <summary>The colour as it shows on a mid-light surface (what the swatches and the hex code show).</summary>
+        private Color ShownColour
+        {
+            get
+            {
+                float v = Brightness >= 0 ? 0.78f + 0.22f * Brightness : 0.78f * (1 + Brightness);
+                return ReduxTint.FromHSV(Hue, Colourful, v);
+            }
+        }
+
+        private void UpdateHex()
+        {
+            if (Hex == null) return;
+            var c = ShownColour;
+            Hex.CurrentText = "#" + c.R.ToString("X2") + c.G.ToString("X2") + c.B.ToString("X2");
+        }
+
+        private void HexTyped()
+        {
+            var t = (Hex.CurrentText ?? "").Trim().TrimStart('#');
+            if (t.Length != 6) return;
+            int rgb;
+            if (!int.TryParse(t, System.Globalization.NumberStyles.HexNumber, null, out rgb)) return;
+            SetFromColour(new Color((rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255), false);
+        }
+
+        /// <summary>Hue, colourfulness and brightness from a colour (the reverse of ShownColour).</summary>
+        private void SetFromColour(Color c, bool updateHex)
+        {
+            float h, s, v;
+            ReduxTint.ToHSV(c, out h, out s, out v);
+            Hue = h;
+            Colourful = s;
+            Brightness = v >= 0.78f ? (v - 0.78f) / 0.22f : v / 0.78f - 1;
+            Strength = 1f;
+            SwatchIndex = -1;
+            SyncStrips();
+            Preview(updateHex);
+        }
+
+        /// <summary>The dropper: the window steps aside, you click something on the lot, and its colour comes in.</summary>
+        private void StartPick()
+        {
+            var lot = Game.LotControl;
+            if (lot == null) return;
+            UIScreen.RemoveDialog(this);
+            if (lot.CustomControl != null) { lot.CustomControl.Release(); lot.CustomControl = null; }
+            var dropper = new UIReduxDropper(lot, null, null, null);
+            dropper.OnEntity = (ent) =>
+            {
+                TakeColourFrom(ent);
+                if (lot.CustomControl == dropper) { lot.CustomControl = null; dropper.Release(); }
+            };
+            dropper.OnRelease = () => { UIScreen.GlobalShowDialog(this, true); Preview(); };
+            lot.CustomControl = dropper;
+            Simitone.Client.UI.Controls.UIReduxToasts.Show("Pick a colour", "Click an object on your lot to use its colour. Esc goes back.");
+        }
+
+        /// <summary>An object's colour: its own tint if it has one from this window, otherwise the main colour of its picture.</summary>
+        private void TakeColourFrom(VMEntity ent)
+        {
+            try
+            {
+                var lead = ent.MultitileGroup?.BaseObject ?? ent;
+                var tint = (lead as VMGameObject)?.ReduxTint ?? 0;
+                if ((tint & 3) == ReduxTint.ModeColour)
+                {
+                    int h; float c, b, st;
+                    ReduxTint.UnpackColour(tint, out h, out c, out b, out st);
+                    Hue = h; Colourful = c; Brightness = b; Strength = st;
+                    SwatchIndex = -1;
+                    SyncStrips();
+                    return;
+                }
+                var avg = MainColour(lead);
+                if (avg == null) return;
+                var col = avg.Value;
+                if (tint != 0) col = ReduxTint.Apply(col, tint); // tinted the older way: the colour it shows now
+                SetFromColour(col, true);
+            }
+            catch (Exception e) { Console.WriteLine("[SimsRedux] tint dropper: " + e.Message); }
+        }
+
+        /// <summary>The average colour of an object's catalog picture (its backdrop left out).</summary>
+        private static Color? MainColour(VMEntity ent)
+        {
+            var def = ent.MasterDefinition ?? ent.Object.OBJ;
+            var bmp = ent.Object.Resource.Get<FSO.Files.Formats.IFF.Chunks.BMP>(def.CatalogStringsID);
+            var tex = bmp?.GetTexture(GameFacade.GraphicsDevice);
+            if (tex == null || tex.Width < 2) return null;
+            var data = new Color[tex.Width * tex.Height];
+            tex.GetData(data);
+            int w = tex.Width >= tex.Height * 1.5f ? tex.Width / 2 : tex.Width; // (the first of the two pictures)
+            var back = data[0];
+            long r = 0, g = 0, b = 0, n = 0;
+            for (int y = 0; y < tex.Height; y++)
+                for (int x = 0; x < w; x++)
+                {
+                    var c = data[y * tex.Width + x];
+                    if (c.A < 128) continue;
+                    if (Math.Abs(c.R - back.R) + Math.Abs(c.G - back.G) + Math.Abs(c.B - back.B) < 40) continue;
+                    r += c.R; g += c.G; b += c.B; n++;
+                }
+            if (n == 0) return null;
+            return new Color((int)(r / n), (int)(g / n), (int)(b / n));
+        }
+
         private uint Current
         {
             get { return ReduxTint.PackColour((int)Hue, Colourful, Brightness, Strength); }
         }
 
         /// <summary>Show the colour on the lot straight away (only on this screen until Apply).</summary>
-        private void Preview()
+        private void Preview() { Preview(true); }
+
+        private void Preview(bool updateHex)
         {
+            if (updateHex) UpdateHex();
             var obj = Target;
             if (obj == null) return;
             foreach (var part in obj.MultitileGroup.Objects)
@@ -234,7 +369,12 @@ namespace Simitone.Client.UI.Panels.Desktop
                 DrawLocalTexture(batch, ReduxTheme.Box(SwW + 6, SwH + 6, 8, Color.Transparent, Color.Transparent, ReduxTheme.Glow, 2), p);
             }
 
-            int y = SwY + 2 * (SwH + SwGap) + 30;
+            // the hex box and a little patch of the colour
+            int rowY = SwY + 2 * (SwH + SwGap) + 2;
+            DrawLocalTexture(batch, ReduxTheme.Box(26, 24, 6, ShownColour, ShownColour, new Color(20, 20, 40), 1), new Vector2(Pad, rowY));
+            DrawLocalTexture(batch, ReduxTheme.Box(96, 24, 8, ReduxTheme.Deeper, ReduxTheme.Deep, ReduxTheme.Rim, 1), new Vector2(Pad + 34, rowY));
+
+            int y = rowY + 26 + 30;
             DrawLocalString(batch, "Colour", new Vector2(Pad, y - 22), Style, new Rectangle(0, 0, StripW, 20), TextAlignment.Left | TextAlignment.Middle);
             DrawLocalString(batch, "Strength", new Vector2(Pad, y + 56 - 22), Style, new Rectangle(0, 0, StripW, 20), TextAlignment.Left | TextAlignment.Middle);
             DrawLocalString(batch, "Brightness", new Vector2(Pad, y + 112 - 22), Style, new Rectangle(0, 0, StripW, 20), TextAlignment.Left | TextAlignment.Middle);

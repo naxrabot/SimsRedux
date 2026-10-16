@@ -19,6 +19,10 @@ namespace Simitone.Client.UI.Panels.Desktop
         private Action<uint> OnObject;
         private Action<ushort> OnFloor;
         private Action OnNothing;
+        /// <summary>Called when the dropper is put away (Esc, another tool...), picked or not.</summary>
+        public Action OnRelease;
+        /// <summary>If set, called with the object clicked (instead of OnObject).</summary>
+        public Action<VMEntity> OnEntity;
 
         public UIReduxDropper(UILotControl lot, Action<uint> onObject, Action<ushort> onFloor, Action onNothing)
         {
@@ -40,6 +44,11 @@ namespace Simitone.Client.UI.Panels.Desktop
                 if (id > 0)
                 {
                     var ent = vm.GetObjectById(id);
+                    if (ent is VMGameObject && OnEntity != null)
+                    {
+                        OnEntity(ent);
+                        return;
+                    }
                     if (ent is VMGameObject)
                     {
                         // a multi-tile object is bought by its main part (like picking it up does)
@@ -70,6 +79,6 @@ namespace Simitone.Client.UI.Panels.Desktop
 
         public override void MouseUp(UpdateState state) { }
         public override void Update(UpdateState state, bool scrolled) { }
-        public override void Release() { }
+        public override void Release() { var r = OnRelease; OnRelease = null; r?.Invoke(); }
     }
 }
