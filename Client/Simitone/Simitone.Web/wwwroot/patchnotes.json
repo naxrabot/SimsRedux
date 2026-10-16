@@ -2,6 +2,14 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "5.3",
+      "date": "Oct 16, 2026",
+      "features": [],
+      "updates": [
+        "Shop staff — you can talk to clerks, waiters, chefs and other workers on community lots."
+      ]
+    },
+    {
       "version": "5.2",
       "date": "Oct 16, 2026",
       "features": [],

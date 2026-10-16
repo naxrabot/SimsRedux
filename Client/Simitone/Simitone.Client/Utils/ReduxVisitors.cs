@@ -199,7 +199,8 @@ namespace Simitone.Client.Utils
                 }
                 // Hot Date's own rule: on a community lot you can only talk to Sims whose greet status is 1
                 // (what the game gives everyone there, your own Sims included)
-                if (community && ava.GetPersonData(VMPersonDataVariable.PersonType) == 1 && ava.GetPersonData(VMPersonDataVariable.GreetStatus) != 1)
+                var type = ava.GetPersonData(VMPersonDataVariable.PersonType);
+                if (community && (type == 1 || type == 2) && ava.GetPersonData(VMPersonDataVariable.GreetStatus) != 1) // (2 = the shop staff)
                     ava.SetPersonData(VMPersonDataVariable.GreetStatus, 1);
             }
         }

@@ -127,7 +127,8 @@ namespace Simitone.Client.UI.Panels
                         + " greet=" + a.GetPersonData(FSO.SimAntics.Model.VMPersonDataVariable.GreetStatus)
                         + " familyNo=" + a.GetPersonData(FSO.SimAntics.Model.VMPersonDataVariable.TS1FamilyNumber)
                         + " age=" + a.GetPersonData(FSO.SimAntics.Model.VMPersonDataVariable.PersonsAge)
-                        + " pos=" + a.Position + " hidden=" + a.GetValue(FSO.SimAntics.Model.VMStackObjectVariable.Hidden);
+                        + " pos=" + a.Position + " hidden=" + a.GetValue(FSO.SimAntics.Model.VMStackObjectVariable.Hidden)
+                        + " semiglobal=" + (a.SemiGlobal?.Iff?.Filename ?? "none");
                 };
                 int count = target.TreeTable?.Interactions?.Length ?? -1;
                 var path = System.IO.Path.Combine(FSO.Common.FSOEnvironment.UserDir, "pie_debug.log");
