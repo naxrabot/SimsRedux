@@ -18,6 +18,7 @@ namespace Simitone.Client.Utils
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Talking to Sims: more work on menus for guests, townies and shop staff.",
             "Talking to Sims: you can talk to guests, townies and shop staff again - your own Sims always count as family.",
             "Fewer popups: the cab company, Magic Town and Studio Town letters no longer pop up.",
             "Fixes: an error popup about a hidden lot controller is gone.",

@@ -133,8 +133,59 @@ namespace Simitone.Client.UI.Panels
                 var path = System.IO.Path.Combine(FSO.Common.FSOEnvironment.UserDir, "pie_debug.log");
                 FSOFile.AppendAllText(path, DateTime.Now.ToString("HH:mm:ss") + " lot " + vm.GetGlobalValue(10) + " no menu for " + who(target)
                     + " (" + count + " interactions) | clicked by " + who(ActiveEntity) + "\r\n");
+                if (PieTraced.Add(target.Object.OBJ.GUID)) FSOFile.AppendAllText(path, PieTrace(target));
             }
             catch { }
+        }
+
+        private static HashSet<uint> PieTraced = new HashSet<uint>();
+
+        /// <summary>
+        /// SimsRedux: runs each of the Sim's interactions' checks again with the script trace on, and
+        /// writes why each one said no (the last steps of its check). Once per Sim per session.
+        /// </summary>
+        private string PieTrace(VMAvatar target)
+        {
+            var sb = new System.Text.StringBuilder();
+            var caller = ActiveEntity;
+            var ttab = target.TreeTable;
+            if (caller == null || ttab == null) return "";
+            var oldEntity = FSO.SimAntics.Engine.VMThread.TraceEntity;
+            var oldOps = FSO.SimAntics.Engine.VMThread.TraceOperands;
+            int detailed = 0;
+            try
+            {
+                FSO.SimAntics.Engine.VMThread.TraceEntity = caller;
+                FSO.SimAntics.Engine.VMThread.TraceOperands = true;
+                foreach (var ia in ttab.Interactions)
+                {
+                    var id = (int)ia.TTAIndex;
+                    string name = "?";
+                    try { name = target.TreeTableStrings?.GetString(id) ?? "?"; } catch { }
+                    var action = target.GetAction(id, caller, vm.Context, false);
+                    if (action == null) { sb.Append("   - " + name + ": no action (missing tree)\r\n"); continue; }
+                    FSO.SimAntics.Engine.VMThread.TraceLog.Clear();
+                    caller.ObjectData[(int)FSO.SimAntics.Model.VMStackObjectVariable.HideInteraction] = 0;
+                    var result = caller.Thread.CheckAction(action);
+                    var hidden = caller.ObjectData[(int)FSO.SimAntics.Model.VMStackObjectVariable.HideInteraction];
+                    var steps = FSO.SimAntics.Engine.VMThread.TraceLog.ToList();
+                    sb.Append("   - " + name + ": " + (result != null ? "OK" + (hidden == 1 ? " but hidden" : "") : "no") + " flags=" + ia.Flags + " steps=" + steps.Count + "\r\n");
+                    if (result == null && detailed < 8 && steps.Count > 0)
+                    {
+                        detailed++;
+                        foreach (var line in steps.Skip(Math.Max(0, steps.Count - 25))) sb.Append("        " + line + "\r\n");
+                    }
+                }
+            }
+            catch (Exception e) { sb.Append("   trace failed: " + e.Message + "\r\n"); }
+            finally
+            {
+                FSO.SimAntics.Engine.VMThread.TraceEntity = oldEntity;
+                FSO.SimAntics.Engine.VMThread.TraceOperands = oldOps;
+                FSO.SimAntics.Engine.VMThread.TraceLog.Clear();
+                caller.ObjectData[(int)FSO.SimAntics.Model.VMStackObjectVariable.HideInteraction] = 0;
+            }
+            return sb.ToString();
         }
 
         private static void DialogLog(string text)
