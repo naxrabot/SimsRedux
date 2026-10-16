@@ -111,7 +111,7 @@ namespace Simitone.Client.UI.Panels.Desktop
 
             // SimsRedux: search box and dropper, just above the bar
             Search = new UIReduxCatalogSearch();
-            Search.Position = new Vector2(SubX, BarY - 46);
+            Search.Position = new Vector2(SubX, BarY - UIReduxCatalogSearch.BoxH);
             Search.OnSearch += SearchFor;
             Search.OnDropper += ToggleDropper;
             Add(Search);
@@ -135,8 +135,7 @@ namespace Simitone.Client.UI.Panels.Desktop
             }
             ClearHolding();
             var words = text.ToLowerInvariant();
-            var results = AllBuyItems().Where(x => (GetName(x) ?? "").ToLowerInvariant().Contains(words)
-                || (x.Name ?? "").ToLowerInvariant().Contains(words)).ToList();
+            var results = AllBuyItems().Where(x => HasCatalogPicture(x.GUID) && (GetName(x) ?? "").ToLowerInvariant().Contains(words)).ToList();
             OpenCatalog(View.Search, 0, "Search: " + text, "BackFMisc", results, new List<Subsort>());
         }
 
@@ -460,7 +459,8 @@ namespace Simitone.Client.UI.Panels.Desktop
             CurrentView = view;
             CurrentCategory = category;
             CurrentName = name;
-            SourceItems = source.OrderBy(x => x.Price).ToList();
+            // (objects with no catalog picture are the game's hidden/test ones - never shown)
+            SourceItems = source.Where(x => HasCatalogPicture(x.GUID)).OrderBy(x => x.Price).ToList();
 
             // back button (falls back to a plain one if this expansion's art is missing)
             var backTex = TS1UIGraphics.Get("cpanel/Catalog/BackButtons/" + backArt + ".bmp");
@@ -622,6 +622,24 @@ namespace Simitone.Client.UI.Panels.Desktop
         private static Dictionary<uint, Texture2D> Icons = new Dictionary<uint, Texture2D>();
         private static Dictionary<uint, string> Names = new Dictionary<uint, string>();
 
+        private static Dictionary<uint, bool> PictureCache = new Dictionary<uint, bool>();
+
+        /// <summary>SimsRedux: does this object have a catalog picture? (The hidden and test objects don't.)</summary>
+        public static bool HasCatalogPicture(uint guid)
+        {
+            bool has;
+            if (PictureCache.TryGetValue(guid, out has)) return has;
+            has = false;
+            try
+            {
+                var obj = Content.Get().WorldObjects.Get(guid);
+                has = obj?.OBJ != null && obj.Resource.Get<BMP>(obj.OBJ.CatalogStringsID) != null;
+            }
+            catch { }
+            PictureCache[guid] = has;
+            return has;
+        }
+
         private Texture2D GetIcon(uint guid)
         {
             Texture2D tex;
@@ -715,12 +733,29 @@ namespace Simitone.Client.UI.Panels.Desktop
             var bought = control.vm.Context.CreateObjectInstance(guid, LotTilePos.OUT_OF_WORLD, Direction.NORTH, holder.UseNet);
             if (bought != null && bought.Objects.Count != 0)
             {
-                control.QueryPanel.SetInfo(control.vm, bought.Objects[0], false);
-                control.QueryPanel.Mode = 1;
-                control.QueryPanel.Active = true;
-                control.QueryPanel.SetShown(true);
+                control.QueryPanel.Active = false; // (the classic bar shows what it is instead)
+                HeldInfo = DescribeForSale(bought.BaseObject);
                 holder.SetSelected(bought);
             }
+        }
+
+        /// <summary>SimsRedux: what's being placed - name, price and what it does for a Sim (like the original catalog).</summary>
+        private string HeldInfo;
+
+        public static string DescribeForSale(VMEntity ent)
+        {
+            try
+            {
+                var def = ent.MasterDefinition ?? ent.Object.OBJ;
+                var name = ent.Object.Resource.Get<CTSS>(def.CatalogStringsID)?.GetString(0) ?? ent.ToString();
+                var parts = new List<string>();
+                Action<string, int> add = (label, v) => { if (v != 0) parts.Add(label + " " + (v > 0 ? "+" : "") + v); };
+                add("Hunger", def.RatingHunger); add("Comfort", def.RatingComfort); add("Hygiene", def.RatingHygiene);
+                add("Bladder", def.RatingBladder); add("Energy", def.RatingEnergy); add("Fun", def.RatingFun); add("Room", def.RatingRoom);
+                var price = (int)def.Price;
+                return name + (price > 0 ? "  §" + price.ToString("##,#0") : "") + (parts.Count > 0 ? "   " + string.Join("  ", parts) : "");
+            }
+            catch { return null; }
         }
 
         private void Holder_OnPickup(UIObjectSelection holding, UpdateState state)
@@ -889,9 +924,17 @@ namespace Simitone.Client.UI.Panels.Desktop
                 if (!SellCatcher.Visible && SellExtras.Count > 0) ClearSellExtras();
                 if (SellCatcher.Visible) SellCatcher.Width = (int)(GlobalSettings.Default.GraphicsWidth / ((Parent?.Parent as UIClassicUCP)?.UIScale ?? 1f)) - 218;
             }
-            if (Game.LotControl != null && Visible) Game.LotControl.PickupPanel.Opacity = 0f;
+            if (Game.LotControl != null && Visible)
+            {
+                Game.LotControl.PickupPanel.Opacity = 0f;
+                Game.LotControl.QueryPanel.Active = false; // the Simitone info card - the classic bar shows it instead
+            }
+            if (holding == null || holding.IsBought) HeldInfo = null;
             if (Visible)
             {
+                // search and dropper sit on the bar's top edge, at the right
+                var width = GlobalSettings.Default.GraphicsWidth / ((Parent?.Parent as UIClassicUCP)?.UIScale ?? 1f);
+                Search.Position = new Vector2((int)(width - UIReduxCatalogSearch.TotalW - 12), BarY - UIReduxCatalogSearch.BoxH);
                 // the dropper: I to pick up / put away, Esc to put it away
                 if (!UIRevampedCamera.IsTyping(state))
                 {
@@ -934,13 +977,14 @@ namespace Simitone.Client.UI.Panels.Desktop
             base.Draw(batch);
 
             // name / price of whatever is under the mouse, in a small box above the bar
-            if ((CurrentView != View.Start || SellExtras.Count > 0 || DropperActive) && !string.IsNullOrEmpty(HoverText))
+            var tip = HoverText ?? HeldInfo;
+            if ((CurrentView != View.Start || SellExtras.Count > 0 || DropperActive || HeldInfo != null) && !string.IsNullOrEmpty(tip))
             {
-                int w = 12 + HoverText.Length * 6;
+                int w = 12 + tip.Length * 6;
                 var box = new Rectangle(ThumbX, BarY - 20, w, 17);
                 Fill(batch, box, new Color(0, 0, 82));
                 Fill(batch, new Rectangle(box.X, box.Y, box.Width, 1), new Color(120, 120, 200));
-                DrawLocalString(batch, HoverText, new Vector2(box.X, box.Y), Small, new Rectangle(0, 0, box.Width, box.Height), TextAlignment.Center | TextAlignment.Middle);
+                DrawLocalString(batch, tip, new Vector2(box.X, box.Y), Small, new Rectangle(0, 0, box.Width, box.Height), TextAlignment.Center | TextAlignment.Middle);
             }
         }
 

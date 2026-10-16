@@ -70,7 +70,9 @@ namespace Simitone.Client.UI.Controls
             DrawLocalTexture(batch, ReduxTheme.Box(Width, Height, Height / 2, top, bottom, border, 1), Vector2.Zero);
             // glossy shine on the top half
             DrawLocalTexture(batch, ReduxTheme.Box(Width - 8, Height / 2 - 2, Height / 4, Color.White * 0.28f, Color.White * 0.05f, Color.Transparent, 0), new Vector2(4, 2));
+            // the caption shrinks until it fits inside the button
             Style.Size = TextSize;
+            try { while (Style.Size > 6 && Style.MeasureString(Caption ?? "").X > Width - 6) Style.Size--; } catch { }
             Style.Color = Disabled ? new Color(170, 175, 200) : Color.White;
             DrawLocalString(batch, Caption ?? "", Vector2.Zero, Style, new Rectangle(0, 0, Width, Height), TextAlignment.Center | TextAlignment.Middle);
         }

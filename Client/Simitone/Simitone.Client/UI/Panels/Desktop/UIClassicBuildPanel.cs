@@ -145,7 +145,7 @@ namespace Simitone.Client.UI.Panels.Desktop
 
             // SimsRedux: search box and dropper, just above the bar
             Search = new UIReduxCatalogSearch();
-            Search.Position = new Vector2(ToolX, BarY - 46);
+            Search.Position = new Vector2(ToolX, BarY - UIReduxCatalogSearch.BoxH);
             Search.OnSearch += SearchFor;
             Search.OnDropper += ToggleDropper;
             Add(Search);
@@ -436,6 +436,7 @@ namespace Simitone.Client.UI.Panels.Desktop
         {
             var list = new List<Entry>();
             foreach (var item in Content.Get().WorldCatalog.GetItemsByCategory(category))
+                if (UIClassicBuyPanel.HasCatalogPicture(item.GUID)) // (no picture: the game's hidden/test objects)
                 list.Add(new Entry { Name = UIClassicColourDialog.GetName(item.GUID), Description = item.Name, Price = (int)item.Price, GUID = item.GUID });
             return list.OrderBy(x => x.Price).ToList();
         }
@@ -612,17 +613,8 @@ namespace Simitone.Client.UI.Panels.Desktop
                 lot.CustomControl.Release();
                 lot.CustomControl = null;
             }
-            try
-            {
-                if (res != null && !string.IsNullOrEmpty(res.GetName(resID)))
-                {
-                    lot.QueryPanel.SetInfo(res.GetThumb(resID), res.GetName(resID), res.GetDescription(resID), res.GetPrice(resID), res.DoDispose());
-                    lot.QueryPanel.Mode = 1;
-                    lot.QueryPanel.Active = true;
-                    lot.QueryPanel.SetShown(true);
-                }
-            }
-            catch { }
+            // (no Simitone info card - the classic bar shows the name and price)
+            lot.QueryPanel.Active = false;
             lot.CustomControl = (UICustomLotControl)Activator.CreateInstance(control, lot.vm, lot.World, lot, parameters);
         }
 
@@ -640,10 +632,8 @@ namespace Simitone.Client.UI.Panels.Desktop
             var bought = lot.vm.Context.CreateObjectInstance(guid, LotTilePos.OUT_OF_WORLD, Direction.NORTH, holder.UseNet);
             if (bought != null && bought.Objects.Count != 0)
             {
-                lot.QueryPanel.SetInfo(lot.vm, bought.Objects[0], false);
-                lot.QueryPanel.Mode = 1;
-                lot.QueryPanel.Active = true;
-                lot.QueryPanel.SetShown(true);
+                lot.QueryPanel.Active = false;
+                HoverText = UIClassicBuyPanel.DescribeForSale(bought.BaseObject); // name, price and what it does, on the classic bar
                 holder.SetSelected(bought);
             }
         }
@@ -781,7 +771,14 @@ namespace Simitone.Client.UI.Panels.Desktop
                 SellCatcher.Visible = Visible && holding != null && holding.IsBought;
                 if (SellCatcher.Visible) SellCatcher.Width = (int)(GlobalSettings.Default.GraphicsWidth / ((Parent?.Parent as UIClassicUCP)?.UIScale ?? 1f)) - 218;
             }
-            if (Game.LotControl != null && Visible) Game.LotControl.PickupPanel.Opacity = 0f;
+            if (Game.LotControl != null && Visible)
+            {
+                Game.LotControl.PickupPanel.Opacity = 0f;
+                Game.LotControl.QueryPanel.Active = false; // the Simitone info card - the classic bar shows it instead
+                // search and dropper sit on the bar's top edge, at the right
+                var width = GlobalSettings.Default.GraphicsWidth / ((Parent?.Parent as UIClassicUCP)?.UIScale ?? 1f);
+                Search.Position = new Vector2((int)(width - UIReduxCatalogSearch.TotalW - 12), BarY - UIReduxCatalogSearch.BoxH);
+            }
             if (Visible || ShownCursor != null) UpdateCursor();
             base.Update(state);
         }

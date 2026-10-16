@@ -15,7 +15,7 @@ namespace Simitone.Client.UI.Panels.Desktop
     /// </summary>
     public class UIReduxCatalogSearch : UIContainer
     {
-        public const int BoxW = 170, BoxH = 20, DropperW = 76;
+        public const int BoxW = 170, BoxH = 20, DropperW = 76, TotalW = BoxW + 6 + DropperW;
 
         public event Action<string> OnSearch;
         public event Action OnDropper;

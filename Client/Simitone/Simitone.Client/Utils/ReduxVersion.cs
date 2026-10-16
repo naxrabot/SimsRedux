@@ -18,6 +18,8 @@ namespace Simitone.Client.Utils
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Buy and Build: the search box and dropper sit on the right of the bar, item details show on the classic bar, and tab names fit their tabs.",
+            "Buy and Build: hidden test items with no picture no longer show up.",
             "Dropper: in Buy or Build mode, press I (or the Dropper button) and click anything on your lot - or a floor - to pick the same item from the catalog.",
             "Catalog search: type in the search box above the Buy and Build bar to find any item by name.",
             "New neighbours: new background families move into empty homes and new townies are out and about - on community lots and walking past your home.",

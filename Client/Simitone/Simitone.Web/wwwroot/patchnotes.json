@@ -2,6 +2,16 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "5.8",
+      "date": "Oct 16, 2026",
+      "features": [],
+      "updates": [
+        "Buy and Build — the search box and dropper sit on the right, on top of the bar.",
+        "Buy and Build — the item you're placing shows its name, price and what it does on the classic bar.",
+        "Buy and Build — tab names fit inside their tabs, and hidden test items with no picture no longer show up."
+      ]
+    },
+    {
       "version": "5.7",
       "date": "Oct 16, 2026",
       "features": [
