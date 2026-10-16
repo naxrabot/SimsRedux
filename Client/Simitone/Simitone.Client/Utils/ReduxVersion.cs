@@ -18,6 +18,7 @@ namespace Simitone.Client.Utils
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Touch: the control panel runs a little smoother.",
             "Touch: a new, bigger control panel for phones and tablets - the Sims 1 panel grown for fingers. Live, Buy, Build and Options in a diamond, speed, camera and walls on the right, your family and the Mood / Job / ... tabs just above. Works held sideways or upright.",
             "Touch: the Turn Left and Turn Right arrows show just the arrows - no black square behind them.",
             "Tint: only the object's own main colour changes - a bookshelf's wood, not the books on it.",

@@ -444,8 +444,8 @@ namespace Simitone.Client.UI.Panels.Desktop
         private void PlaceBarPanels(bool options)
         {
             float panelX = Touch ? ContentX - 232 : 0; // (the Buy and Build bars start at 232 on a PC)
-            BuyPanel.X = panelX;
-            BuildPanel.X = panelX;
+            if (BuyPanel.X != panelX) BuyPanel.X = panelX;
+            if (BuildPanel.X != panelX) BuildPanel.X = panelX;
             LivePanel.SetTouch(Touch, ContentX, BarRight);
 
             bool pageOpen = OptionPages.Current != UIClassicOptionsPages.Page.None;
@@ -457,7 +457,7 @@ namespace Simitone.Client.UI.Panels.Desktop
                 OptionPages.ScaleX = OptionPages.ScaleY = f;
                 OptionPages.Position = new Vector2(ContentX - 452 * f, BarY - BarY * f);
             }
-            else
+            else if (OptionPages.ScaleX != 1 || OptionPages.X != 0 || OptionPages.Y != 0)
             {
                 OptionPages.ScaleX = OptionPages.ScaleY = 1;
                 OptionPages.Position = Vector2.Zero;

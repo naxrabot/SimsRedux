@@ -2,6 +2,14 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "7.6",
+      "date": "Oct 16, 2026",
+      "features": [],
+      "updates": [
+        "Smoother panel — the touch control panel does less work each frame."
+      ]
+    },
+    {
       "version": "7.5",
       "date": "Oct 16, 2026",
       "features": [
