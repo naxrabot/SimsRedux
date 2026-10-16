@@ -11,7 +11,7 @@ using System.Collections.Generic;
 namespace Simitone.Client.UI.Panels.Desktop
 {
     /// <summary>
-    /// SimsRedux: the Help window (the "?" button on the control panel, or F1). A classic navy
+    /// SimsRedux: the Help window (the "?" button on the control panel). A classic navy
     /// box with a row of topic buttons and the controls for each part of the game, including
     /// everything SimsRedux adds (Sims 3 camera, free placement, colours, ...).
     /// </summary>
@@ -97,7 +97,7 @@ namespace Simitone.Client.UI.Panels.Desktop
                 "Sound: music, sound effects, voices and ambience volume.",
                 "Play: Sims 3 style or classic camera, and screen-edge scrolling.",
                 "#Getting help",
-                "Press F1 or click the ? on the control panel to open this window again.",
+                "Click the ? on the control panel to open this window again.",
             },
         };
 
