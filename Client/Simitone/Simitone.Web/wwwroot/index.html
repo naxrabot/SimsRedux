@@ -116,19 +116,28 @@
             }, 1000);
         })();
 
+        // The game's own size. On a small screen (a phone, either way up) the game is drawn bigger than
+        // the page and the browser shrinks it to fit, so menus made for 800 x 600 always fit:
+        // at least 620 tall and 800 wide. Returns [game width, game height, page width, page height].
         window.simsReduxCanvasSize = () =>
         {
             var holder = document.getElementById('canvasHolder');
-            return [holder.clientWidth, holder.clientHeight];
+            var w = Math.max(1, holder.clientWidth), h = Math.max(1, holder.clientHeight);
+            var k = Math.max(1, 620 / h, 800 / w);
+            return [Math.round(w * k), Math.round(h * k), w, h];
         };
 
-        // the canvas's own pixel size follows the page (the game asks when the page has changed size)
+        // the canvas's own pixel size follows the page (the game asks when the page has changed size);
+        // it always fills the page on screen, whatever size it's drawn at
         window.simsReduxFitCanvas = () =>
         {
             var canvas = document.getElementById('theCanvas');
-            var holder = document.getElementById('canvasHolder');
-            if (canvas.width !== holder.clientWidth) canvas.width = holder.clientWidth;
-            if (canvas.height !== holder.clientHeight) canvas.height = holder.clientHeight;
+            var size = window.simsReduxCanvasSize();
+            if (canvas.width !== size[0]) canvas.width = size[0];
+            if (canvas.height !== size[1]) canvas.height = size[1];
+            canvas.style.width = '100%';
+            canvas.style.height = '100%';
+            canvas.style.display = 'block';
         };
 
         window.simsReduxCrashed = (message) =>
@@ -145,9 +154,7 @@
 
             // set initial canvas size
             var canvas = document.getElementById('theCanvas');
-            var holder = document.getElementById('canvasHolder');
-            canvas.width = holder.clientWidth;
-            canvas.height = holder.clientHeight;
+            window.simsReduxFitCanvas();
             // disable context menu on right click
             canvas.addEventListener("contextmenu", e => e.preventDefault());
 

@@ -46,9 +46,15 @@ namespace Simitone.Client.UI.Panels
             1f
         };
 
+        /// <summary>SimsRedux: the Sims 3 style camera for fingers (touch controls only).</summary>
+        private UIReduxTouchCamera Cam;
+        private static bool TouchCam { get { return FSOEnvironment.SoftwareKeyboard; } }
+        private static Vector2 Pos(MultiMouse m) { return new Vector2(m.MouseState.X, m.MouseState.Y); }
+
         public UILotControlTouchHelper(UILotControl master)
         {
             Master = master;
+            Cam = new UIReduxTouchCamera(master);
         }
 
         private int LastMouseWheel;
@@ -123,6 +129,7 @@ namespace Simitone.Client.UI.Panels
 
                         //scroll anchor should change to center of two touches without drastically changing scroll
                         TapPoint = (new Point(m2.MouseState.X / 2, m2.MouseState.Y / 2) + new Point(m1.MouseState.X / 2, m1.MouseState.Y / 2));
+                        if (TouchCam) { Cam.BeginTwo(Pos(m1), Pos(m2)); ScrollVelocity = Vector2.Zero; }
 
                         Mode = 2;
                     }
@@ -143,6 +150,7 @@ namespace Simitone.Client.UI.Panels
                                 if ((TapPoint - new Point(mouse.MouseState.X, mouse.MouseState.Y)).ToVector2().Length() > TAP_POINT_DIST)
                                 {
                                     Mode = 1; //become a scroll
+                                    if (TouchCam) Cam.BeginDrag(TapPoint.ToVector2()); // grab where the finger first went down
                                 }
                                 else if (++MiceDownTimer > TAP_TIMER)
                                 {
@@ -158,11 +166,18 @@ namespace Simitone.Client.UI.Panels
                             {
                                 //release our scroll velocity
                                 Mode = -1;
+                                if (TouchCam) { Cam.End(); ScrollVelocity = Vector2.Zero; }
                             } else
                             {
                                 var mouse = state.MouseStates.FirstOrDefault(x => x.ID == MiceDown.First());
                                 var newTap = new Point(mouse.MouseState.X, mouse.MouseState.Y);
-                                ScrollVelocity = (newTap - TapPoint).ToVector2();
+                                if (TouchCam)
+                                {
+                                    // SimsRedux: the ground under the finger follows it
+                                    Cam.Drag(newTap.ToVector2());
+                                    ScrollVelocity = Vector2.Zero;
+                                }
+                                else ScrollVelocity = (newTap - TapPoint).ToVector2();
                                 TapPoint = newTap;
                             }
                         }
@@ -179,10 +194,24 @@ namespace Simitone.Client.UI.Panels
                         //again, anchor should change to single point without drastic scroll change
                         var mouse = state.MouseStates.FirstOrDefault(x => x.ID == MiceDown.First());
                         TapPoint = new Point(mouse.MouseState.X, mouse.MouseState.Y);
+                        if (TouchCam) { Cam.End(); Cam.BeginDrag(TapPoint.ToVector2()); RotateAngle = Cam.TwistAngle; }
                         Mode = 1;
                     } else if (transitionTo == -1)
                     {
+                        if (TouchCam) { RotateAngle = Cam.TwistAngle; Cam.End(); ScrollVelocity = Vector2.Zero; }
                         Mode = -1;
+                    } else if (transitionTo == -2 && TouchCam)
+                    {
+                        // SimsRedux: two fingers held down - together to pan, pinch to zoom, twist to turn
+                        var t1 = state.MouseStates.FirstOrDefault(x => x.ID == MiceDown.ElementAt(0));
+                        var t2 = state.MouseStates.FirstOrDefault(x => x.ID == MiceDown.ElementAt(1));
+                        if (t1 != null && t2 != null)
+                        {
+                            Cam.MoveTwo(Pos(t1), Pos(t2), _3d);
+                            RotateAngle = _3d ? 0 : Cam.TwistAngle;
+                            TapPoint = ((Pos(t1) + Pos(t2)) / 2).ToPoint();
+                        }
+                        ScrollVelocity = Vector2.Zero;
                     } else if (transitionTo == -2)
                     {
                         var m1 = state.MouseStates.FirstOrDefault(x => x.ID == MiceDown.ElementAt(0));
@@ -226,7 +255,7 @@ namespace Simitone.Client.UI.Panels
             }
             if (Mode != 2 && RotateAngle != 0 && !_3d)
             {
-                if (Math.Abs(RotateAngle) > Math.PI / 4)
+                if (Math.Abs(RotateAngle) > (TouchCam ? Math.PI / 3 : Math.PI / 4))
                 {
                     //confirmed
                     var screen = ((TS1GameScreen)GameFacade.Screens.CurrentUIScreen);
@@ -265,7 +294,7 @@ namespace Simitone.Client.UI.Panels
             if (Mode == -1)
             {
                 ScrollVelocity *= 0.95f * Math.Min(ScrollVelocity.Length(), 1);
-                if (Master.TargetZoom < 1.25f && ZoomFreezeTime == 0 && !_3d) {
+                if (Master.TargetZoom < 1.25f && ZoomFreezeTime == 0 && !_3d && !TouchCam) {
                     float snapZoom = 1f;
                     float dist = 200f;
                     foreach (var snappable in SnapZooms)
@@ -293,7 +322,7 @@ namespace Simitone.Client.UI.Panels
 
             UpdatesSinceDraw++;
 
-            if (Math.Abs(RotateAngle) > Math.PI / 8 && !_3d) //>20 degrees starts a rotation gesture. 40 degrees ends it. 
+            if (Math.Abs(RotateAngle) > (TouchCam ? Math.PI / 6 : Math.PI / 8) && !_3d) //>20 degrees starts a rotation gesture. 40 degrees ends it. (SimsRedux touch: 30 / 60)
             {
                 if (RotationAnim == null)
                 {
@@ -301,7 +330,7 @@ namespace Simitone.Client.UI.Panels
                     RotationAnim.Position = new Vector2(GameFacade.Screens.CurrentUIScreen.ScreenWidth / 2 - 180, GameFacade.Screens.CurrentUIScreen.ScreenHeight / 2 - 180);
                     Master.Add(RotationAnim);
                 }
-                RotationAnim.Step = Math.Min(1, (Math.Abs(RotateAngle) / ((float)Math.PI / 8) - 1) * 0.8f);
+                RotationAnim.Step = TouchCam ? Math.Min(1, Math.Abs(RotateAngle) / ((float)Math.PI / 6) - 1) : Math.Min(1, (Math.Abs(RotateAngle) / ((float)Math.PI / 8) - 1) * 0.8f);
                 RotationAnim.ScaleX = (RotateAngle > 0) ? 1f:-1f;
                 RotationAnim.Opacity = RotationAnim.Step;
             } else

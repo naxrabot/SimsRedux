@@ -1350,6 +1350,12 @@ namespace Simitone.Client.UI.Panels
                 {
                     RMBScroll = false;
                 }
+                else if (FSOEnvironment.SoftwareKeyboard)
+                {
+                    // SimsRedux touch controls: the camera is the touch version (UIReduxTouchCamera,
+                    // run by the touch helper); the mouse and keyboard camera stays out of it
+                    RMBScroll = false;
+                }
                 else if (UIRevampedCamera.Enabled)
                 {
                     scrolled = RevampedCamera.Update(state, MouseIsOn);

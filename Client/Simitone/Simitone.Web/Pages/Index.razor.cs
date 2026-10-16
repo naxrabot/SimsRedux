@@ -36,6 +36,14 @@ namespace Simitone.Web.Pages
 
         int _frames, _lastW, _lastH;
 
+        /// <summary>Touches and the mouse arrive in page points; the game may be drawn bigger than the page.</summary>
+        static void SetInputScale(int[] size)
+        {
+            if (size == null || size.Length < 4 || size[2] <= 0 || size[3] <= 0) return;
+            FSO.Common.FSOEnvironment.InputScaleX = size[0] / (float)size[2];
+            FSO.Common.FSOEnvironment.InputScaleY = size[1] / (float)size[3];
+        }
+
         [JSInvokable]
         public void TickDotNet()
         {
@@ -46,19 +54,27 @@ namespace Simitone.Web.Pages
                 {
                     var size = ((IJSInProcessRuntime)JsRuntime).Invoke<int[]>("simsReduxCanvasSize");
                     var gfx = ((IJSInProcessRuntime)JsRuntime).Invoke<string>("simsReduxGfxMode");
+                    SetInputScale(size);
                     _game = WebStartup.CreateGame(size[0], size[1], gfx);
                     _game.Run();
                 }
-                // the browser window may have changed size (or the page only finished laying out after
-                // the game started): every few frames, make the game match the page
-                if (++_frames % 15 == 0 && _game is Simitone.Client.SimitoneGame sg)
+                // the browser window may have changed size (or the phone was turned, or the page only
+                // finished laying out after the game started): every few frames, make the game match
+                // the page. (The canvas is checked every time: the engine sets it back to the page's
+                // size whenever the window changes.)
+                if (++_frames % 10 == 0 && _game is Simitone.Client.SimitoneGame sg)
                 {
                     var now = ((IJSInProcessRuntime)JsRuntime).Invoke<int[]>("simsReduxCanvasSize");
-                    if (now[0] > 0 && now[1] > 0 && (now[0] != _lastW || now[1] != _lastH))
+                    if (now[0] > 0 && now[1] > 0)
                     {
-                        _lastW = now[0]; _lastH = now[1];
                         ((IJSInProcessRuntime)JsRuntime).InvokeVoid("simsReduxFitCanvas");
-                        sg.ResizeTo(now[0], now[1]);
+                        SetInputScale(now);
+                        if (now[0] != _lastW || now[1] != _lastH || sg.GraphicsDevice.PresentationParameters.BackBufferWidth != now[0]
+                            || sg.GraphicsDevice.PresentationParameters.BackBufferHeight != now[1])
+                        {
+                            _lastW = now[0]; _lastH = now[1];
+                            sg.ResizeTo(now[0], now[1]);
+                        }
                     }
                 }
                 _game.Tick();
