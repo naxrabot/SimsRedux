@@ -18,6 +18,8 @@ namespace Simitone.Client.Utils
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Build mode groups: floors, wallpaper, walls, doors and plants have tabs - Carpet, Wood, Tile, Fences, Arches, Trees and more.",
+            "Buy mode groups: big categories split into smaller tabs, like Art, Mirrors and Rugs in Decorative.",
             "Townies: lots have people around - some are already there when you arrive, and neighbours walk by your home.",
             "Call a taxi: use the phone to visit a neighbour, a community lot or Downtown.",
             "Smarter Sims: Sims find things to do on their own, and your orders always come first.",

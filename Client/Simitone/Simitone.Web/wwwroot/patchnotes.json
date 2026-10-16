@@ -2,6 +2,17 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "4.8",
+      "date": "Oct 16, 2026",
+      "features": [
+        "Build mode groups — floors, wallpaper, walls, doors and plants are split into tabs like Carpet, Wood, Tile, Fences, Arches and Trees.",
+        "Buy mode groups — big categories have smaller tabs, like Art, Mirrors and Rugs in Decorative, or Sofas and Beds in Seating."
+      ],
+      "updates": [
+        "Catalog — the tab you picked last opens again next time."
+      ]
+    },
+    {
       "version": "4.7",
       "date": "Oct 16, 2026",
       "features": [

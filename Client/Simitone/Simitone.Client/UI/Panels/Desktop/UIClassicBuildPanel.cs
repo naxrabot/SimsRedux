@@ -97,7 +97,13 @@ namespace Simitone.Client.UI.Panels.Desktop
             public UICatalogResProvider Res;
             public ulong ResID;
             public Texture2D Icon;
+            public string Type;               // SimsRedux: its group (Carpet, Wood, Fences...)
         }
+
+        // SimsRedux: the group tabs (All, Carpet, Wood...) and the tab picked last for each tool
+        private UIReduxTabStrip TypeTabs;
+        private List<Entry> AllEntries = new List<Entry>();
+        private static Dictionary<Tool, string> ChosenType = new Dictionary<Tool, string>();
 
         private Tool CurrentTool = Tool.None;
         private List<Entry> Entries = new List<Entry>();
@@ -169,9 +175,11 @@ namespace Simitone.Client.UI.Panels.Desktop
                 case Tool.Hand:
                     AreaHint = "Click an object to pick it up and move it. Press Delete or click the bar to sell it.";
                     break;
-                case Tool.Wall: ShowEntries(WallEntries()); break;
-                case Tool.Wallpaper: ShowEntries(WallpaperEntries()); break;
-                case Tool.Floor: ShowEntries(FloorEntries(false)); break;
+                case Tool.Wall: ShowSorted(WallEntries(), ReduxCatalogTypes.Walls, "Walls"); break;
+                case Tool.Wallpaper: ShowSorted(WallpaperEntries(), ReduxCatalogTypes.Wallpapers, "Other"); break;
+                case Tool.Floor: ShowSorted(FloorEntries(false), ReduxCatalogTypes.Floors, "Other"); break;
+                case Tool.Door: ShowSorted(ObjectEntries(ObjectCategories[tool]), ReduxCatalogTypes.Doors, "Doors"); break;
+                case Tool.Plants: ShowSorted(ObjectEntries(ObjectCategories[tool]), ReduxCatalogTypes.Plants, "Other"); break;
                 default:
                     sbyte cat;
                     if (ObjectCategories.TryGetValue(tool, out cat)) ShowEntries(ObjectEntries(cat));
@@ -186,7 +194,9 @@ namespace Simitone.Client.UI.Panels.Desktop
             foreach (var t in Thumbs) Remove(t);
             Thumbs.Clear();
             ArrowLeft = ArrowRight = null;
-            Entries.Clear();
+            TypeTabs = null;
+            AllEntries = new List<Entry>();
+            Entries = new List<Entry>();
             SelectedIndex = -1;
             FirstItem = 0;
             HoverText = null;
@@ -330,7 +340,7 @@ namespace Simitone.Client.UI.Panels.Desktop
         {
             var list = new List<Entry>();
             foreach (var item in Content.Get().WorldCatalog.GetItemsByCategory(category))
-                list.Add(new Entry { Name = UIClassicColourDialog.GetName(item.GUID), Price = (int)item.Price, GUID = item.GUID });
+                list.Add(new Entry { Name = UIClassicColourDialog.GetName(item.GUID), Description = item.Name, Price = (int)item.Price, GUID = item.GUID });
             return list.OrderBy(x => x.Price).ToList();
         }
 
@@ -339,15 +349,50 @@ namespace Simitone.Client.UI.Panels.Desktop
         private void ShowEntries(List<Entry> list, int extraLeft = 0)
         {
             Entries = list;
+            FirstItem = 0;
+            SelectedIndex = -1;
             ThumbStart = ThumbX + extraLeft;
-            ArrowLeft = new UITS1Button(TS1UIGraphics.Get("cpanel/Buttons/ScrollLeftBuy.bmp"), 4);
+            if (ArrowLeft == null)
+            {
+                ArrowLeft = new UITS1Button(TS1UIGraphics.Get("cpanel/Buttons/ScrollLeftBuy.bmp"), 4);
+                ArrowLeft.OnButtonClick += (b) => Page(-1);
+                Add(ArrowLeft); AreaItems.Add(ArrowLeft);
+                ArrowRight = new UITS1Button(TS1UIGraphics.Get("cpanel/Buttons/ScrollRight.bmp"), 4);
+                ArrowRight.OnButtonClick += (b) => Page(1);
+                Add(ArrowRight); AreaItems.Add(ArrowRight);
+            }
             ArrowLeft.Position = new Vector2(ArrowLX + extraLeft, ArrowY);
-            ArrowLeft.OnButtonClick += (b) => Page(-1);
-            Add(ArrowLeft); AreaItems.Add(ArrowLeft);
-            ArrowRight = new UITS1Button(TS1UIGraphics.Get("cpanel/Buttons/ScrollRight.bmp"), 4);
-            ArrowRight.OnButtonClick += (b) => Page(1);
-            Add(ArrowRight); AreaItems.Add(ArrowRight);
             RebuildThumbs();
+        }
+
+        /// <summary>
+        /// SimsRedux: the pictures split into groups (Carpet, Wood, Tile...), with a column of tabs
+        /// to pick one. The tab picked last for this tool is opened again next time.
+        /// </summary>
+        private void ShowSorted(List<Entry> list, CatalogType[] types, string other)
+        {
+            foreach (var e in list) e.Type = ReduxCatalogTypes.TypeOf(e.Name, e.Description, types, other);
+            var tabs = ReduxCatalogTypes.Tabs(list.Select(x => x.Type), types, other);
+            if (tabs.Count == 0) { ShowEntries(list); return; }
+            AllEntries = list;
+            string chosen;
+            if (!ChosenType.TryGetValue(CurrentTool, out chosen) || !tabs.Contains(chosen)) chosen = ReduxCatalogTypes.All;
+            TypeTabs = new UIReduxTabStrip(tabs, chosen);
+            TypeTabs.Position = new Vector2(AreaX, BarY + 6);
+            TypeTabs.OnPick += (name) =>
+            {
+                ChosenType[CurrentTool] = name;
+                ShowEntries(OfType(name), UIReduxTabStrip.StripWidth + 4);
+            };
+            Add(TypeTabs);
+            AreaItems.Add(TypeTabs);
+            ShowEntries(OfType(chosen), UIReduxTabStrip.StripWidth + 4);
+        }
+
+        private List<Entry> OfType(string type)
+        {
+            if (type == ReduxCatalogTypes.All) return AllEntries;
+            return AllEntries.Where(x => x.Type == type).ToList();
         }
 
         private int Columns

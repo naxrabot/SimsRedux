@@ -145,6 +145,8 @@ namespace Simitone.Client.UI.Panels.Desktop
             if (BackButton != null) { Remove(BackButton); BackButton = null; }
             if (ArrowLeft != null) { Remove(ArrowLeft); ArrowLeft = null; }
             if (ArrowRight != null) { Remove(ArrowRight); ArrowRight = null; }
+            if (TypeTabs != null) { Remove(TypeTabs); TypeTabs = null; }
+            ThumbStart = ThumbX;
             HoverText = null;
         }
 
@@ -375,6 +377,14 @@ namespace Simitone.Client.UI.Panels.Desktop
 
         private List<ObjectCatalogItem> SourceItems;
 
+        // SimsRedux: finer groups inside a subsort (Art, Mirrors, Rugs...), as a column of tabs
+        private UIReduxTabStrip TypeTabs;
+        private List<ObjectCatalogItem> SubItems = new List<ObjectCatalogItem>();
+        private Dictionary<uint, string> ItemTypes = new Dictionary<uint, string>();
+        private static Dictionary<int, string> ChosenType = new Dictionary<int, string>();
+        private int TypeCategory = -1;
+        private int ThumbStart = ThumbX;
+
         private void OpenCatalog(View view, int category, string name, string backArt, List<ObjectCatalogItem> source, List<Subsort> subs)
         {
             ClearAll();
@@ -423,9 +433,64 @@ namespace Simitone.Client.UI.Panels.Desktop
         private void SelectSubsort(Subsort sub)
         {
             foreach (var s in Subsorts) s.Button.Selected = (s == sub);
-            Items = SourceItems.Where(sub.Filter).ToList();
+            SubItems = SourceItems.Where(sub.Filter).ToList();
+            ShowTypeTabs();
+        }
+
+        /// <summary>
+        /// SimsRedux: when everything in this subsort does the same job (all Decorative, say), split
+        /// it into smaller groups by name - Art, Mirrors, Rugs, Plants... - with tabs to pick one.
+        /// </summary>
+        private void ShowTypeTabs()
+        {
+            if (TypeTabs != null) { Remove(TypeTabs); TypeTabs = null; }
+            ItemTypes.Clear();
+            TypeCategory = -1;
+            List<string> tabs = new List<string>();
+            if (SubItems.Count >= 6)
+            {
+                int cat = SubItems[0].Category;
+                var types = SubItems.All(x => x.Category == cat) ? ReduxCatalogTypes.ForBuyCategory(cat) : null;
+                if (types != null)
+                {
+                    foreach (var item in SubItems)
+                        ItemTypes[item.GUID] = ReduxCatalogTypes.TypeOf(GetName(item) + " " + item.Name, GetDescription(item), types, "Other");
+                    tabs = ReduxCatalogTypes.Tabs(ItemTypes.Values, types, "Other");
+                    TypeCategory = cat;
+                }
+            }
+            if (tabs.Count == 0)
+            {
+                ShowItems(SubItems, 0);
+                return;
+            }
+            string chosen;
+            if (!ChosenType.TryGetValue(TypeCategory, out chosen) || !tabs.Contains(chosen)) chosen = ReduxCatalogTypes.All;
+            TypeTabs = new UIReduxTabStrip(tabs, chosen);
+            TypeTabs.Position = new Vector2(ArrowLX, BarY + 6);
+            TypeTabs.OnPick += (name) =>
+            {
+                ChosenType[TypeCategory] = name;
+                ShowItems(ItemsOfType(name), UIReduxTabStrip.StripWidth + 4);
+            };
+            Add(TypeTabs);
+            ShowItems(ItemsOfType(chosen), UIReduxTabStrip.StripWidth + 4);
+        }
+
+        private List<ObjectCatalogItem> ItemsOfType(string type)
+        {
+            if (type == ReduxCatalogTypes.All) return SubItems;
+            string t;
+            return SubItems.Where(x => ItemTypes.TryGetValue(x.GUID, out t) && t == type).ToList();
+        }
+
+        private void ShowItems(List<ObjectCatalogItem> items, int extraLeft)
+        {
+            Items = items;
             FirstItem = 0;
             SelectedIndex = -1;
+            ThumbStart = ThumbX + extraLeft;
+            if (ArrowLeft != null) ArrowLeft.Position = new Vector2(ArrowLX + extraLeft, ArrowY);
             RebuildThumbs();
         }
 
@@ -436,7 +501,7 @@ namespace Simitone.Client.UI.Panels.Desktop
                 var ucp = Parent?.Parent as UIClassicUCP;
                 float scale = ucp?.UIScale ?? 1f;
                 float width = GlobalSettings.Default.GraphicsWidth / scale;
-                return Math.Max(1, (int)((width - ThumbX - 24) / ThumbStep));
+                return Math.Max(1, (int)((width - ThumbStart - 24) / ThumbStep));
             }
         }
 
@@ -466,7 +531,7 @@ namespace Simitone.Client.UI.Panels.Desktop
                     if (index >= Items.Count) break;
                     var item = Items[index];
                     var thumb = new UIClassicCatalogThumb(ThumbFrame, GetIcon(item.GUID) ?? UnknownThumb, index);
-                    thumb.Position = new Vector2(ThumbX + c * ThumbStep, r == 0 ? ThumbRow1 : ThumbRow2);
+                    thumb.Position = new Vector2(ThumbStart + c * ThumbStep, r == 0 ? ThumbRow1 : ThumbRow2);
                     thumb.Unaffordable = item.Price > budget;
                     thumb.Selected = index == SelectedIndex;
                     var tip = GetName(item) + "  §" + item.Price.ToString("##,#0");
@@ -476,7 +541,7 @@ namespace Simitone.Client.UI.Panels.Desktop
                     Thumbs.Add(thumb);
                 }
             }
-            if (ArrowRight != null) ArrowRight.Position = new Vector2(ThumbX + cols * ThumbStep, ArrowY);
+            if (ArrowRight != null) ArrowRight.Position = new Vector2(ThumbStart + cols * ThumbStep, ArrowY);
             if (ArrowLeft != null) ArrowLeft.Disabled = FirstItem == 0;
             if (ArrowRight != null) ArrowRight.Disabled = FirstItem + cols * 2 >= Items.Count;
         }
@@ -518,6 +583,24 @@ namespace Simitone.Client.UI.Panels.Desktop
             catch { }
             Names[item.GUID] = name;
             return name;
+        }
+
+        // SimsRedux: the catalog description (used to sort an item when its name says nothing)
+        private static Dictionary<uint, string> Descriptions = new Dictionary<uint, string>();
+        private string GetDescription(ObjectCatalogItem item)
+        {
+            string desc;
+            if (Descriptions.TryGetValue(item.GUID, out desc)) return desc;
+            desc = "";
+            try
+            {
+                var obj = Content.Get().WorldObjects.Get(item.GUID);
+                var ctss = obj?.Resource.Get<CTSS>(obj.OBJ.CatalogStringsID);
+                if (ctss != null && ctss.Length > 1) desc = ctss.GetString(1) ?? "";
+            }
+            catch { }
+            Descriptions[item.GUID] = desc;
+            return desc;
         }
 
         // ------------------------------------------------------------------
@@ -740,7 +823,7 @@ namespace Simitone.Client.UI.Panels.Desktop
                 // category name next to the back button, and how many items there are
                 DrawLocalString(batch, CurrentName, new Vector2(SubX + 38, BarY + 4), Title, new Rectangle(0, 0, 135, 22), TextAlignment.Left | TextAlignment.Middle);
                 if (Items.Count == 0)
-                    DrawLocalString(batch, "Nothing to buy here.", new Vector2(ThumbX, BarY + 40), Small, new Rectangle(0, 0, 300, 16), TextAlignment.Left | TextAlignment.Middle);
+                    DrawLocalString(batch, "Nothing to buy here.", new Vector2(ThumbStart, BarY + 40), Small, new Rectangle(0, 0, 300, 16), TextAlignment.Left | TextAlignment.Middle);
             }
 
             base.Draw(batch);

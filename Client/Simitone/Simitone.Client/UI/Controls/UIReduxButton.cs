@@ -20,6 +20,10 @@ namespace Simitone.Client.UI.Controls
         public string Caption;
         public int TextSize = 13;
         public bool Disabled;
+        /// <summary>Shown as the chosen one (bright, with a glowing rim).</summary>
+        public bool Selected;
+        /// <summary>A tab: darker when it isn't the chosen one, so the chosen tab stands out.</summary>
+        public bool Tab;
         public readonly int Width, Height;
         private bool Hover, Down;
         private TextStyle Style;
@@ -56,9 +60,11 @@ namespace Simitone.Client.UI.Controls
             Color top, bottom;
             if (Disabled) { top = ReduxTheme.Deep; bottom = ReduxTheme.Deeper; }
             else if (Down) { top = ReduxTheme.Deep; bottom = b; }
+            else if (Selected) { top = ReduxTheme.Gloss; bottom = ReduxTheme.Hi; }
             else if (Hover) { top = ReduxTheme.Gloss; bottom = ReduxTheme.Hi; }
+            else if (Tab) { top = ReduxTheme.Deep; bottom = ReduxTheme.Deeper; }
             else { top = ReduxTheme.Hi; bottom = ReduxTheme.Deep; }
-            var border = Hover && !Disabled ? ReduxTheme.Glow : ReduxTheme.Rim;
+            var border = (Hover || Selected) && !Disabled ? ReduxTheme.Glow : ReduxTheme.Rim;
             // soft shadow, then the button
             DrawLocalTexture(batch, ReduxTheme.Box(Width, Height, Height / 2, Color.Black * 0.35f, Color.Black * 0.35f, Color.Transparent, 0), new Vector2(1, 2));
             DrawLocalTexture(batch, ReduxTheme.Box(Width, Height, Height / 2, top, bottom, border, 1), Vector2.Zero);
