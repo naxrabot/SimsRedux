@@ -28,7 +28,7 @@ namespace Simitone.Client.UI.Panels.Desktop
             OnNothing = onNothing;
         }
 
-        public void MouseDown(UpdateState state)
+        public override void MouseDown(UpdateState state)
         {
             try
             {
@@ -68,8 +68,8 @@ namespace Simitone.Client.UI.Panels.Desktop
             }
         }
 
-        public void MouseUp(UpdateState state) { }
-        public void Update(UpdateState state, bool scrolled) { }
-        public void Release() { }
+        public override void MouseUp(UpdateState state) { }
+        public override void Update(UpdateState state, bool scrolled) { }
+        public override void Release() { }
     }
 }
