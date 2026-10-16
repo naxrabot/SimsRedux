@@ -54,7 +54,7 @@ namespace Simitone.Client.UI.Panels.Desktop
         private const int ArrowLX = 486, ArrowY = 109;
         private const int ThumbX = 499, ThumbStep = 47, ThumbRow1 = 87, ThumbRow2 = 135;
 
-        private enum Tool { None, Terrain, Water, Wall, Wallpaper, Floor, Hand, Door, Window, Stairs, Fireplace, Plants, Roof }
+        private enum Tool { None, Terrain, Water, Wall, Wallpaper, Floor, Hand, Door, Window, Stairs, Fireplace, Plants, Roof, Search }
 
         private class ToolInfo
         {
@@ -143,10 +143,105 @@ namespace Simitone.Client.UI.Panels.Desktop
                 t.Button = btn;
             }
 
+            // SimsRedux: search box and dropper, just above the bar
+            Search = new UIReduxCatalogSearch();
+            Search.Position = new Vector2(ToolX, BarY - 46);
+            Search.OnSearch += SearchFor;
+            Search.OnDropper += ToggleDropper;
+            Add(Search);
+
             var holder = game.LotControl.ObjectHolder;
             holder.OnPickup += Holder_OnPickup;
             holder.OnPutDown += Holder_OnPutDown;
             holder.OnDelete += Holder_OnDelete;
+        }
+
+        // ------------------------------------------------------------------
+        // Search and the dropper (SimsRedux)
+        // ------------------------------------------------------------------
+
+        private UIReduxCatalogSearch Search;
+
+        /// <summary>Every Build item (walls, wallpaper, floors, doors, windows, stairs, fireplaces, plants) whose name has the typed letters.</summary>
+        private void SearchFor(string text)
+        {
+            if (text.Length < 2)
+            {
+                if (CurrentTool == Tool.Search) SelectTool(Tool.Hand);
+                return;
+            }
+            var words = text.ToLowerInvariant();
+            var all = new List<Entry>();
+            try { all.AddRange(WallEntries()); } catch { }
+            try { all.AddRange(WallpaperEntries()); } catch { }
+            try { all.AddRange(FloorEntries(false)); } catch { }
+            foreach (var cat in ObjectCategories.Values)
+                try { all.AddRange(ObjectEntries(cat)); } catch { }
+            var results = all.Where(x => (x.Name ?? "").ToLowerInvariant().Contains(words)).ToList();
+            ClearHolding();
+            ClearArea();
+            CurrentTool = Tool.Search;
+            foreach (var t in Tools) t.Button.Selected = false;
+            AreaHint = results.Count == 0 ? "Nothing called \"" + text + "\"." : null;
+            if (results.Count > 0) ShowEntries(results);
+        }
+
+        private bool DropperActive { get { return Game.LotControl?.CustomControl is UIReduxDropper; } }
+
+        /// <summary>The dropper: click something on the lot (or a floor) to pick the same thing.</summary>
+        private void ToggleDropper()
+        {
+            var lot = Game.LotControl;
+            if (lot == null) return;
+            if (DropperActive) { lot.CustomControl.Release(); lot.CustomControl = null; return; }
+            ClearHolding();
+            ToolCursor = FSO.Common.Rendering.Framework.CursorType.Normal;
+            lot.CustomControl = new UIReduxDropper(lot, DropperObject, DropperFloor,
+                () => HoverText = "Nothing to pick there - click an object or a floor.");
+            HoverText = "Dropper: click an object or a floor on the lot.";
+        }
+
+        private void PutDropperAway()
+        {
+            var lot = Game.LotControl;
+            if (lot?.CustomControl is UIReduxDropper) { lot.CustomControl.Release(); lot.CustomControl = null; }
+        }
+
+        /// <summary>Shows the page with this picture on it.</summary>
+        private void ShowIndex(int index)
+        {
+            int perPage = Math.Max(1, Columns * 2);
+            FirstItem = (index / perPage) * perPage;
+            RebuildThumbs();
+        }
+
+        private void DropperObject(uint guid)
+        {
+            PutDropperAway();
+            var item = Content.Get().WorldCatalog.GetItemByGUID(guid);
+            if (item != null)
+            {
+                var tool = ObjectCategories.Where(x => x.Value == item.Value.Category).Select(x => x.Key).FirstOrDefault();
+                if (tool != Tool.None)
+                {
+                    ChosenType[tool] = ReduxCatalogTypes.All;
+                    SelectTool(tool);
+                    var index = Entries.FindIndex(x => x.GUID == guid);
+                    if (index >= 0) { ShowIndex(index); PickEntry(index); return; }
+                }
+            }
+            // a Buy mode object (or one hidden from the catalog): just place another one
+            BuyObject(guid);
+        }
+
+        private void DropperFloor(ushort pattern)
+        {
+            PutDropperAway();
+            ChosenType[Tool.Floor] = ReduxCatalogTypes.All;
+            SelectTool(Tool.Floor);
+            var index = Entries.FindIndex(x => x.Control == typeof(UIFloorPainter) && x.Parameters != null && x.Parameters.Count > 0 && x.Parameters[0] == pattern);
+            if (index >= 0) { ShowIndex(index); PickEntry(index); }
+            else HoverText = "That floor isn't in the catalog.";
         }
 
         private void AddHover(UITS1Button btn, string name)
@@ -166,6 +261,7 @@ namespace Simitone.Client.UI.Panels.Desktop
             CurrentTool = tool;
             foreach (var t in Tools) t.Button.Selected = t.Tool == tool;
             AreaHint = null;
+            if (tool != Tool.Search) Search?.ClearText();
 
             switch (tool)
             {
@@ -673,6 +769,9 @@ namespace Simitone.Client.UI.Panels.Desktop
                     SelectTool(Tool.Hand);
                 }
                 if (Entries.Count > 0 && Columns != BuiltColumns) RebuildThumbs();
+                // the dropper: I to pick it up / put it away
+                if (!UIRevampedCamera.IsTyping(state) && state.NewKeys.Contains(Keys.I)) ToggleDropper();
+                Search.DropperOn = DropperActive;
                 if (CurrentTool == Tool.Roof && Game.vm != null) MarkPitch(Game.vm.Context.Architecture.RoofPitch);
             }
 

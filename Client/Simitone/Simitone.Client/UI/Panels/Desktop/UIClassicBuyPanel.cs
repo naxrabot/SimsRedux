@@ -11,6 +11,7 @@ using FSO.LotView.Model;
 using FSO.SimAntics;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
 using Simitone.Client.UI.Controls;
 using Simitone.Client.UI.Panels.LiveSubpanels;
 using Simitone.Client.UI.Screens;
@@ -61,7 +62,7 @@ namespace Simitone.Client.UI.Panels.Desktop
         private static readonly string[] RoomArt = { "Living", "Dining", "Bedroom", "Study", "Kitchen", "Bathroom", "Outside", "Misc" };
         private static readonly string[] RoomNames = { "Living Room", "Dining Room", "Bedroom", "Study", "Kitchen", "Bathroom", "Outside", "Miscellaneous" };
 
-        private enum View { Start, Function, Room, Special }
+        private enum View { Start, Function, Room, Special, Search }
         private View CurrentView = View.Start;
         private UICatalogMode Mode = UICatalogMode.Normal;
         private int CurrentCategory;           // function bit / room bit / special mask bit
@@ -108,7 +109,74 @@ namespace Simitone.Client.UI.Panels.Desktop
             holder.OnPutDown += Holder_OnPutDown;
             holder.OnDelete += Holder_OnDelete;
 
+            // SimsRedux: search box and dropper, just above the bar
+            Search = new UIReduxCatalogSearch();
+            Search.Position = new Vector2(SubX, BarY - 46);
+            Search.OnSearch += SearchFor;
+            Search.OnDropper += ToggleDropper;
+            Add(Search);
+
             ShowStart();
+        }
+
+        // ------------------------------------------------------------------
+        // Search and the dropper (SimsRedux)
+        // ------------------------------------------------------------------
+
+        private UIReduxCatalogSearch Search;
+
+        /// <summary>Every Buy item whose name has the typed letters in it (two or more letters).</summary>
+        private void SearchFor(string text)
+        {
+            if (text.Length < 2)
+            {
+                if (CurrentView == View.Search) ShowStart();
+                return;
+            }
+            ClearHolding();
+            var words = text.ToLowerInvariant();
+            var results = AllBuyItems().Where(x => (GetName(x) ?? "").ToLowerInvariant().Contains(words)
+                || (x.Name ?? "").ToLowerInvariant().Contains(words)).ToList();
+            OpenCatalog(View.Search, 0, "Search: " + text, "BackFMisc", results, new List<Subsort>());
+        }
+
+        private bool DropperActive { get { return Game.LotControl?.CustomControl is UIReduxDropper; } }
+
+        /// <summary>The dropper: click something on the lot to buy another one like it.</summary>
+        private void ToggleDropper()
+        {
+            var lot = Game.LotControl;
+            if (lot == null) return;
+            if (DropperActive) { lot.CustomControl.Release(); lot.CustomControl = null; return; }
+            ClearHolding();
+            lot.CustomControl = new UIReduxDropper(lot, DropperPicked,
+                (floor) => HoverText = "Floors are picked in Build mode.",
+                () => HoverText = "Nothing to pick there - click an object.");
+            HoverText = "Dropper: click an object on the lot.";
+        }
+
+        /// <summary>The dropper picked an object: open its page in the catalog and start placing another one.</summary>
+        private void DropperPicked(uint guid)
+        {
+            var lot = Game.LotControl;
+            if (lot.CustomControl is UIReduxDropper) { lot.CustomControl.Release(); lot.CustomControl = null; }
+            Search.ClearText();
+            var item = Content.Get().WorldCatalog.GetItemByGUID(guid);
+            if (item != null && item.Value.Category >= 0 && item.Value.Category < 8)
+            {
+                OpenFunction(item.Value.Category);
+                var index = Items.FindIndex(x => x.GUID == guid);
+                if (index >= 0)
+                {
+                    int perPage = Math.Max(1, Columns * 2);
+                    FirstItem = (index / perPage) * perPage;
+                    RebuildThumbs();
+                    BuyItem(index);
+                    return;
+                }
+            }
+            // not in the Buy catalog (a build item, or hidden from it): just place another one
+            BuyGuid(guid);
         }
 
         private void EnsureSellCatcher()
@@ -173,6 +241,7 @@ namespace Simitone.Client.UI.Panels.Desktop
         private void ShowStart()
         {
             ClearAll();
+            Search?.ClearText();
             CurrentView = View.Start;
             Mode = GetMode();
 
@@ -620,7 +689,30 @@ namespace Simitone.Client.UI.Panels.Desktop
             }
 
             var item = Items[index];
-            var bought = control.vm.Context.CreateObjectInstance(item.GUID, LotTilePos.OUT_OF_WORLD, Direction.NORTH, holder.UseNet);
+            Place(item.GUID);
+            SelectedIndex = index;
+            foreach (var t in Thumbs) t.Selected = t.Index == SelectedIndex;
+        }
+
+        /// <summary>Starts placing a new one of this object (not from the catalog's pictures).</summary>
+        private void BuyGuid(uint guid)
+        {
+            var control = Game.LotControl;
+            control.ObjectHolder.ClearSelected();
+            if (control.CustomControl != null)
+            {
+                control.CustomControl.Release();
+                control.CustomControl = null;
+            }
+            Place(guid);
+            Deselect();
+        }
+
+        private void Place(uint guid)
+        {
+            var control = Game.LotControl;
+            var holder = control.ObjectHolder;
+            var bought = control.vm.Context.CreateObjectInstance(guid, LotTilePos.OUT_OF_WORLD, Direction.NORTH, holder.UseNet);
             if (bought != null && bought.Objects.Count != 0)
             {
                 control.QueryPanel.SetInfo(control.vm, bought.Objects[0], false);
@@ -629,8 +721,6 @@ namespace Simitone.Client.UI.Panels.Desktop
                 control.QueryPanel.SetShown(true);
                 holder.SetSelected(bought);
             }
-            SelectedIndex = index;
-            foreach (var t in Thumbs) t.Selected = t.Index == SelectedIndex;
         }
 
         private void Holder_OnPickup(UIObjectSelection holding, UpdateState state)
@@ -800,6 +890,21 @@ namespace Simitone.Client.UI.Panels.Desktop
                 if (SellCatcher.Visible) SellCatcher.Width = (int)(GlobalSettings.Default.GraphicsWidth / ((Parent?.Parent as UIClassicUCP)?.UIScale ?? 1f)) - 218;
             }
             if (Game.LotControl != null && Visible) Game.LotControl.PickupPanel.Opacity = 0f;
+            if (Visible)
+            {
+                // the dropper: I to pick up / put away, Esc to put it away
+                if (!UIRevampedCamera.IsTyping(state))
+                {
+                    if (state.NewKeys.Contains(Keys.I)) ToggleDropper();
+                    else if (state.NewKeys.Contains(Keys.Escape) && DropperActive) ToggleDropper();
+                }
+                Search.DropperOn = DropperActive;
+            }
+            else if (DropperActive && Game.LotControl != null)
+            {
+                Game.LotControl.CustomControl.Release();
+                Game.LotControl.CustomControl = null;
+            }
             base.Update(state);
         }
 
@@ -829,7 +934,7 @@ namespace Simitone.Client.UI.Panels.Desktop
             base.Draw(batch);
 
             // name / price of whatever is under the mouse, in a small box above the bar
-            if ((CurrentView != View.Start || SellExtras.Count > 0) && !string.IsNullOrEmpty(HoverText))
+            if ((CurrentView != View.Start || SellExtras.Count > 0 || DropperActive) && !string.IsNullOrEmpty(HoverText))
             {
                 int w = 12 + HoverText.Length * 6;
                 var box = new Rectangle(ThumbX, BarY - 20, w, 17);
