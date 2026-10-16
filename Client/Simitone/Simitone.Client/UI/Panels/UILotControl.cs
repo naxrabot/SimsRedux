@@ -408,20 +408,53 @@ namespace Simitone.Client.UI.Panels
                     TS1NeighSelector.OnHouseSelect += HouseSelected;
                     return;
                 case VMDialogType.TS1PhoneBook:
-                    var phone = new UICallNeighborAlert(((VMAvatar)info.Caller).GetPersonData(FSO.SimAntics.Model.VMPersonDataVariable.NeighborId), vm);
-                    BlockingDialog = phone;
-                    UIScreen.GlobalShowDialog(phone, true);
-                    phone.OnResult += (result) =>
                     {
-                        vm.SendCommand(new VMNetDialogResponseCmd
+                        // SimsRedux: the phone book must always be answered, or the Sim (and the whole
+                        // game, which pauses for it) waits forever. If it can't even be shown, hang up.
+                        var callerAva = info.Caller as VMAvatar;
+                        var callerUID = info.Caller?.PersistID ?? vm.MyUID;
+                        UICallNeighborAlert phone = null;
+                        try
                         {
-                            ActorUID = info.Caller.PersistID,
-                            ResponseCode = (byte)((result > 0) ? 1 : 0),
-                            ResponseText = result.ToString()
-                        });
-                        BlockingDialog = null;
-                    };
-                    return;
+                            short callerNID = (callerAva == null) ? (short)0 : callerAva.GetPersonData(FSO.SimAntics.Model.VMPersonDataVariable.NeighborId);
+                            bool taxi = callerAva != null && game != null && game.CanCallTaxi;
+                            phone = new UICallNeighborAlert(callerNID, vm, taxi);
+                        }
+                        catch (Exception e)
+                        {
+                            DialogLog("Phone book couldn't be shown (" + e.Message + "), hanging up.");
+                            phone = null;
+                        }
+                        if (phone == null)
+                        {
+                            vm.SendCommand(new VMNetDialogResponseCmd { ActorUID = callerUID, ResponseCode = 0, ResponseText = "" });
+                            return;
+                        }
+                        BlockingDialog = phone;
+                        LastDialogID = info.DialogID;
+                        UIScreen.GlobalShowDialog(phone, true);
+                        phone.OnResult += (result) =>
+                        {
+                            // a neighbour's id, or (cancel) no number at all: the phone book's "cancelled" exit
+                            vm.SendCommand(new VMNetDialogResponseCmd
+                            {
+                                ActorUID = callerUID,
+                                ResponseCode = (byte)((result > 0) ? 1 : 0),
+                                ResponseText = (result > 0) ? result.ToString() : ""
+                            });
+                            if (BlockingDialog == phone) BlockingDialog = null;
+                            LastDialogID = 0;
+                        };
+                        phone.OnTaxi += () =>
+                        {
+                            // hang up the phone book, then pick where the taxi goes
+                            vm.SendCommand(new VMNetDialogResponseCmd { ActorUID = callerUID, ResponseCode = 0, ResponseText = "" });
+                            if (BlockingDialog == phone) BlockingDialog = null;
+                            LastDialogID = 0;
+                            ShowTaxiPicker(callerAva);
+                        };
+                        return;
+                    }
 
                 case VMDialogType.TS1PetChoice:
                 case VMDialogType.TS1Clothes:
@@ -480,6 +513,39 @@ namespace Simitone.Client.UI.Panels
             });
             Parent.Remove(TS1NeighSelector);
             TS1NeighSelector = null;
+        }
+
+        /// <summary>
+        /// SimsRedux: "Call Taxi" from the phone (single player only): pick a lot, then the Sim
+        /// (and their family on this lot) travel there the same way as a trip Downtown.
+        /// </summary>
+        private void ShowTaxiPicker(VMAvatar caller)
+        {
+            var game = Parent as TS1GameScreen;
+            if (game == null || caller == null || !game.CanCallTaxi)
+            {
+                UIClassicDialog.Ok("Call Taxi", "There are no taxis here right now.");
+                return;
+            }
+            List<UICallTaxiAlert.Destination> places;
+            try { places = game.TaxiDestinations(); }
+            catch (Exception e)
+            {
+                DialogLog("Taxi: couldn't list the lots: " + e.Message);
+                places = new List<UICallTaxiAlert.Destination>();
+            }
+            if (places.Count == 0)
+            {
+                UIClassicDialog.Ok("Call Taxi", "There's nowhere for a taxi to take you right now.");
+                return;
+            }
+            var picker = new UICallTaxiAlert(places);
+            UIScreen.GlobalShowDialog(picker, true);
+            picker.OnPick += (house) =>
+            {
+                if (!game.TaxiTo(house, caller))
+                    UIClassicDialog.Ok("Call Taxi", "The taxi couldn't take you there right now.");
+            };
         }
 
         // SimsRedux: the classic popup currently waiting for an answer
