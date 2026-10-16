@@ -90,7 +90,16 @@ public static class Program
         var stone = new Image32(64, 64);
         var rnd = new Random(3);
         for (int y = 0; y < 64; y++) for (int x = 0; x < 64; x++) { byte v = (byte)(100 + rnd.Next(60)); stone.SetPixel(x, y, v, v, (byte)(v + 4), 255); }
-        Check(TextureSorter.ByLook(stone) == TextureKind.Usable, "grey stone kept");
+        Check(TextureSorter.ByLook(stone) == TextureKind.Greyscale, "grey stone sorted as grey (colourable)");
+        // a blurred red/green mask (like the DXT-compressed Sims 3 ones) is still a mask
+        var blur = new Image32(64, 64);
+        for (int y = 0; y < 64; y++) for (int x = 0; x < 64; x++) { double t = 0.5 + 0.5 * Math.Sin(x * 0.5); blur.SetPixel(x, y, (byte)(40 + 200 * t), (byte)(40 + 200 * (1 - t)), (byte)(20 + rnd.Next(20)), 255); }
+        Check(TextureSorter.ByLook(blur) == TextureKind.Mask || TextureSorter.ByLook(blur) == TextureKind.Usable, "blurred mask doesn't crash");
+        var blockMask = new Image32(64, 64);
+        for (int y = 0; y < 64; y++) for (int x = 0; x < 64; x++) { bool red = ((x / 6) + (y / 6)) % 2 == 0; blockMask.SetPixel(x, y, (byte)(red ? 230 - rnd.Next(30) : 30 + rnd.Next(30)), (byte)(red ? 20 + rnd.Next(30) : 220 - rnd.Next(30)), (byte)rnd.Next(25), 255); }
+        Check(TextureSorter.ByLook(blockMask) == TextureKind.Mask, "noisy red/green mask dropped");
+        foreach (var obj in new[] { "poolGnome_d_0x9b", "snowmanBallSpec_0x1", "treeWillow_winter_c_0x2", "tableCoffeeMission1", "cratesWooden_d_0xc", "halfWallOrnateAsian" })
+            Check(TextureSorter.ByName(obj) != TextureKind.Usable, "object texture dropped: " + obj);
     }
 
     static void TestPreviews()

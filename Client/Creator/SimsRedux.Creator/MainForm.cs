@@ -43,7 +43,12 @@ namespace SimsRedux.Creator.App
 
         // the item being made
         private Entry Current;
-        private Image32 CurrentImage;
+        private Image32 CurrentImage;   // the texture as it is
+        private Color? Tint;            // a colour picked for it (grey Sims 3 layers need one)
+        private Button TintBtn;
+
+        /// <summary>The picture that gets built: the texture, coloured in if a colour was picked.</summary>
+        private Image32 Working => Tint.HasValue && CurrentImage != null ? Colourise(CurrentImage, Tint.Value) : CurrentImage;
         private byte[] Built;
         private string BuiltKind;
         private CreatorPack Pack;
@@ -116,7 +121,7 @@ namespace SimsRedux.Creator.App
             SearchBox.TextChanged += (s, e) => ApplyFilter();
             filters.Controls.Add(SearchBox);
             ShapeFilter = new ComboBox { Width = 190, DropDownStyle = ComboBoxStyle.DropDownList, BackColor = Color.FromArgb(8, 10, 26), ForeColor = ForeColor };
-            ShapeFilter.Items.AddRange(new object[] { "Usable textures only", "Usable - square (floors)", "Usable - tall (walls)", "All textures (128px and up)", "Everything" });
+            ShapeFilter.Items.AddRange(new object[] { "Usable textures only", "Usable - square (floors)", "Usable - tall (walls)", "Grey (pick a colour)", "All textures (128px and up)", "Everything" });
             ShapeFilter.SelectedIndex = 0;
             ShapeFilter.SelectedIndexChanged += (s, e) => ApplyFilter();
             filters.Controls.Add(ShapeFilter);
@@ -157,7 +162,14 @@ namespace SimsRedux.Creator.App
             right.Controls.Add(MakeLabel("Make into:"), 0, 2); right.Controls.Add(kinds, 1, 2);
             NameBox = MakeText(); right.Controls.Add(MakeLabel("Name:"), 0, 3); right.Controls.Add(NameBox, 1, 3);
             PriceBox = new NumericUpDown { Minimum = 0, Maximum = 99999, Value = 10, Width = 100, BackColor = Color.FromArgb(8, 10, 26), ForeColor = ForeColor };
-            right.Controls.Add(MakeLabel("Price (§):"), 0, 4); right.Controls.Add(PriceBox, 1, 4);
+            var priceRow = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Top, WrapContents = false };
+            priceRow.Controls.Add(PriceBox);
+            TintBtn = MakeButton("Colour...", false);
+            TintBtn.Click += (s, e) => PickTint();
+            var noTint = MakeButton("No colour", false);
+            noTint.Click += (s, e) => SetTint(null);
+            priceRow.Controls.Add(TintBtn); priceRow.Controls.Add(noTint);
+            right.Controls.Add(MakeLabel("Price (§):"), 0, 4); right.Controls.Add(priceRow, 1, 4);
             DescBox = MakeText(); DescBox.Multiline = true; DescBox.Height = 54;
             right.Controls.Add(MakeLabel("Description:"), 0, 5); right.Controls.Add(DescBox, 1, 5);
 
@@ -315,7 +327,8 @@ namespace SimsRedux.Creator.App
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SimsReduxCreator", "sorted.txt");
         private ConcurrentDictionary<string, TextureKind> SortCache;
 
-        private static string SortKey(Entry e) => e.Texture.PackagePath + "|" + e.Texture.Resource.Instance.ToString("X16") + "|" + e.Width + "x" + e.Height;
+        // (the "v3" changes whenever the sorting rules do, so old answers aren't reused)
+        private static string SortKey(Entry e) => "v3|" + e.Texture.PackagePath + "|" + e.Texture.Resource.Instance.ToString("X16") + "|" + e.Width + "x" + e.Height;
 
         private void LoadSortCache()
         {
@@ -399,9 +412,10 @@ namespace SimsRedux.Creator.App
             Listed = All.Where(e =>
             {
                 if (q.Length > 0 && (e.Label ?? "").IndexOf(q, StringComparison.OrdinalIgnoreCase) < 0) return false;
-                if (e.FilePath != null || shape == 4) return true;
+                if (e.FilePath != null || shape == 5) return true;
                 if (Math.Min(e.Width, e.Height) < 128) return false;
-                if (shape == 3) return true;
+                if (shape == 4) return true;
+                if (shape == 3) return e.Kind == TextureKind.Greyscale;
                 // the "usable" views: real pictures only (helper maps, masks, effects and blanks are sorted out)
                 if (e.Kind != TextureKind.Usable) return false;
                 if (shape == 1) return e.Width == e.Height;
@@ -481,7 +495,10 @@ namespace SimsRedux.Creator.App
                 CurrentImage = img ?? LoadImage(e);
                 Built = null;
                 PreviewPic.Image = null;
+                Tint = null;
+                TintBtn.BackColor = Color.FromArgb(32, 38, 70);
                 SourcePic.Image = Pictures.ToBitmap(CurrentImage);
+                if (e.Kind == TextureKind.Greyscale) SetStatus("This one is grey - Sims 3 colours it in while playing. Press Colour... to pick its colour.");
                 SourceInfo.Text = (e.Label ?? "") + "   " + CurrentImage.Width + "×" + CurrentImage.Height
                     + (e.Texture != null ? "   from " + Path.GetFileName(e.Texture.PackagePath) : "");
                 if (e.Texture != null)
@@ -525,6 +542,7 @@ namespace SimsRedux.Creator.App
         private bool BuildCurrent()
         {
             if (CurrentImage == null) { MessageBox.Show(this, "Pick a texture or open a picture first.", Text); return false; }
+            var source = Working;
             var name = NameBox.Text.Trim();
             if (name.Length == 0) { MessageBox.Show(this, "Give it a name first.", Text); NameBox.Focus(); return false; }
             try
@@ -533,9 +551,9 @@ namespace SimsRedux.Creator.App
                 var kind = Kind;
                 int price = (int)PriceBox.Value;
                 var desc = DescBox.Text.Trim();
-                if (kind == "floor") Built = FloorBuilder.Build(CurrentImage, name, price, desc);
-                else if (kind == "wall") Built = WallBuilder.Build(CurrentImage, name, price, desc);
-                else Built = PictureBuilder.Build(CurrentImage, name, price, desc, PosterTemplate());
+                if (kind == "floor") Built = FloorBuilder.Build(source, name, price, desc);
+                else if (kind == "wall") Built = WallBuilder.Build(source, name, price, desc);
+                else Built = PictureBuilder.Build(source, name, price, desc, PosterTemplate());
                 BuiltKind = kind;
                 PreviewPic.Image = Pictures.ToBitmap(Previews.Render(kind, Built));
                 return true;
@@ -546,6 +564,48 @@ namespace SimsRedux.Creator.App
                 return false;
             }
             finally { Cursor = Cursors.Default; }
+        }
+
+        private void PickTint()
+        {
+            if (CurrentImage == null) return;
+            using (var dlg = new ColorDialog { FullOpen = true, Color = Tint ?? Color.FromArgb(180, 140, 100) })
+                if (dlg.ShowDialog(this) == DialogResult.OK) SetTint(dlg.Color);
+        }
+
+        private void SetTint(Color? c)
+        {
+            Tint = c;
+            TintBtn.BackColor = c ?? Color.FromArgb(32, 38, 70);
+            if (CurrentImage != null) SourcePic.Image = Pictures.ToBitmap(Working);
+            Built = null;
+            PreviewPic.Image = null;
+        }
+
+        /// <summary>
+        /// Colours a texture in: its average brightness becomes the picked colour, lighter and darker parts
+        /// stay lighter and darker (how Sims 3 colours its grey shading layers).
+        /// </summary>
+        private static Image32 Colourise(Image32 src, Color c)
+        {
+            var o = new Image32(src.Width, src.Height);
+            double sum = 0; int n = 0;
+            for (int i = 0; i < src.Rgba.Length; i += 4)
+            {
+                if (src.Rgba[i + 3] < 128) continue;
+                sum += 0.299 * src.Rgba[i] + 0.587 * src.Rgba[i + 1] + 0.114 * src.Rgba[i + 2]; n++;
+            }
+            double mean = n == 0 ? 128 : Math.Max(1, sum / n);
+            for (int i = 0; i < src.Rgba.Length; i += 4)
+            {
+                double l = 0.299 * src.Rgba[i] + 0.587 * src.Rgba[i + 1] + 0.114 * src.Rgba[i + 2];
+                double k = l / mean;
+                o.Rgba[i] = (byte)Math.Max(0, Math.Min(255, c.R * k));
+                o.Rgba[i + 1] = (byte)Math.Max(0, Math.Min(255, c.G * k));
+                o.Rgba[i + 2] = (byte)Math.Max(0, Math.Min(255, c.B * k));
+                o.Rgba[i + 3] = src.Rgba[i + 3];
+            }
+            return o;
         }
 
         private void BuildPreview()
@@ -561,6 +621,7 @@ namespace SimsRedux.Creator.App
                 var source = Current?.Texture != null
                     ? Path.GetFileName(Current.Texture.PackagePath) + " " + Current.Texture.Resource.Instance.ToString("X16")
                     : Current?.FilePath ?? "";
+                if (Tint.HasValue) source += " colour #" + Tint.Value.R.ToString("X2") + Tint.Value.G.ToString("X2") + Tint.Value.B.ToString("X2");
                 var item = Pack.Add(BuiltKind, NameBox.Text.Trim(), (int)PriceBox.Value, DescBox.Text.Trim(), source, Built);
                 Pack.Save();
                 FillPackList();

@@ -19,6 +19,10 @@ public enum TextureKind
     NormalMap,
     /// <summary>Empty, one flat colour, or mostly see-through.</summary>
     Blank,
+    /// <summary>Grey only: Sims 3's shading layers (it colours them while playing). Usable once you pick a colour.</summary>
+    Greyscale,
+    /// <summary>Its name says it's wrapped onto a 3D object (a snowman, a tree, a table...), not a flat surface.</summary>
+    ObjectByName,
 }
 
 /// <summary>
@@ -35,6 +39,17 @@ public static class TextureSorter
         "bump", "bmp", "alpha", "a", "o", "ov", "ovl", "overlay", "ao", "ambient", "occlusion", "h", "height", "hm",
         "env", "envmap", "refl", "reflection", "gloss", "glossmap", "shadow", "shadowmap", "lightmap", "lm",
         "1", "2", "3", "4", "ch1", "ch2", "ch3", "ch4", "multiplier", "mult", "detail", "dmap", "dm",
+    };
+
+    // anywhere in the name: textures wrapped onto 3D objects (their pictures are cut-up pieces, not a surface)
+    private static readonly string[] ObjectWords =
+    {
+        "snowman", "tree", "tombstone", "blueprint", "urinal", "gnome", "shark", "arcade", "accessory", "sculpture",
+        "backdrop", "crate", "trashcan", "statue", "toilet", "sink", "crib", "sofa", "chair", "lamp", "texting",
+        "fish", "seahorse", "starfish", "coffee", "halfwall", "fencechain", "bed", "dresser", "shrub", "bush",
+        "car_", "vehicle", "bike", "boat", "guitar", "piano", "computer", "phone", "tv_", "_tv", "stove", "fridge",
+        "counter", "cabinet", "shelf", "window", "door", "stair", "rail", "column", "pillar", "plant", "pot_",
+        "food", "plate", "cup", "bottle", "book", "toy", "doll", "hair", "face", "eye", "skin", "body", "outfit",
     };
 
     // anywhere in the name: effects, sky, water, UI and the like
@@ -57,7 +72,11 @@ public static class TextureSorter
         if (hex > 0) lower = lower.Substring(0, hex);
         foreach (var w in EffectWords) if (lower.Contains(w)) return TextureKind.EffectByName;
         foreach (var token in lower.Split(new[] { '_', ' ', '-', '.' }, StringSplitOptions.RemoveEmptyEntries))
+        {
             if (HelperTokens.Contains(token)) return TextureKind.HelperByName;
+            if (token == "d" || token == "diffuse") return TextureKind.ObjectByName; // an object's colour map (cratesWooden_d)
+        }
+        foreach (var w in ObjectWords) if (lower.Contains(w)) return TextureKind.ObjectByName;
         return TextureKind.Usable;
     }
 
@@ -67,7 +86,8 @@ public static class TextureSorter
         if (img == null || img.Width < 2 || img.Height < 2) return TextureKind.Blank;
         var small = (img.Width > 64 || img.Height > 64) ? img.Resize(64, 64) : img;
         int n = small.Width * small.Height;
-        int seeThrough = 0, saturatedPrimary = 0, blackOrWhite = 0, bluish = 0;
+        int seeThrough = 0, saturatedPrimary = 0, blackOrWhite = 0, bluish = 0, primaryHue = 0;
+        double sumSat = 0;
         double sumL = 0, sumL2 = 0, sumR = 0, sumG = 0, sumB = 0;
         var buckets = new HashSet<int>();
         for (int i = 0; i < n; i++)
@@ -78,6 +98,10 @@ public static class TextureSorter
             double l = 0.299 * r + 0.587 * g + 0.114 * b;
             sumL += l; sumL2 += l * l; sumR += r; sumG += g; sumB += b;
             if (max >= 190 && min <= 60 && (max - min) >= 160) saturatedPrimary++;    // pure red, green, blue, yellow...
+            double sat = max == 0 ? 0 : (max - min) / (double)max;
+            sumSat += sat;
+            // strongly coloured and close to pure red / green / blue / yellow (masks are those, a bit blurred)
+            if (sat > 0.82 && max > 150 && IsPrimaryHue(r, g, b, max, min)) primaryHue++; // (red brick is around 0.6-0.75)
             if (max <= 40 || min >= 225) blackOrWhite++;
             if (b > 170 && b > r + 30 && b > g + 30 && r > 60 && g > 60) bluish++; // the normal-map lilac-blue
             buckets.Add(((r >> 5) << 6) | ((g >> 5) << 3) | (b >> 5));
@@ -92,7 +116,25 @@ public static class TextureSorter
         if ((saturatedPrimary + blackOrWhite) > solid * 0.85 && saturatedPrimary > solid * 0.1 && buckets.Count <= 12) return TextureKind.Mask;
         // black-and-white only (grout grids, stencils)
         if (blackOrWhite > solid * 0.92 && buckets.Count <= 6) return TextureKind.Mask;
+        // mostly pure red / green / blue / yellow, even when blurred by the file's compression
+        if (primaryHue > solid * 0.65) return TextureKind.Mask;
+        // grey only: a Sims 3 shading layer (or a plain grey surface) - usable once it's given a colour
+        if (sumSat / solid < 0.09) return TextureKind.Greyscale;
         return TextureKind.Usable;
+    }
+
+    /// <summary>Is this colour's hue close to red, green, blue or yellow?</summary>
+    private static bool IsPrimaryHue(int r, int g, int b, int max, int min)
+    {
+        double d = max - min;
+        double h;
+        if (max == r) h = 60 * (((g - b) / d) % 6);
+        else if (max == g) h = 60 * ((b - r) / d + 2);
+        else h = 60 * ((r - g) / d + 4);
+        if (h < 0) h += 360;
+        // red 0/360, yellow 60, green 120, blue 240 (within 18 degrees)
+        foreach (var c in new[] { 0.0, 60.0, 120.0, 240.0, 360.0 }) if (Math.Abs(h - c) <= 18) return true;
+        return false;
     }
 
     /// <summary>Name first, then the picture.</summary>
