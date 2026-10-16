@@ -18,6 +18,8 @@ namespace Simitone.Client.Utils
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Dropper: in Buy or Build mode, press I (or the Dropper button) and click anything on your lot - or a floor - to pick the same item from the catalog.",
+            "Catalog search: type in the search box above the Buy and Build bar to find any item by name.",
             "New neighbours: new background families move into empty homes and new townies are out and about - on community lots and walking past your home.",
             "Online town: every home is free for players to move into - the town's families are out and about as townies instead.",
             "Online town: more neighbours and townies too - townies now show up on online lots, the same for everyone there.",

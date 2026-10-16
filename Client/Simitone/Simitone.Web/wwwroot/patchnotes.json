@@ -2,6 +2,15 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "5.7",
+      "date": "Oct 16, 2026",
+      "features": [
+        "Dropper — in Buy or Build mode, press I (or the Dropper button) and click anything on your lot, or a floor, to pick the same item from the catalog.",
+        "Catalog search — type in the search box above the Buy and Build bar to find any item by name."
+      ],
+      "updates": []
+    },
+    {
       "version": "5.6",
       "date": "Oct 16, 2026",
       "features": [],
