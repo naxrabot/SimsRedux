@@ -125,9 +125,11 @@ namespace Simitone.Client.UI.Panels.Desktop
             panel.DrawLocalTexture(batch, ReduxTheme.Box(Pic, Pic, 6, new Color(150, 190, 220), new Color(110, 150, 190), ReduxTheme.Rim, 1), new Vector2(x + Pad, y + Pad));
             if (Icon != null && Icon.Width > 1)
             {
-                float s = Math.Min((Pic - 8) / (float)Icon.Width, (Pic - 8) / (float)Icon.Height);
-                var size = new Vector2(Icon.Width * s, Icon.Height * s);
-                panel.DrawLocalTexture(batch, Icon, null, new Vector2(x + Pad + (Pic - size.X) / 2, y + Pad + (Pic - size.Y) / 2), new Vector2(s, s));
+                // catalog pictures hold two copies side by side (normal and highlighted): just the first, big
+                var src = (Icon.Width >= Icon.Height * 1.5f) ? new Rectangle(0, 0, Icon.Width / 2, Icon.Height) : new Rectangle(0, 0, Icon.Width, Icon.Height);
+                float s = Math.Min((Pic - 6) / (float)src.Width, (Pic - 6) / (float)src.Height);
+                var size = new Vector2(src.Width * s, src.Height * s);
+                panel.DrawLocalTexture(batch, Icon, src, new Vector2(x + Pad + (Pic - size.X) / 2, y + Pad + (Pic - size.Y) / 2), new Vector2(s, s));
             }
 
             int tx = x + Pad * 2 + Pic, ty = y + Pad;

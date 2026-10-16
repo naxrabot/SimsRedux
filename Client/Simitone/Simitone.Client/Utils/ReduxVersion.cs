@@ -18,6 +18,8 @@ namespace Simitone.Client.Utils
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Bigger catalog: click the arrow on top of the Buy or Build pictures to show up to 5 rows at once.",
+            "Cleaner icons: the small category icons in Buy mode are just the icons now, with a glow on the one you picked.",
             "Item cards: point at anything in Buy or Build mode to see a big picture, the price, the description and what it does.",
             "Notifications: notices pop up in the top-right corner and fade away (or close them with X) - they no longer pause the game.",
             "Buy and Build: the search box and dropper sit on the right of the bar, item details show on the classic bar, and tab names fit their tabs.",

@@ -167,7 +167,7 @@ namespace Simitone.Client.UI.Panels.Desktop
                 var index = Items.FindIndex(x => x.GUID == guid);
                 if (index >= 0)
                 {
-                    int perPage = Math.Max(1, Columns * 2);
+                    int perPage = Math.Max(1, Columns * Rows);
                     FirstItem = (index / perPage) * perPage;
                     RebuildThumbs();
                     BuyItem(index);
@@ -436,7 +436,8 @@ namespace Simitone.Client.UI.Panels.Desktop
 
         private UITS1Button MakeSubButton(string path, string name)
         {
-            var tex = TS1UIGraphics.Get(path);
+            // SimsRedux: just the icon, without its square background (the chosen one gets a glow instead)
+            var tex = ReduxTheme.Redux ? TS1UIGraphics.GetCutout(path, 4, 24) : TS1UIGraphics.Get(path);
             var btn = new UITS1Button(tex, 4);
             btn.ScaleX = btn.ScaleY = SubScale;
             AddHover(btn, name);
@@ -576,7 +577,7 @@ namespace Simitone.Client.UI.Panels.Desktop
 
         private void Page(int dir)
         {
-            int perPage = Columns * 2;
+            int perPage = Columns * Rows;
             int next = FirstItem + dir * perPage;
             if (next < 0) next = 0;
             if (next >= Items.Count) return;
@@ -585,6 +586,41 @@ namespace Simitone.Client.UI.Panels.Desktop
         }
 
         private int BuiltColumns = -1;
+        // ---- SimsRedux: the grid can grow upwards (the arrow tab on top), up to 5 rows ----
+        private const int RowStep = 48, MaxRows = 5;
+        private static bool Tall;
+        private UIReduxGrowTab GrowTab;
+
+        /// <summary>Rows of pictures: 2 on the bar, or as many as the items need (up to 5) when grown.</summary>
+        private int Rows
+        {
+            get
+            {
+                if (!Tall) return 2;
+                int cols = Math.Max(1, Columns);
+                return Math.Max(2, Math.Min(MaxRows, (Items.Count + cols - 1) / cols));
+            }
+        }
+
+        private int RowY(int r, int rows) { return ThumbRow2 - (rows - 1 - r) * RowStep; }
+
+        /// <summary>The top of the picture grid (the bar's top when it's 2 rows).</summary>
+        private int GridTop { get { return CurrentView == View.Start || Thumbs.Count == 0 ? BarY : Math.Min(BarY, RowY(0, Rows) - 4); } }
+
+        private void UpdateGrowTab()
+        {
+            if (GrowTab == null)
+            {
+                GrowTab = new UIReduxGrowTab();
+                GrowTab.OnClick += () => { Tall = !Tall; FirstItem = 0; RebuildThumbs(); };
+                Add(GrowTab);
+            }
+            int cols = Math.Max(1, Columns);
+            GrowTab.Visible = CurrentView != View.Start && (Tall || Items.Count > cols * 2);
+            GrowTab.Up = !Tall || Rows <= 2;
+            GrowTab.Position = new Vector2(ThumbStart + 4, GridTop - UIReduxGrowTab.H);
+        }
+
         private void RebuildThumbs()
         {
             HoverGUID = 0; // (the pictures under the mouse are being replaced)
@@ -592,16 +628,17 @@ namespace Simitone.Client.UI.Panels.Desktop
             Thumbs.Clear();
             int cols = Columns;
             BuiltColumns = cols;
+            int rows = Rows;
             int budget = Game.LotControl?.Budget ?? int.MaxValue;
             for (int c = 0; c < cols; c++)
             {
-                for (int r = 0; r < 2; r++)
+                for (int r = 0; r < rows; r++)
                 {
-                    int index = FirstItem + c * 2 + r;
+                    int index = FirstItem + c * rows + r;
                     if (index >= Items.Count) break;
                     var item = Items[index];
                     var thumb = new UIClassicCatalogThumb(ThumbFrame, GetIcon(item.GUID) ?? UnknownThumb, index);
-                    thumb.Position = new Vector2(ThumbStart + c * ThumbStep, r == 0 ? ThumbRow1 : ThumbRow2);
+                    thumb.Position = new Vector2(ThumbStart + c * ThumbStep, RowY(r, rows));
                     thumb.Unaffordable = item.Price > budget;
                     thumb.Selected = index == SelectedIndex;
                     var guid = item.GUID;
@@ -613,7 +650,8 @@ namespace Simitone.Client.UI.Panels.Desktop
             }
             if (ArrowRight != null) ArrowRight.Position = new Vector2(ThumbStart + cols * ThumbStep, ArrowY);
             if (ArrowLeft != null) ArrowLeft.Disabled = FirstItem == 0;
-            if (ArrowRight != null) ArrowRight.Disabled = FirstItem + cols * 2 >= Items.Count;
+            if (ArrowRight != null) ArrowRight.Disabled = FirstItem + cols * rows >= Items.Count;
+            UpdateGrowTab();
         }
 
         // ------------------------------------------------------------------
@@ -937,7 +975,8 @@ namespace Simitone.Client.UI.Panels.Desktop
             {
                 // search and dropper sit on the bar's top edge, at the right
                 var width = GlobalSettings.Default.GraphicsWidth / ((Parent?.Parent as UIClassicUCP)?.UIScale ?? 1f);
-                Search.Position = new Vector2((int)(width - UIReduxCatalogSearch.TotalW - 12), BarY - UIReduxCatalogSearch.BoxH);
+                Search.Position = new Vector2((int)(width - UIReduxCatalogSearch.TotalW - 12), GridTop - UIReduxCatalogSearch.BoxH);
+                if (GrowTab != null && CurrentView == View.Start) GrowTab.Visible = false;
                 // the dropper: I to pick up / put away, Esc to put it away
                 if (!UIRevampedCamera.IsTyping(state))
                 {
@@ -975,6 +1014,21 @@ namespace Simitone.Client.UI.Panels.Desktop
                 DrawLocalString(batch, CurrentName, new Vector2(SubX + 38, BarY + 4), Title, new Rectangle(0, 0, 135, 22), TextAlignment.Left | TextAlignment.Middle);
                 if (Items.Count == 0)
                     DrawLocalString(batch, "Nothing to buy here.", new Vector2(ThumbStart, BarY + 40), Small, new Rectangle(0, 0, 300, 16), TextAlignment.Left | TextAlignment.Middle);
+                // SimsRedux: the grown grid sits on a panel that rises out of the bar
+                if (GridTop < BarY)
+                {
+                    int gw = Math.Max(1, Columns) * ThumbStep + 12;
+                    DrawLocalTexture(batch, ReduxTheme.Box(gw, BarY - GridTop + 16, 10, ReduxTheme.Hi, ReduxTheme.Deep, ReduxTheme.Rim, 1), new Vector2(ThumbStart - 6, GridTop - 4));
+                }
+                // the chosen subsort glows behind its icon (the icons have no background of their own)
+                if (ReduxTheme.Redux)
+                {
+                    foreach (var sub in Subsorts)
+                    {
+                        if (sub.Button == null || !sub.Button.Selected) continue;
+                        DrawLocalTexture(batch, ReduxTheme.Box(32, 32, 8, ReduxTheme.Gloss * 0.9f, ReduxTheme.Hi * 0.9f, ReduxTheme.Glow, 1), sub.Button.Position);
+                    }
+                }
             }
 
             base.Draw(batch);
@@ -985,7 +1039,7 @@ namespace Simitone.Client.UI.Panels.Desktop
             if (cardGUID != 0 && (SellCatcher == null || !SellCatcher.Visible))
             {
                 Card.SetObject(cardGUID, GetIcon(cardGUID));
-                Card.Draw(this, batch, SubX, BarY - 2);
+                Card.Draw(this, batch, SubX, GridTop - (GrowTab != null && GrowTab.Visible ? UIReduxGrowTab.H : 0) - 2);
                 return;
             }
             Card.Hide();
