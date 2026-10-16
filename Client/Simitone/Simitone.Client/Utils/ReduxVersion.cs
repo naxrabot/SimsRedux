@@ -18,6 +18,7 @@ namespace Simitone.Client.Utils
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Touch controls: on a phone or tablet the game switches to touch controls by itself. Change it in Options > Interface > Controls (Auto, Touch or PC).",
             "Phones: the Play button stays at the bottom of the screen while you scroll the launcher.",
             "Tint: Pick colour from lot copies another object's colour, and the hex code box shows (or takes) an exact colour.",
             "Tint: right-click an object in Buy or Build mode to recolour it - pick a colour (white and black too), then set Colour, Strength and Brightness.",

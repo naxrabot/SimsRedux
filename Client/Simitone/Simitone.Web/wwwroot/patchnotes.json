@@ -2,6 +2,15 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "6.4",
+      "date": "Oct 16, 2026",
+      "features": [
+        "Touch controls — on a phone or tablet the game switches to touch controls by itself.",
+        "Controls setting — Options > Interface > Controls: Auto, Touch or PC. Pick PC if you've plugged a mouse and keyboard into your tablet."
+      ],
+      "updates": []
+    },
+    {
       "version": "6.3",
       "date": "Oct 16, 2026",
       "features": [],

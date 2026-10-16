@@ -34,6 +34,7 @@ namespace Simitone.Client
                             mode = NeighSelectionMode.MoveInMagic; break;
                     }
                 }
+                Simitone.Client.Utils.ReduxTouch.Apply(); // SimsRedux: touch or PC controls for this screen
                 var screen = new TS1GameScreen(mode);
                 if (mode != NeighSelectionMode.Normal)
                 {
@@ -63,6 +64,7 @@ namespace Simitone.Client
         {
             //GameThread.NextUpdate((x) =>
             //{
+                Simitone.Client.Utils.ReduxTouch.Apply();
                 var screen = new TS1CASScreen();
                 var last = GameFacade.Screens.CurrentUIScreen;
                 if (last is TS1GameScreen) ((TS1GameScreen)last).CleanupLastWorld();

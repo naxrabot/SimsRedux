@@ -46,7 +46,7 @@ namespace Simitone.Client.UI.Panels.LiveSubpanels
                 label.CaptionStyle.Color = UIStyle.Current.Text;
                 Add(label);
 
-                var subbutton = new UICatButton(Content.Get().CustomUI.Get(func.IconName).Get(GameFacade.GraphicsDevice));
+                var subbutton = new UICatButton(func.Icon ?? Content.Get().CustomUI.Get(func.IconName).Get(GameFacade.GraphicsDevice));
                 subbutton.OnButtonClick += (btn) => { func.Func(); };
                 subbutton.Position = new Vector2(-50, 16);
                 Add(subbutton);
@@ -64,6 +64,8 @@ namespace Simitone.Client.UI.Panels.LiveSubpanels
     {
         public string Name;
         public string IconName;
+        /// <summary>SimsRedux: a picture made in code (used instead of IconName when set).</summary>
+        public Microsoft.Xna.Framework.Graphics.Texture2D Icon;
         public Action Func;
 
         public UICatFunc(string name, string iconName, Action func)

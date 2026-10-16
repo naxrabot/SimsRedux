@@ -51,7 +51,7 @@ namespace Simitone.Client
             FSOEnvironment.TexCompress = false;
             UILotControl.ShowSimanticsExceptions = !FSOEnvironment.Args.Contains("nosimantics-exc");
 
-            if (!FSOEnvironment.SoftwareKeyboard)
+            if (!FSOEnvironment.SoftwareKeyboard || Simitone.Client.Utils.ReduxTouch.Managed) // (the website sizes its picture either way)
             {
                 Graphics.SynchronizeWithVerticalRetrace = true;
                 Graphics.PreferredBackBufferWidth = GlobalSettings.Default.GraphicsWidth;
@@ -328,7 +328,7 @@ namespace Simitone.Client
             if (!HasUpdated)
             {
                 this.IsMouseVisible = true;
-                if (!FSOEnvironment.SoftwareKeyboard) AddTextInput();
+                if (!FSOEnvironment.SoftwareKeyboard || Simitone.Client.Utils.ReduxTouch.Managed) AddTextInput(); // (typing works with touch controls too)
                 // SimsRedux (a lot's window on the server is named so it can't be mistaken for the game)
                 this.Window.Title = Simitone.Client.Utils.ReduxWorker.Active ? "Sims Redux server - lot " + Simitone.Client.Utils.ReduxWorker.House : "The Sims Redux";
                 HasUpdated = true;

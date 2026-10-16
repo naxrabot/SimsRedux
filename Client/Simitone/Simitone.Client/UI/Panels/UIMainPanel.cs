@@ -245,14 +245,56 @@ namespace Simitone.Client.UI.Panels
                     panel = new UIBuyBrowsePanel(Game, (sbyte)obj, UICatalogMode.Build);
                     break;
                 case UIMainPanelMode.OPTIONS:
-                    panel = new UIButtonSubpanel(Game, new UICatFunc[] {
+                    var opts = new List<UICatFunc> {
                         new UICatFunc(GameFacade.Strings.GetString("145", "3"), "opt_save.png", () => { Game.Save(); }),
                         new UICatFunc(GameFacade.Strings.GetString("145", "1"), "opt_neigh.png", () => { Game.ReturnToNeighbourhood(); }),
                         new UICatFunc(GameFacade.Strings.GetString("145", "5"), "opt_quit.png", () => { Game.CloseAttempt(); }),
-                    });
+                    };
+                    if (Simitone.Client.Utils.ReduxTouch.Managed)
+                    {
+                        // SimsRedux: back to the PC layout (a mouse and keyboard plugged into a tablet...)
+                        opts.Add(new UICatFunc("PC Controls", null, () =>
+                        {
+                            Simitone.Client.Utils.ReduxTouch.Setting = Simitone.Client.Utils.ReduxTouch.Mouse;
+                            Simitone.Client.UI.Controls.UIReduxToasts.Show("PC Controls",
+                                "PC controls are on. They start when you go back to the neighborhood or open a lot. "
+                                + "To go back to touch, choose Options > Interface > Controls.");
+                        }) { Icon = PCIcon() });
+                    }
+                    panel = new UIButtonSubpanel(Game, opts.ToArray());
                     break;
             }
             SetSubpanel(panel);
+        }
+
+        private static Texture2D _PCIcon;
+        /// <summary>SimsRedux: a white computer screen and mouse, drawn like the other option pictures.</summary>
+        private static Texture2D PCIcon()
+        {
+            if (_PCIcon != null) return _PCIcon;
+            int s = 65;
+            var data = new Color[s * s];
+            Action<int, int, int, int> fill = (x0, y0, x1, y1) =>
+            {
+                for (int y = y0; y < y1; y++) for (int x = x0; x < x1; x++)
+                    if (x >= 0 && y >= 0 && x < s && y < s) data[y * s + x] = Color.White;
+            };
+            // the screen: an outline with a stand
+            fill(4, 14, 40, 17); fill(4, 38, 40, 41); fill(4, 14, 7, 41); fill(37, 14, 40, 41);
+            fill(19, 41, 25, 47); fill(12, 47, 32, 50);
+            // the mouse: a rounded body with a button line and a cord
+            for (int y = 30; y < 54; y++)
+                for (int x = 44; x < 60; x++)
+                {
+                    float dx = (x - 51.5f) / 7.5f, dy = (y - 42f) / 12f;
+                    var d = dx * dx + dy * dy;
+                    if (d <= 1f && d >= 0.45f) data[y * s + x] = Color.White;
+                }
+            fill(51, 30, 53, 40); fill(46, 39, 58, 41);
+            fill(51, 24, 53, 31);
+            _PCIcon = new Texture2D(GameFacade.GraphicsDevice, s, s);
+            _PCIcon.SetData(data);
+            return _PCIcon;
         }
 
         public UICatalogMode GetLotType(bool music)

@@ -75,6 +75,7 @@ namespace Simitone.Web
             GlobalSettings.Default.EnableTransitions = true;
 
             try { var smarts = Simitone.Client.Utils.ReduxSettings.Autonomy; } catch { } // the Sim Smarts setting
+            try { Simitone.Client.Utils.ReduxTouch.Apply(); } catch { } // a phone or tablet starts with touch controls
             return new SimitoneGame();
         }
     }

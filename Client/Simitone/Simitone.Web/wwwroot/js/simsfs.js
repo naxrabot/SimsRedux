@@ -1292,6 +1292,20 @@
     const accountToken = () => (Account.session && Account.session.token) || '';
     // set when the game started out of date: the reason online mode is shut ('' = it's open)
     const onlineBlockedReason = () => onlineBlocked || '';
+    // a phone or tablet: a touch screen as the main pointer and no mouse or trackpad attached
+    // (a tablet with a mouse counts as a computer; the game's Controls setting can override either way)
+    function touchDevice()
+    {
+        try
+        {
+            const mm = (q) => window.matchMedia && window.matchMedia(q).matches;
+            const touch = (navigator.maxTouchPoints || 0) > 0 || 'ontouchstart' in window;
+            if (!touch) return false;
+            if (mm('(any-pointer: fine)')) return false;   // a mouse or trackpad is attached
+            return mm('(pointer: coarse)') || mm('(hover: none)') || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+        }
+        catch (e) { return false; }
+    }
     const accountName = () => (Account.session && Account.session.name) || '';
-    window.SimsFS = { accountServer, accountToken, accountName, onlineBlockedReason, changeFolder, setFullScreen, isFullScreen, prepare, fileExists, dirExists, fileSize, read, write, deleteFile, createDir, deleteDir, moveFile, list, normalize };
+    window.SimsFS = { touchDevice, accountServer, accountToken, accountName, onlineBlockedReason, changeFolder, setFullScreen, isFullScreen, prepare, fileExists, dirExists, fileSize, read, write, deleteFile, createDir, deleteDir, moveFile, list, normalize };
 })();

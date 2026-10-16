@@ -141,6 +141,19 @@ namespace Simitone.Client.UI.Panels.Desktop
                 () => Math.Max(0, Array.IndexOf(ReduxTheme.ScaleChoices, ReduxTheme.Scale)),
                 (v) => ReduxTheme.Scale = ReduxTheme.ScaleChoices[v]);
             Note = "Auto fits the panel to your screen. Classic uses the original art as it was.";
+            if (ReduxTouch.Managed)
+            {
+                // SimsRedux: touch or PC controls (Auto picks touch on a phone or tablet without a mouse)
+                AddChoices("Controls", "PopupOptTransUI", ReduxTouch.Choices,
+                    () => ReduxTouch.Setting,
+                    (v) =>
+                    {
+                        ReduxTouch.Setting = v;
+                        Note = (ReduxTouch.Wanted == ReduxTouch.Active)
+                            ? "Controls: Auto uses touch on a phone or tablet with no mouse."
+                            : "Controls switch when you next open a lot or go to the neighborhood.";
+                    });
+            }
         }
 
         private void BuildSound()
