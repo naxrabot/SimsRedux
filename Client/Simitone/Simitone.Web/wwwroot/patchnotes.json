@@ -2,6 +2,14 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "5.2",
+      "date": "Oct 16, 2026",
+      "features": [],
+      "updates": [
+        "Talking to Sims — still being worked on."
+      ]
+    },
+    {
       "version": "5.1",
       "date": "Oct 16, 2026",
       "features": [],

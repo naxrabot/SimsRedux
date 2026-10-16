@@ -140,6 +140,14 @@ namespace Simitone.Client.UI.Panels
 
         private static HashSet<uint> PieTraced = new HashSet<uint>();
 
+        private static string PointerName(byte p)
+        {
+            if (p == 253) return "error";
+            if (p == 254) return "true";
+            if (p == 255) return "false";
+            return p.ToString();
+        }
+
         /// <summary>
         /// SimsRedux: runs each of the Sim's interactions' checks again with the script trace on, and
         /// writes why each one said no (the last steps of its check). Once per Sim per session.
@@ -152,6 +160,8 @@ namespace Simitone.Client.UI.Panels
             if (caller == null || ttab == null) return "";
             var oldEntity = FSO.SimAntics.Engine.VMThread.TraceEntity;
             var oldOps = FSO.SimAntics.Engine.VMThread.TraceOperands;
+            var oldRoutines = FSO.SimAntics.Engine.VMThread.TraceRoutines.ToList();
+            FSO.SimAntics.Engine.VMThread.TraceRoutines.Clear();
             int detailed = 0;
             try
             {
@@ -178,8 +188,27 @@ namespace Simitone.Client.UI.Panels
                 }
             }
             catch (Exception e) { sb.Append("   trace failed: " + e.Message + "\r\n"); }
+            try
+            {
+                // every script the checks went through, in full (so the whole rule can be read, not just the steps taken)
+                sb.Append("   scripts used by the checks:\r\n");
+                foreach (var routine in FSO.SimAntics.Engine.VMThread.TraceRoutines.OrderBy(x => x.ID).Take(60))
+                {
+                    sb.Append("     " + (routine.Chunk?.ChunkLabel ?? "?") + " (" + routine.ID + "), args " + routine.Arguments + ", locals " + routine.Locals + "\r\n");
+                    var ins = routine.Instructions ?? new FSO.SimAntics.VMInstruction[0];
+                    for (int i = 0; i < ins.Length; i++)
+                    {
+                        var x = ins[i];
+                        sb.Append("       " + i + ": op " + x.Opcode + " T->" + PointerName(x.TruePointer) + " F->" + PointerName(x.FalsePointer)
+                            + "  " + FSO.SimAntics.Engine.VMThread.DescribeOperand(x.Operand) + "\r\n");
+                    }
+                }
+            }
+            catch (Exception e) { sb.Append("   script dump failed: " + e.Message + "\r\n"); }
             finally
             {
+                FSO.SimAntics.Engine.VMThread.TraceRoutines.Clear();
+                foreach (var r in oldRoutines) FSO.SimAntics.Engine.VMThread.TraceRoutines.Add(r);
                 FSO.SimAntics.Engine.VMThread.TraceEntity = oldEntity;
                 FSO.SimAntics.Engine.VMThread.TraceOperands = oldOps;
                 FSO.SimAntics.Engine.VMThread.TraceLog.Clear();
