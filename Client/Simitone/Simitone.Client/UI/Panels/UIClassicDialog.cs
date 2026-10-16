@@ -14,8 +14,8 @@ namespace Simitone.Client.UI.Panels
 {
     /// <summary>
     /// SimsRedux: the original Sims 1 popup box (e.g. "Purchase House? / Are you sure you want
-    /// to buy this house?" with Yes / No). Built from Shared/Dlg/Gendlg.bmp (box edges) and
-    /// cpanel/Buttons/ButtonTileDialog.bmp (stretchable button).
+    /// to buy this house?" with Yes / No). A navy bevelled box drawn in the original's colours,
+    /// with cpanel/Buttons/ButtonTileDialog.bmp (stretchable button).
     ///
     /// Use the static helpers (Show / YesNo / Ok). When the classic interface is off, they fall
     /// back to Simitone's normal popup, so callers never need to check.
@@ -24,7 +24,6 @@ namespace Simitone.Client.UI.Panels
     {
         private static readonly Color TextColor = new Color(205, 205, 240);
 
-        private Texture2D Edge;
         private Vector2 BoxSize;
         private UILabel TitleLabel;
         private UILabel MessageLabel;
@@ -36,7 +35,6 @@ namespace Simitone.Client.UI.Panels
 
         public UIClassicDialog(string title, string message, params Tuple<string, Action>[] buttons)
         {
-            Edge = TS1UIGraphics.Get("Shared/Dlg/Gendlg.bmp");
             var buttonTex = TS1UIGraphics.Get("cpanel/Buttons/ButtonTileDialog.bmp");
 
             // size the box to the message, like the original
@@ -143,29 +141,6 @@ namespace Simitone.Client.UI.Panels
             DrawLocalTexture(batch, px, null, new Vector2(2, 2), new Vector2(2, h - 4), BevelMid);
         }
 
-        /// <summary>Stretches a small edge tile into a box: corners stay, edges and middle stretch.</summary>
-        private void DrawNineSlice(UISpriteBatch batch, Texture2D tex, Vector2 size)
-        {
-            int c = Math.Max(1, tex.Width / 3);       // corner size
-            int m = tex.Width - c * 2;               // middle size in the source
-            if (m <= 0) { DrawLocalTexture(batch, tex, null, Vector2.Zero, size / new Vector2(tex.Width, tex.Height)); return; }
-            float w = size.X, h = size.Y;
-            float sx = (w - c * 2) / m, sy = (h - c * 2) / m;
-
-            // corners
-            DrawLocalTexture(batch, tex, new Rectangle(0, 0, c, c), new Vector2(0, 0));
-            DrawLocalTexture(batch, tex, new Rectangle(c + m, 0, c, c), new Vector2(w - c, 0));
-            DrawLocalTexture(batch, tex, new Rectangle(0, c + m, c, c), new Vector2(0, h - c));
-            DrawLocalTexture(batch, tex, new Rectangle(c + m, c + m, c, c), new Vector2(w - c, h - c));
-            // edges
-            DrawLocalTexture(batch, tex, new Rectangle(c, 0, m, c), new Vector2(c, 0), new Vector2(sx, 1));
-            DrawLocalTexture(batch, tex, new Rectangle(c, c + m, m, c), new Vector2(c, h - c), new Vector2(sx, 1));
-            DrawLocalTexture(batch, tex, new Rectangle(0, c, c, m), new Vector2(0, c), new Vector2(1, sy));
-            DrawLocalTexture(batch, tex, new Rectangle(c + m, c, c, m), new Vector2(w - c, c), new Vector2(1, sy));
-            // middle
-            DrawLocalTexture(batch, tex, new Rectangle(c, c, m, m), new Vector2(c, c), new Vector2(sx, sy));
-        }
-
         // ------------------------------------------------------------------
         // Helpers
         // ------------------------------------------------------------------
@@ -209,7 +184,7 @@ namespace Simitone.Client.UI.Panels
     {
         private string Text;
         private int ButtonW;
-        private TextStyle Style;
+        private TextStyle Style, HoverStyle, SelectedStyle; // made once, not every frame
 
         public UITS1TileButton(Texture2D tex, string text, int width) : base(tex)
         {
@@ -219,11 +194,16 @@ namespace Simitone.Client.UI.Panels
             Style = TextStyle.DefaultLabel.Clone();
             Style.Size = 18;
             Style.Color = new Color(205, 205, 240);
+            HoverStyle = Style.Clone();
+            HoverStyle.Color = Color.Cyan;
+            SelectedStyle = Style.Clone();
+            SelectedStyle.Color = new Color(255, 240, 110);
             // the base button sized its clickable area to one 65px frame: widen it to the drawn button
+            // (and keep it clickable even if the art is missing and we were given a 1x1 stand-in)
             if (ClickHandler != null)
             {
                 ClickHandler.Region.Width = width;
-                ClickHandler.Region.Height = tex.Height;
+                ClickHandler.Region.Height = (tex != null && tex.Height > 1) ? tex.Height : 33;
             }
         }
 
@@ -238,7 +218,7 @@ namespace Simitone.Client.UI.Panels
         public int TextSize
         {
             get { return Style.Size; }
-            set { Style.Size = value; }
+            set { Style.Size = HoverStyle.Size = SelectedStyle.Size = value; }
         }
 
         public override Vector2 Size
@@ -262,15 +242,18 @@ namespace Simitone.Client.UI.Panels
             int x0 = frame * fw;
             int third = fw / 3;
             int mid = fw - third * 2;
-            float stretch = (ButtonW - third * 2) / (float)mid;
-
-            DrawLocalTexture(batch, Texture, new Rectangle(x0, 0, third, h), Vector2.Zero);
-            DrawLocalTexture(batch, Texture, new Rectangle(x0 + third, 0, mid, h), new Vector2(third, 0), new Vector2(stretch, 1));
-            DrawLocalTexture(batch, Texture, new Rectangle(x0 + third + mid, 0, third, h), new Vector2(ButtonW - third, 0));
+            if (fw >= 3) // (not with the 1x1 stand-in for missing art: nothing to stretch)
+            {
+                float stretch = (ButtonW - third * 2) / (float)mid;
+                DrawLocalTexture(batch, Texture, new Rectangle(x0, 0, third, h), Vector2.Zero);
+                DrawLocalTexture(batch, Texture, new Rectangle(x0 + third, 0, mid, h), new Vector2(third, 0), new Vector2(stretch, 1));
+                DrawLocalTexture(batch, Texture, new Rectangle(x0 + third + mid, 0, third, h), new Vector2(ButtonW - third, 0));
+            }
+            else h = 33;
 
             var style = Style;
-            if (state == 2 && !Disabled) { style = Style.Clone(); style.Color = Color.Cyan; }
-            else if (Selected && !Disabled) { style = Style.Clone(); style.Color = new Color(255, 240, 110); }
+            if (state == 2 && !Disabled) style = HoverStyle;
+            else if (Selected && !Disabled) style = SelectedStyle;
             DrawLocalString(batch, Text, Vector2.Zero, style, new Rectangle(0, 0, ButtonW, h), TextAlignment.Center | TextAlignment.Middle);
         }
     }

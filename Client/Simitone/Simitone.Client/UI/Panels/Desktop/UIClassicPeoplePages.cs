@@ -337,7 +337,7 @@ namespace Simitone.Client.UI.Panels.Desktop
                 }
 
                 // background colour for how they get on (from UnknownRel.bmp: red ... green)
-                if (UnknownRel != null && UnknownRel.Width > 1)
+                if (UnknownRel != null && UnknownRel.Width >= 5) // (5 frames side by side)
                 {
                     int fw = UnknownRel.Width / 5;
                     var src = new Rectangle(MoodFrame(p.Daily) * fw, 0, fw, UnknownRel.Height);

@@ -94,6 +94,9 @@ namespace Simitone.Client.UI.Panels
                 case 7: BuildSub("Magicland/Return.bmp", "Magicland/Bulldoze.bmp", "Magicland/Import.bmp", true); break;
                 default: BuildSub("NghUI/Return.bmp", "NghUI/Bulldoze.bmp", "NghUI/Import.bmp", false); break;
             }
+
+            // clicks on the bar between its buttons shouldn't reach the houses on the map under it
+            ListenForMouse(new Rectangle(0, 0, BarEnd, ReduxBarH), (t, s) => { });
         }
 
         private UITS1Button Btn(string path, int x, int y)

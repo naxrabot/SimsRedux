@@ -143,6 +143,13 @@ namespace Simitone.Client.UI.Panels.Desktop
             UIScreen.RemoveDialog(this);
         }
 
+        /// <summary>Also forget it when it's taken away some other way (e.g. a screen change clears all dialogs).</summary>
+        public override void Removed()
+        {
+            if (Open == this) Open = null;
+            base.Removed();
+        }
+
         public override void Update(UpdateState state)
         {
             Position = new Vector2((int)((GlobalSettings.Default.GraphicsWidth - W) / 2), (int)Math.Max(20, (GlobalSettings.Default.GraphicsHeight - H) / 2 - 60));

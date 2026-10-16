@@ -46,6 +46,7 @@ namespace Simitone.Client.UI.Panels
         private int FinishFrames;
         private int DrawnFrames;
         private float Progress;
+        private TextStyle TitleStyle, MsgStyle;
         /// <summary>Darken the whole screen behind the box (hides the lot while it's being worked on).</summary>
         public bool Cover;
 
@@ -277,12 +278,18 @@ namespace Simitone.Client.UI.Panels
             var px = TextureGenerator.GetPxWhite(GameFacade.GraphicsDevice);
             float sw = GlobalSettings.Default.GraphicsWidth, sh = GlobalSettings.Default.GraphicsHeight;
 
-            var titleStyle = TextStyle.DefaultLabel.Clone();
-            titleStyle.Size = 16;
-            titleStyle.Color = new Color(225, 225, 250);
-            var msgStyle = TextStyle.DefaultLabel.Clone();
-            msgStyle.Size = 12;
-            msgStyle.Color = new Color(170, 170, 230);
+            // (made once, not every frame)
+            if (TitleStyle == null)
+            {
+                TitleStyle = TextStyle.DefaultLabel.Clone();
+                TitleStyle.Size = 16;
+                TitleStyle.Color = new Color(225, 225, 250);
+                MsgStyle = TextStyle.DefaultLabel.Clone();
+                MsgStyle.Size = 12;
+                MsgStyle.Color = new Color(170, 170, 230);
+            }
+            var titleStyle = TitleStyle;
+            var msgStyle = MsgStyle;
 
             if (Picture != null && Picture.Width > 1)
             {
@@ -304,7 +311,7 @@ namespace Simitone.Client.UI.Panels
                     DrawLocalTexture(batch, px, null, bandPos, band, new Color(0, 0, 40) * 0.8f);
                     DrawLocalString(batch, Title ?? "", bandPos + new Vector2(0, 6), titleStyle, new Rectangle(0, 0, (int)band.X, 24), TextAlignment.Center | TextAlignment.Middle);
                 }
-                DrawLocalString(batch, Message, bpos + new Vector2(1, -21), msgStyle, new Rectangle(0, 0, (int)bsize.X, 18), TextAlignment.Center | TextAlignment.Middle);
+                DrawLocalString(batch, Message ?? "", bpos + new Vector2(1, -21), msgStyle, new Rectangle(0, 0, (int)bsize.X, 18), TextAlignment.Center | TextAlignment.Middle);
             }
             else
             {

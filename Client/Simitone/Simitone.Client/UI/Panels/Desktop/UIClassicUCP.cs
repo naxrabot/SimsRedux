@@ -188,8 +188,9 @@ namespace Simitone.Client.UI.Panels.Desktop
             OptionPages.Visible = false;
             DynamicOverlay.Add(OptionPages);
 
-            // clicks on the bottom bar shouldn't fall through to the lot
-            ListenForMouse(new Rectangle(BarX, BarY, 4000, BarH), (t, s) => { });
+            // clicks on the bottom bar (and the solid lower part of the wing, between its buttons)
+            // shouldn't fall through to the lot
+            ListenForMouse(new Rectangle(0, BarY, BarX + 4000, BarH), (t, s) => { });
 
             Size = new Vector2(1024, WingH); // wide enough for the bar contents
             UpdateBuildBuy();
@@ -272,7 +273,7 @@ namespace Simitone.Client.UI.Panels.Desktop
             Reposition();
             base.Update(state);
             CurrentMode = SelectedMode();
-            if (state.NewKeys.Contains(Microsoft.Xna.Framework.Input.Keys.F1)) UIClassicHelpDialog.Toggle();
+            // (F1 is Live mode, as in the original game; Help is the ? button)
 
             // bar contents that are already classic: show ours, hide Simitone's
             bool options = CurrentMode == UIMainPanelMode.OPTIONS;
@@ -323,7 +324,7 @@ namespace Simitone.Client.UI.Panels.Desktop
                 // bottom bar: draw the original 804px bar, then stretch its right edge to the screen edge
                 DrawLocalTexture(batch, BarBack, new Vector2(BarX, BarY));
                 float extra = screenRight - (BarX + BarBack.Width);
-                if (extra > 0)
+                if (extra > 0 && BarBack.Width > 8) // (not with the 1x1 stand-in for missing art)
                     DrawLocalTexture(batch, BarBack, new Rectangle(BarBack.Width - 8, 0, 4, BarBack.Height),
                         new Vector2(BarX + BarBack.Width - 4, BarY), new Vector2((extra + 4) / 4f, 1));
             }

@@ -251,7 +251,6 @@ namespace Simitone.Client.UI.Panels.Desktop
             var row = NewRow(label, popup);
             var art = TS1UIGraphics.Get("cpanel/Buttons/optradio.bmp");
             int x = RowX + LabelW;
-            var group = new List<UIClassicOptionToggle>();
             for (int i = 0; i < choices.Length; i++)
             {
                 var index = i;
@@ -260,7 +259,7 @@ namespace Simitone.Client.UI.Panels.Desktop
                 t.IsOn = () => get() == index;
                 t.OnClick = () => { set(index); };
                 t.OnHover = () => HoverRow = row;
-                Add(t); Controls.Add(t); group.Add(t);
+                Add(t); Controls.Add(t);
                 x += 26 + Math.Max(28, choices[i].Length * 7);
             }
         }
@@ -463,6 +462,7 @@ namespace Simitone.Client.UI.Panels.Desktop
         private const int Size = 16, Step = 22;
         private int Hover = -1;
         private bool Inside;
+        private TextStyle NameStyle;
 
         public UIReduxSwatches()
         {
@@ -511,8 +511,8 @@ namespace Simitone.Client.UI.Panels.Desktop
             }
             if (Hover >= 0)
             {
-                var style = TextStyle.DefaultLabel.Clone(); style.Size = 9; style.Color = Color.White;
-                DrawLocalString(batch, ReduxTheme.PresetNames[Hover], new Vector2(ReduxTheme.Presets.Length * Step + 6, 0), style, new Rectangle(0, 0, 90, Size), TextAlignment.Left | TextAlignment.Middle);
+                if (NameStyle == null) { NameStyle = TextStyle.DefaultLabel.Clone(); NameStyle.Size = 9; NameStyle.Color = Color.White; } // made once, not every frame
+                DrawLocalString(batch, ReduxTheme.PresetNames[Hover], new Vector2(ReduxTheme.Presets.Length * Step + 6, 0), NameStyle, new Rectangle(0, 0, 90, Size), TextAlignment.Left | TextAlignment.Middle);
             }
         }
     }

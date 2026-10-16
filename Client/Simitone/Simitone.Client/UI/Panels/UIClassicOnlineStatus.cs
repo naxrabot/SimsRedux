@@ -17,7 +17,7 @@ namespace Simitone.Client.UI.Panels
         private TS1GameScreen Game;
         /// <summary>In the online town: straight back to your own (single-player) neighbourhood.</summary>
         private UITS1TileButton LeaveButton;
-        private TextStyle Style, NoticeStyle;
+        private TextStyle Style, NoticeStyle, FadeStyle;
         private string NoticeText;
         private DateTime NoticeTime;
 
@@ -32,11 +32,13 @@ namespace Simitone.Client.UI.Panels
             NoticeStyle.Size = 14;
             NoticeStyle.Color = new Color(255, 240, 110);
             NoticeStyle.Shadow = true;
+            FadeStyle = NoticeStyle.Clone(); // the fading copy, made once (not every frame)
 
             LeaveButton = new UITS1TileButton(TS1UIGraphics.Get("cpanel/Buttons/ButtonTileDialog.bmp"), "Leave Multiplayer", 150);
             LeaveButton.TextSize = 12;
             LeaveButton.OnButtonClick += (b) => UIClassicDialog.YesNo("Leave Multiplayer?",
                 "Leave the online town and go back to your own neighborhood?", () => Game.LeaveMultiplayer());
+            LeaveButton.Visible = false; // shown by Draw when it applies
             Add(LeaveButton);
         }
 
@@ -62,7 +64,8 @@ namespace Simitone.Client.UI.Panels
         {
             if (!Visible) return;
             var text = StatusText();
-            if (text == null) return;
+            // (hide the Leave button too, or its click area would stay live while nothing is drawn)
+            if (text == null) { LeaveButton.Visible = false; return; }
             var px = TextureGenerator.GetPxWhite(GameFacade.GraphicsDevice);
             float sw = GlobalSettings.Default.GraphicsWidth;
 
@@ -83,9 +86,8 @@ namespace Simitone.Client.UI.Panels
                 var nw = (int)NoticeStyle.MeasureString(NoticeText).X + 30;
                 var npos = new Vector2((int)((sw - nw) / 2), 34);
                 DrawLocalTexture(batch, px, null, npos, new Vector2(nw, 26), new Color(0, 0, 82) * 0.9f * fade);
-                var style = NoticeStyle.Clone();
-                style.Color = NoticeStyle.Color * fade;
-                DrawLocalString(batch, NoticeText, npos, style, new Rectangle(0, 0, nw, 26), TextAlignment.Center | TextAlignment.Middle);
+                FadeStyle.Color = NoticeStyle.Color * fade;
+                DrawLocalString(batch, NoticeText, npos, FadeStyle, new Rectangle(0, 0, nw, 26), TextAlignment.Center | TextAlignment.Middle);
             }
             base.Draw(batch);
         }

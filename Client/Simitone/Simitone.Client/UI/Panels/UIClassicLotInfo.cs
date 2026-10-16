@@ -33,7 +33,7 @@ namespace Simitone.Client.UI.Panels
             var assignment = street?.Get<STR>(2001)?.GetString(houseID - 1);
             int streetName;
             if (int.TryParse(assignment, out streetName))
-                info.Street = street.Get<STR>(2000).GetString(streetName - 1).Replace("%s", houseID.ToString());
+                info.Street = street.Get<STR>(2000)?.GetString(streetName - 1)?.Replace("%s", houseID.ToString()) ?? "";
 
             var nameDesc = neigh.GetHouseNameDesc(houseID);
             info.Name = string.IsNullOrEmpty(nameDesc.Item1) ? info.Street : nameDesc.Item1;
@@ -77,14 +77,14 @@ namespace Simitone.Client.UI.Panels
                 return info;
             }
 
-            var price = house.Get<SIMI>(1)?.PurchaseValue ?? 0;
+            var price = house?.Get<SIMI>(1)?.PurchaseValue ?? 0;
             var priceStr = "§" + price.ToString("##,#0");
             string moveInName = (moveIn == null) ? "" : (moveIn.ChunkParent.Get<FAMs>(moveIn.ChunkID)?.GetString(0) ?? "");
 
             if (houseID >= 90 && houseID <= 92)
             {
                 // Magic Town lots also need MagiCoins
-                var magicoins = neigh.GetMagicoinsForFamily(family);
+                var magicoins = neigh.GetMagicoinsForFamily(moveIn); // the family moving in (the lot's own family is always null here)
                 var requiredMC = int.Parse(GameFacade.Strings.GetString("134", (32 + Math.Abs(91 - houseID)).ToString()));
                 if (moveIn != null)
                 {

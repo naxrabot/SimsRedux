@@ -103,7 +103,7 @@ namespace Simitone.Client.UI.Panels.Desktop
                     if (!Visible) { HoverSlot = -1; return; }
                     if (type == UIMouseEventType.MouseOver) HoverSlot = slot;
                     else if (type == UIMouseEventType.MouseOut) { if (HoverSlot == slot) HoverSlot = -1; }
-                    else if (type == UIMouseEventType.MouseUp) SelectFamily(slot);
+                    else if (type == UIMouseEventType.MouseUp && HoverSlot == slot) SelectFamily(slot); // (not when dragged off the face)
                 });
             }
         }
@@ -395,7 +395,7 @@ namespace Simitone.Client.UI.Panels.Desktop
                 int col = i / 4, row = i % 4;
                 int x = CX + col * 190, y = CY + 4 + row * 24;
                 var icon = TS1UIGraphics.Get("cpanel/Buttons/Interest" + names[i] + ".bmp");
-                if (icon.Width > 1)
+                if (icon.Width >= 3) // (3 frames side by side)
                 {
                     int fw = icon.Width / 3;
                     DrawLocalTexture(batch, icon, new Rectangle(0, 0, fw, icon.Height), new Vector2(x, y), new Vector2(22f / fw, 22f / icon.Height));

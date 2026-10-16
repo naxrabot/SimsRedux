@@ -286,7 +286,8 @@ namespace Simitone.Client.UI.Panels.Desktop
                 FloorUpButton.Disabled = LastFloor == 5;
             }
 
-            var speed = RemapSpeed[Math.Max(0, vm.SpeedMultiplier)];
+            int speed;
+            if (!RemapSpeed.TryGetValue(Math.Max(0, vm.SpeedMultiplier), out speed)) speed = LastSpeed; // (an unusual speed, e.g. set by a cheat)
             if (speed != LastSpeed)
             {
                 /*
@@ -304,7 +305,6 @@ namespace Simitone.Client.UI.Panels.Desktop
             if (LastCut != Game.LotControl.WallsMode)
             {
                 LastCut = Game.LotControl.WallsMode;
-                var ui = Content.Get().CustomUI;
 
                 RoofButton.Selected = LastCut == 3;
                 WallsUpButton.Selected = LastCut == 2;
@@ -413,7 +413,7 @@ namespace Simitone.Client.UI.Panels.Desktop
             DynamicOverlay.Add(newLabel);
 
             GameFacade.Screens.Tween.To(newLabel, 1.5f, new Dictionary<string, float>() { { "Y", newLabel.Y-30 }, { "Opacity", 0 } });
-            GameThread.SetTimeout(() => { Remove(newLabel); }, 1500);
+            GameThread.SetTimeout(() => { DynamicOverlay.Remove(newLabel); }, 1500); // (it lives in DynamicOverlay, not here)
         }
 
         private void UpdateMoneyDisplay()
