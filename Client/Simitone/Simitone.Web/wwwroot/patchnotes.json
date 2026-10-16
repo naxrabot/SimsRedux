@@ -2,6 +2,14 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "4.2",
+      "date": "Oct 15, 2026",
+      "features": [
+        "New logo — The Sims Redux logo on the neighborhood bar and the launcher."
+      ],
+      "updates": []
+    },
+    {
       "version": "4.1",
       "date": "Oct 15, 2026",
       "features": [

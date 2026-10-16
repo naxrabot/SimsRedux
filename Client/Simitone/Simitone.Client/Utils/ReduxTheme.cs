@@ -311,6 +311,39 @@ namespace Simitone.Client.Utils
             return Math.Max(inside, outside);
         }
 
+        private static Texture2D _Logo;
+        private static bool LogoTried;
+
+        /// <summary>The Sims Redux logo (Content/redux/redux_logo.png), or null if it's missing.</summary>
+        public static Texture2D Logo
+        {
+            get
+            {
+                if (LogoTried) return _Logo;
+                LogoTried = true;
+                try
+                {
+                    var path = System.IO.Path.Combine(FSO.Common.FSOEnvironment.ContentDir, "redux/redux_logo.png");
+                    if (!FSO.Common.IO.FSOFile.Exists(path)) { Console.WriteLine("[SimsRedux] Logo missing: " + path); return null; }
+                    Texture2D tex;
+                    using (var stream = FSO.Common.IO.FSOFile.OpenRead(path))
+                        tex = FSO.Common.Utils.TextureLoad.FromStream(GameFacade.GraphicsDevice, stream);
+                    // the game draws with pre-multiplied alpha: soft edges stay clean
+                    var data = new Color[tex.Width * tex.Height];
+                    tex.GetData(data);
+                    for (int i = 0; i < data.Length; i++)
+                    {
+                        var c = data[i];
+                        if (c.A < 255) data[i] = new Color(c.R * c.A / 255, c.G * c.A / 255, c.B * c.A / 255, c.A);
+                    }
+                    tex.SetData(data);
+                    _Logo = tex;
+                }
+                catch (Exception e) { Console.WriteLine("[SimsRedux] Couldn't load the logo: " + e.Message); }
+                return _Logo;
+            }
+        }
+
         /// <summary>The bottom bar: a light rim on top, then the UI colour fading darker. 1 pixel wide, stretch it.</summary>
         public static Texture2D BarGradient(int height)
         {

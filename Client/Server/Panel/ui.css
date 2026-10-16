@@ -59,9 +59,10 @@ input[readonly]{color:var(--dim)}
   display:flex;align-items:center;gap:22px;
   padding:11px 16px;background:var(--bg2);border-bottom:1px solid var(--line);
 }
-.brand{display:flex;align-items:baseline;gap:9px;flex:0 0 auto}
+.brand{display:flex;align-items:center;gap:9px;flex:0 0 auto}
 .brand .mark{color:var(--acc);font-size:15px;transform:translateY(1px)}
 .brand .name{letter-spacing:.22em;font-weight:700;font-size:14px}
+.brand .logo{height:40px;width:auto;display:block;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))}
 .brand .sub{color:var(--dimmer);letter-spacing:.16em;font-size:10px;text-transform:uppercase}
 .stats{display:flex;align-items:center;gap:10px;flex:1 1 auto;min-width:0;flex-wrap:wrap}
 .stat{

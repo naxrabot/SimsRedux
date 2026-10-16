@@ -44,6 +44,29 @@ namespace Simitone.Client.UI.Panels
         private int BarEnd = 800;
         private const int ReduxBarH = 40;
 
+        // SimsRedux: The Sims Redux logo replaces the original one (both looks), 52 tall like the original
+        private const int LogoH = 52;
+        private int LogoWidth
+        {
+            get
+            {
+                var l = ReduxTheme.Logo;
+                if (l != null) return (int)Math.Round(l.Width * (LogoH / (float)l.Height));
+                return Logo?.Width ?? 70;
+            }
+        }
+
+        private void DrawLogo(UISpriteBatch batch, Texture2D original)
+        {
+            var l = ReduxTheme.Logo;
+            if (l != null)
+            {
+                float s = LogoH / (float)l.Height;
+                DrawLocalTexture(batch, l, null, new Vector2(6, 1), new Vector2(s, s));
+            }
+            else DrawLocalTexture(batch, original, new Vector2(8, 4));
+        }
+
         // button layout measured from the original screens
         private const int ButtonY = 5;
         private const int ClassicFirstX = 204, Spacing = 50;
@@ -120,9 +143,15 @@ namespace Simitone.Client.UI.Panels
             Add(NeighNumber);
 
             // SimsRedux: "Redux / Beta / v0.1" next to The Sims logo
-            int textX = 8 + (Logo?.Width ?? 70) + (Redux ? 8 : 2);
+            int textX = 8 + LogoWidth + (Redux ? 8 : 2);
             int textW = Math.Max(30, prevX - (Redux ? 10 : 4) - textX);
-            if (Redux)
+            if (ReduxTheme.Logo != null)
+            {
+                // the Sims Redux logo already says "Redux": just the stage and version next to it
+                AddVersionLine(ReduxVersion.Stage, 9, new Color(255, 205, 70), textX, bandMid - 11, textW, 11);
+                AddVersionLine(ReduxVersion.Text, 9, new Color(205, 210, 255), textX, bandMid + 1, textW, 11);
+            }
+            else if (Redux)
             {
                 AddVersionLine("Redux", 11, Color.White, textX, bandMid - 17, textW, 13);
                 AddVersionLine(ReduxVersion.Stage, 8, new Color(255, 205, 70), textX, bandMid - 4, textW, 10);
@@ -395,13 +424,13 @@ namespace Simitone.Client.UI.Panels
             {
                 // Redux: one smooth bar in the UI colour, the round buttons sitting in their sockets
                 DrawLocalTexture(batch, ReduxTheme.TopBar(BarEnd, ReduxBarH, Sockets), Vector2.Zero);
-                if (LogoCut == null) LogoCut = TS1UIGraphics.GetCutout("NghUI/TheSimsLogo.bmp", 1, 14);
-                DrawLocalTexture(batch, LogoCut, new Vector2(8, 4));
+                if (LogoCut == null && ReduxTheme.Logo == null) LogoCut = TS1UIGraphics.GetCutout("NghUI/TheSimsLogo.bmp", 1, 14);
+                DrawLogo(batch, LogoCut);
             }
             else
             {
                 DrawLocalTexture(batch, Banner, Vector2.Zero);
-                DrawLocalTexture(batch, Logo, new Vector2(8, 4));
+                DrawLogo(batch, Logo);
             }
             base.Draw(batch);
         }

@@ -21,6 +21,10 @@
     <Content Include="Content\redux\mods\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- SimsRedux: The Sims Redux logo (neighbourhood bar) -->
+    <Content Include="Content\redux\redux_logo.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <!-- SimsRedux: loading screen wallpaper -->
     <Content Include="Content\redux\loading_wallpaper.jpg">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

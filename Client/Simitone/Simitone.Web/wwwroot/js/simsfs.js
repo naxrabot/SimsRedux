@@ -124,6 +124,8 @@
 #srx-setup .box { width: 100%; max-width: 560px; background: rgba(0, 0, 58, .92); max-height: calc(100vh - 32px); overflow: auto; border: 2px solid #7878c8; border-right-color: #000028;
   border-bottom-color: #000028; box-shadow: 6px 6px 0 rgba(0,0,0,.35); padding: 24px 26px; }
 #srx-setup h1 { font-size: 26px; margin: 0 0 4px; color: #fff; font-weight: 600; }
+#srx-setup h1 .logoimg { display: block; width: 220px; max-width: 70%; margin: 0 auto 6px; }
+#srx-setup .logo .logoimg { display: block; width: 300px; max-width: 80%; height: auto; margin: 0 auto 4px; filter: drop-shadow(0 4px 10px rgba(0,0,0,.45)); }
 #srx-setup h2 { font-size: 15px; margin: 0 0 18px; color: #78ff8c; font-weight: 600; }
 #srx-setup p { font-size: 14px; line-height: 1.5; margin: 0 0 12px; }
 #srx-setup code { background: #000052; padding: 1px 5px; color: #fff; font-size: 13px; overflow-wrap: anywhere; }
@@ -162,7 +164,7 @@
 #srx-setup .l-top { padding: 28px 30px 18px; text-align: center; background: linear-gradient(rgba(120,255,140,.07), transparent); }
 #srx-setup .logo { font-size: 38px; font-weight: 800; letter-spacing: .14em; color: #fff; line-height: 1; text-shadow: 0 2px 18px rgba(80,140,255,.45); }
 #srx-setup .logo span { color: #78ff8c; }
-#srx-setup .logo img { max-width: 100%; max-height: 120px; }
+#srx-setup .logo img { max-width: 100%; max-height: 190px; }
 #srx-setup .ver { margin-top: 10px; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: #8a96d0; }
 #srx-setup .ver b { color: #fff; font-weight: 600; }
 #srx-setup .ver .stage { color: #04102a; background: #78ff8c; font-weight: 700; padding: 1px 6px; margin-right: 8px; letter-spacing: .1em; }
@@ -264,7 +266,7 @@
         el.innerHTML = `<div class="box">
 <div class="launcher hidden">
   <div class="l-top">
-    <div class="logo">THE SIMS <span>REDUX</span></div>
+    <div class="logo"><img class="logoimg" src="img/redux-logo.png" alt="The Sims Redux"></div>
     <div class="ver"><span class="stage">BETA</span>Version <b class="vnum">&mdash;</b></div>
   </div>
   <div class="l-acct">
@@ -303,7 +305,7 @@
   </div>
 </div>
 <div class="setup">
-  <h1>The Sims Redux</h1>
+  <h1><img class="logoimg" src="img/redux-logo.png" alt="The Sims Redux"></h1>
   <h2 class="title"></h2>
   <div class="acct">
     <h3>YOUR ACCOUNT</h3>
