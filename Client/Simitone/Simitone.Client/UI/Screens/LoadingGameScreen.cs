@@ -40,6 +40,7 @@ namespace Simitone.Client.UI.Screens
         public UISimitoneLogo Logo;
         public UISimitoneLoadLabel LastLabel;
         public bool LoadingComplete;
+        private bool EnteredGame;
         public UITweenInstance LogoTween;
 
         private bool Closing = false;
@@ -175,8 +176,11 @@ namespace Simitone.Client.UI.Screens
             }
             lock (this)
             {
-                if (LoadingComplete)
+                // (once: EnterGameMode waits for the next update, and asking again before then
+                //  could build a second game screen)
+                if (LoadingComplete && !EnteredGame)
                 {
+                    EnteredGame = true;
                     GameController.EnterGameMode("", false);
                 }
             }
@@ -258,9 +262,6 @@ namespace Simitone.Client.UI.Screens
             // SimsRedux: never Simitone's logo screen - plain Sims Redux blue if the wallpaper can't be shown
             var blank = TextureGenerator.GetPxWhite(batch.GraphicsDevice);
             DrawLocalTexture(batch, blank, null, new Vector2(-sw, -sh), new Vector2(sw * 2, sh * 2), WallpaperBlue * Opacity);
-            return;
-            var scale = Math.Max(sw / 1136f, sh / 640f);
-            DrawLocalTexture(batch, Bg, null, new Vector2(Bg.Width, Bg.Height) / -2 * scale, new Vector2(scale));
         }
     }
 

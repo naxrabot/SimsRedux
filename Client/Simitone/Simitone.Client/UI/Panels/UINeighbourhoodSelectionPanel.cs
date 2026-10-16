@@ -189,8 +189,14 @@ namespace Simitone.Client.UI.Panels
             }
         }
 
-        public UINeighborhoodSelectionPanel(ushort mode)
+        public UINeighborhoodSelectionPanel(ushort mode) : this(mode, false)
         {
+        }
+
+        /// <summary>SimsRedux: moveInMode is set before the screen is built (the classic bar reads it).</summary>
+        public UINeighborhoodSelectionPanel(ushort mode, bool moveInMode)
+        {
+            MoveInMode = moveInMode;
             Provider = Content.Get().TS1Global;
             PopulateScreen(mode);
             GameResized();
@@ -512,7 +518,6 @@ namespace Simitone.Client.UI.Panels
 
         public UINeighborhoodAnimationLayer(NeighborhoodImageAnim anim, bool pulsate, int frameTime)
         {
-            var provider = Content.Get().TS1Global;
             Frames = anim.Frames.Select(x => UINeighborhoodSelectionPanel.MapTexture(x)).ToArray();
             SubFrame = frameTime;
             FrameTime = frameTime;
@@ -611,7 +616,6 @@ namespace Simitone.Client.UI.Panels
 
         public UINeighborhoodHouseButton(int houseNumber, Action<int> selectionCallback, float scale)
         {
-            if (houseNumber == 71) { }
             AlphaTime = 0;
             var house = Content.Get().Neighborhood.GetHouse(houseNumber);
             HouseTex = house.Get<BMP>(513)?.GetTexture(GameFacade.GraphicsDevice);

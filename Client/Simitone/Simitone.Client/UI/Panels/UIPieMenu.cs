@@ -252,10 +252,20 @@ namespace Simitone.Client.UI.Panels
             HeadCamera.Position = new Vector3(0, 5.2f, 0) + Vector3.Transform(off, mat);
         }
 
+        private bool SimSceneRemoved;
         public void RemoveSimScene()
         {
+            if (SimSceneRemoved || HeadScene == null) return;
+            SimSceneRemoved = true;
             GameFacade.Scenes.RemoveExternal(HeadScene);
             HeadScene.Target.Dispose();
+        }
+
+        /// <summary>SimsRedux: a pie menu still open when the lot closes lets go of its head picture too.</summary>
+        public override void Removed()
+        {
+            base.Removed();
+            RemoveSimScene();
         }
 
         public void UpdateHeadPosition(int x, int y)

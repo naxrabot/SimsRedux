@@ -348,6 +348,7 @@ namespace Simitone.Client.UI.Panels
 
         public void Cancel()
         {
+            if (Holding == null) return;
             Holding.Dir = Holding.OriginalDir;
             OnDelete?.Invoke(Holding, null);
             ClearSelected();
@@ -364,7 +365,9 @@ namespace Simitone.Client.UI.Panels
             if (Holding != null)
             {
                 if (Roommate) cur = CursorType.SimsPlace;
-                if (state.KeyboardState.IsKeyDown(Keys.Delete))
+                // (on the key press only: holding Delete over something that can't be sold
+                //  repeated the error sound every frame)
+                if (state.NewKeys.Contains(Keys.Delete))
                 {
                     SellBack(null);
                 }

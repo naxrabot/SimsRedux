@@ -199,7 +199,7 @@ function toolCommand(action, a) {
       return n && v ? { cmd: "/xp give " + n + " " + v } : { error: "a player's name and an amount" };
     }
     case "backupNow": return { cmd: "/backup" };
-    case "restore": return /^[\w.-]{1,80}$/.test(String(a.name)) ? { cmd: "/restore " + a.name + " confirm" } : { error: "no such backup" };
+    case "restore": return /^[\w-][\w.-]{0,79}$/.test(String(a.name)) && String(a.name).indexOf("..") < 0 ? { cmd: "/restore " + a.name + " confirm" } : { error: "no such backup" };
     case "backupAuto": {
       const h = a.hour === "off" ? "off" : int(a.hour, 0, 23), k = int(a.keep, 1, 365);
       return h !== null && k !== null ? { cmd: "/backups auto " + h + " " + k } : { error: "hour 0-23 (or off) and how many to keep (1-365)" };
@@ -218,6 +218,34 @@ function toolCommand(action, a) {
   }
   return { error: "unknown action" };
 }
+/* An account name the server accepts (Accounts.cs NameRule): letters, digits, space, _ and -. */
+const ACCOUNT_NAME = /^[A-Za-z0-9][A-Za-z0-9 _-]{1,18}[A-Za-z0-9]$/;
+const ROLES = ["admin", "tester", "player"];
+/** The Accounts window's buttons as console commands (or { error }). Names, roles and passwords are
+    checked here so a typed value can't add words to the command. */
+function accountCommand(action, name, a, b) {
+  name = oneLine(name); a = oneLine(a); b = oneLine(b);
+  if (action === "registration") return { cmd: "/registration " + (a === "on" ? "on" : "off") };
+  if (action === "motd") return { cmd: "/motd " + a };
+  if (!name) return { error: "no account given" };
+  if (!ACCOUNT_NAME.test(name)) return { error: "that isn't an account name (3-20 letters, digits, spaces, _ or -)" };
+  const pw = () => a && !/\s/.test(a);
+  switch (action) {
+    case "add":
+      if (!pw()) return { error: a ? "passwords can't have spaces" : "give a password" };
+      if (b && ROLES.indexOf(b) < 0) return { error: "the role is admin, tester or player" };
+      return { cmd: "/account add " + name + " " + a + " " + (b || "player") };
+    case "role": return ROLES.indexOf(a) >= 0 ? { cmd: "/role " + name + " " + a } : { error: "the role is admin, tester or player" };
+    case "resetpw": return pw() ? { cmd: "/resetpw " + name + " " + a } : { error: a ? "passwords can't have spaces" : "give a password" };
+    case "approve": case "unapprove": case "suspend": case "unsuspend": case "delete":
+      return { cmd: "/" + action + " " + name };
+  }
+  return { error: "unknown action" };
+}
+/** Is this a web address (http or https) - the only kind the panel opens in the browser. */
+function isWebUrl(u) { try { const x = new URL(String(u || "")); return x.protocol === "https:" || x.protocol === "http:"; } catch (e) { return false; } }
+const VERSION_RE = /^\d{1,3}(\.\d{1,3}){0,3}$/;
+
 /** Maintenance while the server is stopped: saved in its settings, so it starts in maintenance. */
 function setMaintenanceFile(dataDir, on) {
   const file = dataPaths(dataDir).config;
@@ -248,7 +276,7 @@ function verCmp(a, b) {
 function cleanPatch(p) {
   if (!p || typeof p !== "object") return null;
   const version = String(p.version || "").trim();
-  if (!/^\d{1,3}(\.\d{1,3}){0,3}$/.test(version)) return null;
+  if (!VERSION_RE.test(version)) return null;
   const lines = v => (Array.isArray(v) ? v : String(v || "").split(/\r?\n/))
     .map(t => oneLine(String(t)).replace(/^[-*\u2022]\s*/, "").trim()).filter(t => t.length > 0).slice(0, 30).map(t => t.slice(0, 200));
   const out = { version, date: oneLine(String(p.date || "")).slice(0, 40), features: lines(p.features), updates: lines(p.updates) };
@@ -292,12 +320,14 @@ function savePatch(dataDir, entry) {
 /** Hide a version from the launcher (a shipped one stays hidden until shown again). */
 function hidePatch(dataDir, version) {
   version = String(version || "").trim();
+  if (!VERSION_RE.test(version)) return { ok: false, error: "no such version" };
   writeChanges(dataDir, list => list.filter(p => p.version !== version).concat([{ version, date: "", features: [], updates: [], hidden: true }]));
   return { ok: true };
 }
 /** Forget the panel's change to a version: back to what shipped (or gone, if it was added here). */
 function resetPatch(dataDir, version) {
   version = String(version || "").trim();
+  if (!VERSION_RE.test(version)) return { ok: false, error: "no such version" };
   writeChanges(dataDir, list => list.filter(p => p.version !== version));
   return { ok: true };
 }
@@ -316,12 +346,15 @@ function getJSON(url, ms, maxBytes) {
         let body = "";
         res.setEncoding("utf8");
         const cap = maxBytes || 200000;
-        res.on("data", d => { body += d; if (body.length > cap) req.destroy(); });
+        res.on("data", d => { body += d; if (body.length > cap) { finish({ ok: false, error: "answer too big" }); req.destroy(); } });
         res.on("end", () => {
           let json = null;
           try { json = JSON.parse(body); } catch (e) { }
           finish({ ok: true, status: res.statusCode, headers: res.headers, json, body: json ? "" : body.slice(0, 400) });
         });
+        /* cut off part-way (timeout, too big, connection dropped): "end" never comes, so answer here */
+        res.on("error", e => finish({ ok: false, error: String(e && e.message || e) }));
+        res.on("close", () => finish({ ok: false, error: "the connection closed early" }));
       });
     } catch (e) { return finish({ ok: false, error: String(e && e.message || e) }); }
     req.on("timeout", () => { req.destroy(); finish({ ok: false, error: "timed out" }); });
@@ -488,7 +521,7 @@ module.exports = { readServiceState, safeServiceName,
   CHANNELS, DEFAULTS,
   guessServerExe, serverCommand, isFile,
   defaultDataDir, dataPaths, readAccounts, readServerConfig,
-  EVENT_KINDS, POWERS, XP_SETTINGS, readTools, toolCommand, setMaintenanceFile,
+  EVENT_KINDS, POWERS, XP_SETTINGS, readTools, toolCommand, accountCommand, isWebUrl, setMaintenanceFile,
   shippedNotesFile, verCmp, cleanPatch, mergePatchNotes, readPatchNotes, savePatch, hidePatch, resetPatch,
   loadSettings, saveSettings, profile, serverArgs,
   getJSON, readHealth, readPublic,

@@ -97,6 +97,28 @@ ok(T("powers", { name: "mia", powers: ["say", "kick", "root"] }).cmd === "/mod m
 ok(T("restore", { name: "2026-10-15_04-00-00_auto" }).cmd === "/restore 2026-10-15_04-00-00_auto confirm" && T("restore", { name: "../x y" }).error, "restore names checked");
 ok(T("backupAuto", { hour: "off", keep: 14 }).cmd === "/backups auto off 14" && T("backupAuto", { hour: 25, keep: 14 }).error, "automatic backup settings");
 ok(T("shutdown", { seconds: 60 }).cmd === "/shutdown 60" && T("shutdown", { seconds: 30, restart: true }).cmd === "/shutdown 30 restart" && T("shutdown", { cancel: true }).cmd === "/shutdown cancel", "shutdown countdown");
+ok(T("restore", { name: ".." }).error && T("restore", { name: "a..b" }).error && T("restore", { name: ".hidden" }).error, "restore names can't climb out of backups/");
+
+// the Accounts window: names, roles and passwords checked before they become a command
+const A = C.accountCommand;
+ok(A("add", "Ann Lee", "pw1", "tester").cmd === "/account add Ann Lee pw1 tester" && A("add", "mia", "pw").cmd === "/account add mia pw player", "make an account");
+ok(A("add", "mia", "two words").error && A("resetpw", "mia", "").error && A("add", "mia", "pw", "root").error, "bad passwords and roles refused");
+ok(A("role", "mia", "admin").cmd === "/role mia admin" && A("role", "mia", "admin x").error, "roles checked");
+ok(A("approve", "x", "").error && A("delete", "mia; /quit", "").error && A("delete", "", "").error, "account names checked");
+ok(A("suspend", "Ann Lee").cmd === "/suspend Ann Lee" && A("registration", "", "on").cmd === "/registration on" && A("nuke", "mia").error, "account actions");
+ok(C.isWebUrl("https://tsr.mbrew.studio") && !C.isWebUrl("file:///C:/Windows/System32/calc.exe") && !C.isWebUrl("calc.exe"), "only web addresses open in the browser");
+ok(!C.hidePatch(path.join(tmp, "notes"), "../x").ok && !C.resetPatch(path.join(tmp, "notes"), "").ok, "hide and reset need a real version");
+
+// a JSON check never hangs, even on an answer that is too big and never ends
+{
+  const http = await import("http");
+  const srv = http.createServer((q, r) => { r.writeHead(200); r.write("x".repeat(300000)); }).listen(0, "127.0.0.1");
+  await new Promise(r => srv.once("listening", r));
+  const got = await Promise.race([C.getJSON("http://127.0.0.1:" + srv.address().port + "/", 3000), new Promise(r => setTimeout(() => r("hung"), 2000))]);
+  ok(got !== "hung" && got.ok === false, "an oversized answer gives up instead of hanging");
+  srv.closeAllConnections(); srv.close();
+}
+
 const md = path.join(tmp, "maint");
 C.setMaintenanceFile(md, true);
 ok(C.readServerConfig(md).maintenance === true && C.readTools(md).maintenance === true, "maintenance saved while stopped");

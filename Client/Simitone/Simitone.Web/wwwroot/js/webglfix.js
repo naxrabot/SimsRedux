@@ -121,6 +121,7 @@
         if (!document.body) return;
         if (!pageBox) {
             pageBox = document.createElement('div');
+            pageBox.setAttribute('data-srx-scroll', ''); // (index.html leaves the mouse wheel alone over it)
             pageBox.style.cssText = 'position:fixed;top:8px;right:8px;width:min(560px,90vw);max-height:40vh;overflow:auto;z-index:1002;' +
                 'background:#000052;color:#ffd27a;border:2px solid #7878c8;font:11px monospace;padding:8px;white-space:pre-wrap;word-break:break-all';
             const bar = document.createElement('div');
@@ -166,9 +167,12 @@
                 if (typeof data !== 'number' && data && length) size = length * (data.BYTES_PER_ELEMENT || 1);
                 bufSizes.set(buf, size);
                 if (target === gl2.ELEMENT_ARRAY_BUFFER) {
-                    const bytes = new Uint8Array(size);
-                    if (typeof data !== 'number' && data) bytes.set(new Uint8Array(data.buffer || data, (data.byteOffset || 0) + (srcOffset || 0) * (data.BYTES_PER_ELEMENT || 1), size));
-                    indexCopies.set(buf, bytes);
+                    // (a copy that doesn't fit must not stop the game's own upload below)
+                    try {
+                        const bytes = new Uint8Array(size);
+                        if (typeof data !== 'number' && data) bytes.set(new Uint8Array(data.buffer || data, (data.byteOffset || 0) + (srcOffset || 0) * (data.BYTES_PER_ELEMENT || 1), size));
+                        indexCopies.set(buf, bytes);
+                    } catch (e) { indexCopies.delete(buf); }
                 }
             }
             return bufData.apply(this, arguments);

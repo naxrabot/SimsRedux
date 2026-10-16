@@ -89,6 +89,8 @@ namespace Simitone.Client.UI.Panels.LiveSubpanels
             var neighbour = sel.GetPersonData(VMPersonDataVariable.NeighborId);
 
             var n = neighbourhood.GetNeighborByID(neighbour);
+            // SimsRedux: a Sim with no entry in this neighbourhood (e.g. visiting from another game online) has nobody to list
+            if (n?.Relationships == null) return;
             var rel = n.Relationships;
 
             var rItems = rel.Select(x => new Tuple<int,int>(neighbour, x.Key)).ToList();

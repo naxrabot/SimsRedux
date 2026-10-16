@@ -757,7 +757,7 @@ namespace Simitone.Client.UI.Screens
             if (mode == UICASMode.ToNeighborhood)
             {
                 //todo: animate into this
-                
+                if (Dead) return; // already on the way (a second click would clean up and enter the game twice)
                 Dead = true;
                 var dialog = new UITransDialog("normal", () => {
                     CleanupLastWorld();

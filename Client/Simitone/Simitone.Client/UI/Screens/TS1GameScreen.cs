@@ -96,7 +96,9 @@ namespace Simitone.Client.UI.Screens
 
                 if (value < 4)
                 {
-                    if (vm == null)
+                    // (SimsRedux: a lot that never finished loading - an online join that failed -
+                    // has a VM but no lot controls yet; leaving it must not stop half way)
+                    if (vm == null || LotControl == null)
                     {
 
                     }
@@ -138,8 +140,8 @@ namespace Simitone.Client.UI.Screens
             set
             {
                 _Rotation = value;
+                if (World == null) return;
                 World.State.CenterTile = World.EstTileAtPosWithScroll(new Vector2(ScreenWidth / 2, ScreenHeight / 2));
-                if (World != null)
                 {
                     switch (_Rotation)
                     {
@@ -186,7 +188,7 @@ namespace Simitone.Client.UI.Screens
         {
             get
             {
-                return vm.GetAvatarByPersist(vm.MyUID);
+                return vm?.GetAvatarByPersist(vm.MyUID);
             }
         }
 
@@ -242,14 +244,10 @@ namespace Simitone.Client.UI.Screens
             Content.Get().Neighborhood.PreparePersonDataFromObject = PersonGeneratorHelper.PreparePersonDataFromObject;
             Content.Get().Neighborhood.AddMissingNeighbors();
             var nbd = (ushort)((mode == NeighSelectionMode.MoveInMagic) ? 7 : 4);
-            TS1NeighPanel = new UINeighborhoodSelectionPanel(nbd);
-            // SimsRedux: the classic top bar replaces the side buttons
+            // SimsRedux: the classic top bar replaces the side buttons (and needs to know about
+            // move-in mode before the screen is built, so it's only built once)
             var classicBar = UIClassicNeighborhoodBar.Enabled;
-            if (classicBar)
-            {
-                TS1NeighPanel.MoveInMode = mode != NeighSelectionMode.Normal;
-                TS1NeighPanel.PopulateScreen(nbd); // rebuild so the bar knows about move-in mode
-            }
+            TS1NeighPanel = new UINeighborhoodSelectionPanel(nbd, classicBar && mode != NeighSelectionMode.Normal);
             UIElement switcher = classicBar ? null : new UINeighbourhoodSwitcher(TS1NeighPanel, nbd, mode != NeighSelectionMode.Normal);
             TS1NeighPanel.OnHouseSelect += (house) =>
             {
@@ -299,7 +297,8 @@ namespace Simitone.Client.UI.Screens
             {
                 // SimsRedux: original loading screen first
                 ClassicLoading = true;
-                UIClassicLoadScreen.Run(house, false, () => { PlayHouse(house, switcher); ClassicLoading = false; });
+                // (reset even if loading the lot throws, or no house could be opened again)
+                UIClassicLoadScreen.Run(house, false, () => { try { PlayHouse(house, switcher); } finally { ClassicLoading = false; } });
                 return;
             }
             // SimsRedux: "Just Watch" a background family (nothing can be done to or with them)
@@ -779,7 +778,7 @@ namespace Simitone.Client.UI.Screens
         {
             if (vm == null) return;
             if (!Downtown) SavedLot = vm.Save();
-            if (target == ActiveFamily.HouseNumber && SavedLot != null)
+            if (ActiveFamily != null && target == ActiveFamily.HouseNumber && SavedLot != null)
             {
                 Downtown = false;
                 InitializeLot(SavedLot);
@@ -842,10 +841,7 @@ namespace Simitone.Client.UI.Screens
                 GameFacade.Scenes.Remove(World);
                 World.Dispose();
             }
-            //LotControl.Dispose();
-            if (LotControl != null) this.Remove(LotControl);
-            if (Frontend != null) this.Remove(Frontend);
-            Frontend = null;
+            // (the lot controls and frontend are removed by CleanupLastWorld, once)
             vm.SuppressBHAVChanges();
         }
 
@@ -1141,11 +1137,12 @@ namespace Simitone.Client.UI.Screens
         private void VMLotSwitch(uint lotId)
         {
             if (IsGuest || Host != null) return; // SimsRedux: no travelling while online (for now)
-            vm.SpeedMultiplier = 0;
             if ((short)lotId == -1)
             {
+                if (ActiveFamily == null) return; // "go home" with no family to go home to
                 lotId = (uint)ActiveFamily.HouseNumber;
             }
+            vm.SpeedMultiplier = 0;
             SwitchLot = (int)lotId;
         }
 
@@ -1267,7 +1264,7 @@ namespace Simitone.Client.UI.Screens
                 }
                 if (CloseAlert == null)
                 {
-                    var canSave = vm != null;
+                    var canSave = vm != null && !IsGuest; // (a visitor's game never saves the host's lot)
                     CloseAlert = new UIMobileAlert(new FSO.Client.UI.Controls.UIAlertOptions
                     {
                         Title = GameFacade.Strings.GetString("153", "1"), //quit?

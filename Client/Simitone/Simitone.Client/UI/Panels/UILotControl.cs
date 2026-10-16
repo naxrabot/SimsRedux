@@ -601,6 +601,7 @@ namespace Simitone.Client.UI.Panels
             }
             if (PieMenu == null && ActiveEntity != null)
             {
+                if (GotoObject == null) return; // the lot hasn't run a frame yet
                 VMEntity obj;
                 //get new pie menu, make new pie menu panel for it
                 var tilePos = World.EstTileAtPosWithScroll(new Vector2(pt.X, pt.Y) / FSOEnvironment.DPIScaleFactor);
@@ -627,7 +628,8 @@ namespace Simitone.Client.UI.Panels
                     {
                         obj = GotoObject;
                     }
-                    if (obj is VMAvatar && state.CtrlDown)
+                    // (SimsRedux online: only ever a Sim of your own family - never another player's)
+                    if (obj is VMAvatar && state.CtrlDown && CanTakeControl((VMAvatar)obj))
                     {
                         //debug switch to avatar
                         vm.SendCommand(new VMNetChangeControlCmd()
@@ -724,6 +726,33 @@ namespace Simitone.Client.UI.Panels
         private bool OwnsDialog(FSO.SimAntics.Model.VMDialogInfo info)
         {
             return OwnsCaller(info.Caller);
+        }
+
+        /// <summary>
+        /// SimsRedux online: may this player switch to controlling this Sim? Offline, anyone (as
+        /// before). Online, only a Sim of the lot's family you play (host / family owner) - never a
+        /// visitor's Sim, and a visitor never switches at all.
+        /// </summary>
+        public bool CanTakeControl(VMAvatar ava)
+        {
+            if (ava == null || ava.Dead) return false;
+            var screen = Parent as TS1GameScreen;
+            if (screen == null || (screen.Host == null && !screen.IsGuest)) return true;
+            if (screen.IsVisitor || screen.Watching) return false;
+            if (ava.PersistID >= ReduxOnlineInfo.FirstGuestID && ava.PersistID != vm.MyUID) return false;
+            if ((ava.GetValue(FSO.SimAntics.Model.VMStackObjectVariable.MovementFlags) & (short)VMMovementFlags.FSOExcludeUserSave) != 0) return false; // a visiting Sim
+            var family = vm.TS1State?.CurrentFamily;
+            return family?.RuntimeSubset != null && family.RuntimeSubset.Contains(ava.Object.OBJ.GUID);
+        }
+
+        /// <summary>SimsRedux: leaving the lot also closes its open questions (they'd answer a lot that's gone).</summary>
+        public override void Removed()
+        {
+            base.Removed();
+            if (BlockingDialog != null) { UIScreen.RemoveDialog(BlockingDialog); BlockingDialog = null; }
+            if (ClassicBlocking != null) { ClassicBlocking.Close(); ClassicBlocking = null; }
+            if (TS1NeighSelector != null) { TS1NeighSelector.Parent?.Remove(TS1NeighSelector); TS1NeighSelector = null; }
+            LastDialogID = 0;
         }
 
         private void TryAutoSelectSim()

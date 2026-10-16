@@ -102,10 +102,11 @@
                 if (!box)
                 {
                     box = document.createElement('div');
+                    box.setAttribute('data-srx-scroll', '');
                     box.style.cssText = 'position:fixed;left:8px;top:8px;width:min(720px,94vw);max-height:45vh;overflow:auto;z-index:1003;background:rgba(0,0,82,.92);color:#bfffbf;border:2px solid #7878c8;font:11px monospace;padding:8px;white-space:pre-wrap';
                     var copy = document.createElement('button');
                     copy.textContent = 'Copy'; copy.style.cssText = 'float:right';
-                    copy.onclick = function () { navigator.clipboard && navigator.clipboard.writeText(last).then(function () { copy.textContent = 'Copied!'; setTimeout(function () { copy.textContent = 'Copy'; }, 1500); }); };
+                    copy.onclick = function () { navigator.clipboard && navigator.clipboard.writeText(last).then(function () { copy.textContent = 'Copied!'; setTimeout(function () { copy.textContent = 'Copy'; }, 1500); }, function () { copy.textContent = 'Copy failed'; }); };
                     box.appendChild(copy);
                     box.appendChild(document.createElement('pre')).style.margin = '0';
                     document.body.appendChild(box);
@@ -152,7 +153,12 @@
 
             // first make sure the player's Sims files are here (asks for the folder the first time),
             // then begin the game loop
-            SimsFS.prepare().then(() => window.requestAnimationFrame(tickJS));
+            SimsFS.prepare().then(() => window.requestAnimationFrame(tickJS), e =>
+            {
+                // (e.g. this browser won't let the site keep files - a private window): say so instead of hanging
+                console.error('[SimsRedux] setup failed', e);
+                window.simsReduxCrashed((e && e.message) || String(e));
+            });
             // "still here" for online lots, even while this tab is in the background
             setInterval(() => { try { DotNet.invokeMethod('SimsRedux.Web', 'SimsReduxAlive'); } catch (e) { } }, 5000);
         };
@@ -161,6 +167,9 @@
         {
             // Prevent Arrows Keys and Spacebar scrolling the outer page
             // when running inside an iframe. e.g: itch.io embedding.
+            // (not while typing in the launcher's boxes: spaces and the cursor keys must work there)
+            var t = event.target, tag = t && t.tagName;
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) return;
             if ([32, 37, 38, 39, 40].indexOf(event.keyCode) > -1)
                 event.preventDefault();
         });
@@ -168,6 +177,9 @@
         {
             // Prevent Mousewheel scrolling the outer page
             // when running inside an iframe. e.g: itch.io embedding.
+            // (the launcher and the debug boxes scroll themselves, so the wheel is left alone over them)
+            var t = event.target;
+            if (t && t.closest && t.closest('#srx-setup, [data-srx-scroll]')) return;
             event.preventDefault();
         }, { passive: false });
     </script>

@@ -255,7 +255,7 @@ async function submit(){
   const el = $("cmd"); const v = el.value.trim();
   if (!v) return;
   note("you", "› " + scrub(v));
-  HIST.push(scrub(v) === v ? v : scrub(v)); if (HIST.length > 200) HIST.shift(); hi = HIST.length;
+  HIST.push(scrub(v)); if (HIST.length > 200) HIST.shift(); hi = HIST.length;
   el.value = ""; say("");
   const r = await P.cmd(ACTIVE, v);
   if (r && r.ok === false) note("err", r.error || "that didn't go through");
@@ -700,7 +700,7 @@ $("cfgSave").addEventListener("click", async () => {
     for (const ch of CH) PROFILE[ch] = r.servers[ch].profile;
     chips(); $("cfg").classList.add("hidden");
     if (CH.some(c => RUN[c])) say("Saved. Restart a running server for a new port or folder to take effect.");
-  }
+  } else $("cfgMsg").textContent = (r && r.error) || "couldn't save";
 });
 
 $("cmd").addEventListener("keydown", e => {

@@ -31,7 +31,7 @@ namespace Simitone.Client.UI.Panels
         };
 
         private UITextBox baseTextbox;
-        private Texture2D baseTexture;
+        private static Texture2D baseTexture;
         private VM ts1VM;
 
         /// <summary>
@@ -58,8 +58,12 @@ namespace Simitone.Client.UI.Panels
                 ID = "UICheatTextboxBase",
                 
             };
-            baseTexture = new Texture2D(GameFacade.GraphicsDevice, 1, 1);
-            baseTexture.SetData(new Color[] { new Color((byte)67, (byte)93, (byte)90, (byte)255) });
+            // SimsRedux: one shared 1x1 background (a new one was made, and never freed, on every lot)
+            if (baseTexture == null || baseTexture.IsDisposed)
+            {
+                baseTexture = new Texture2D(GameFacade.GraphicsDevice, 1, 1);
+                baseTexture.SetData(new Color[] { new Color((byte)67, (byte)93, (byte)90, (byte)255) });
+            }
             baseTextbox.SetBackgroundTexture(baseTexture, 0, 0, 0, 0);
             Size = new Vector2(200, 23);
             baseTextbox.SetSize(200, 23);
@@ -182,7 +186,7 @@ namespace Simitone.Client.UI.Panels
                     break;
                 }
             }
-            trimRepetitions(baseCmd);
+            baseCmd = trimRepetitions(baseCmd); // (the result was thrown away, so "moveobjects;!" was never recognised)
             if (!cheatDefinitions.TryGetValue(baseCmd, out VMCheatContext.VMCheatType cheatType))
             {
                 // cheat not defined in cheatDefinitions

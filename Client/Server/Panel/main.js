@@ -68,12 +68,20 @@ function startServer(ch) {
     out(ch, "err", msg);
     send("running", { channel: ch, running: false });
   });
+  /* the last line, if it didn't end with a newline (once its output has all arrived) */
+  child.on("close", () => {
+    if (obuf) { out(ch, "out", obuf.replace(/\r$/, "")); obuf = ""; }
+    if (ebuf) { out(ch, "err", ebuf.replace(/\r$/, "")); ebuf = ""; }
+  });
   child.on("exit", (code, sig) => {
     const why = sig ? ("signal " + sig) : ("exit code " + code);
+    /* an old process that was killed and has only now gone: a newer one may already be running */
+    if (sv.child !== child) { out(ch, "panel", "An earlier " + ch + " server process ended — " + why + "."); return; }
     sv.child = null;
     /* 75 is the server's own "restart me" */
-    if ((code === 75 || sv.restartOnExit) && !sv.stopping) {
-      sv.restartOnExit = false;
+    const again = (code === 75 || sv.restartOnExit) && !sv.stopping;
+    sv.restartOnExit = false;
+    if (again) {
       out(ch, "panel", "Restarting the " + ch + " server…");
       setTimeout(() => { const r = startServer(ch); if (!r.ok) out(ch, "err", r.error); }, 700);
       return;
@@ -97,7 +105,7 @@ function stopServer(ch, hard) {
   const c = sv.child;
   if (hard) { try { c.kill(); } catch (e) { } return { ok: true }; }
   try { c.stdin.write("/quit\n"); } catch (e) { }
-  setTimeout(() => { if (c && c.exitCode === null) { out(ch, "panel", "It didn't stop on its own — killing it."); try { c.kill(); } catch (e) { } } }, 8000);
+  setTimeout(() => { if (c && c.exitCode === null && c.signalCode === null) { out(ch, "panel", "It didn't stop on its own — killing it."); try { c.kill(); } catch (e) { } } }, 8000);
   return { ok: true };
 }
 
@@ -182,6 +190,9 @@ function create() {
     webPreferences: { preload: path.join(__dirname, "preload.js"), contextIsolation: true, nodeIntegration: false }
   });
   Menu.setApplicationMenu(null);
+  /* the window only ever shows the panel's own page: no navigating away, no new windows */
+  win.webContents.on("will-navigate", e => e.preventDefault());
+  win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   win.loadFile(path.join(__dirname, "index.html"));
   win.on("closed", () => { win = null; });
 }
@@ -220,7 +231,9 @@ ipcMain.handle("panel:restart", (e, c) => {
   c = ch(c);
   if (!running(c)) return startServer(c);
   SV[c].restartOnExit = true;
-  return sendCommand(c, "/restart");
+  const r = sendCommand(c, "/restart");
+  if (!r.ok) SV[c].restartOnExit = false; // (or a later crash would restart it)
+  return r;
 });
 ipcMain.handle("panel:cmd", (e, c, line) => sendCommand(ch(c), line));
 ipcMain.handle("panel:clear", (e, c) => { SV[ch(c)].tail = []; return { ok: true }; });
@@ -229,13 +242,15 @@ ipcMain.handle("panel:setActive", (e, c) => { S.active = ch(c); C.saveSettings(S
 
 ipcMain.handle("panel:open", (e, c, what) => {
   const P = C.dataPaths(C.profile(S, ch(c), __dirname).dataDir);
+  /* only folders are opened: opening a file would run it */
+  const isDir = d => { try { return fs.statSync(d).isDirectory(); } catch (x) { return false; } };
   try {
     if (what === "log") {
       if (!fs.existsSync(P.log)) return { ok: false, error: "no server.log yet — start the server once" };
       shell.showItemInFolder(P.log); return { ok: true };
     }
     const target = what === "backups" ? P.backups : what === "game" ? S.gameFolder : P.dir;
-    if (!target || !fs.existsSync(target)) return { ok: false, error: "there's no " + (target || "folder") + " yet" + (what === "game" ? "" : " — start the server once") };
+    if (!target || !isDir(target)) return { ok: false, error: "there's no " + (target || "folder") + " yet" + (what === "game" ? "" : " — start the server once") };
     shell.openPath(target);
     return { ok: true };
   } catch (err) { return { ok: false, error: String(err && err.message || err) }; }
@@ -247,7 +262,11 @@ ipcMain.handle("panel:tunnel", async (e, on) => {
     : "Couldn't " + (on ? "start" : "stop") + " the Cloudflare tunnel: " + r.error);
   return r;
 });
-ipcMain.handle("panel:site", () => { shell.openExternal(S.site || C.DEFAULTS.site); return { ok: true }; });
+ipcMain.handle("panel:site", () => {
+  /* only a web address goes to the browser (openExternal would also run file: and other links) */
+  shell.openExternal(C.isWebUrl(S.site) ? S.site : C.DEFAULTS.site);
+  return { ok: true };
+});
 
 /** Pick the Sims 1 folder that Admins and Testers can download. */
 ipcMain.handle("panel:pickGameFolder", async () => {
@@ -274,9 +293,16 @@ ipcMain.handle("panel:pickExe", async () => {
 });
 
 ipcMain.handle("panel:settings", (e, patch) => {
-  patch = patch || {};
-  for (const k of ["gameFolder", "site", "serverExe", "tunnelService"]) if (typeof patch[k] === "string") S[k] = patch[k].trim();
-  for (const c of C.CHANNELS) if (patch[c]) {
+  patch = patch && typeof patch === "object" ? patch : {};
+  /* The server program and the game folder are only ever set through their own pickers
+     (panel:pickExe / panel:pickGameFolder, which check what was picked), and the tunnel's
+     service name only in panel.json - the window can't hand in a path to run or to share. */
+  if (typeof patch.site === "string") {
+    const site = patch.site.trim();
+    if (site && !C.isWebUrl(site)) return { ok: false, error: "the website address has to start with https://" };
+    S.site = site;
+  }
+  for (const c of C.CHANNELS) if (patch[c] && typeof patch[c] === "object") {
     const p = patch[c];
     S[c] = Object.assign({}, S[c], {
       port: Math.max(1, Math.min(65535, parseInt(p.port, 10) || C.DEFAULTS[c].port)),
@@ -328,21 +354,8 @@ ipcMain.handle("panel:accounts", (e, c) => {
   return { ok: true, running: running(c), accounts: C.readAccounts(p.dataDir), registration: cfg.registration !== false, motd: cfg.motd || "" };
 });
 ipcMain.handle("panel:account", (e, c, action, name, a, b) => {
-  c = ch(c);
-  name = C.oneLine(name); a = C.oneLine(a); b = C.oneLine(b);
-  if (!name && action !== "registration" && action !== "motd") return { ok: false, error: "no account given" };
-  if (/\s/.test(a) && (action === "add" || action === "resetpw")) return { ok: false, error: "passwords can't have spaces" };
-  switch (action) {
-    case "add": return sendCommand(c, "/account add " + name + " " + a + " " + (b || "player"));
-    case "role": return sendCommand(c, "/role " + name + " " + a);
-    case "resetpw": return sendCommand(c, "/resetpw " + name + " " + a);
-    case "approve": return sendCommand(c, "/approve " + name);
-    case "unapprove": return sendCommand(c, "/unapprove " + name);
-    case "suspend": return sendCommand(c, "/suspend " + name);
-    case "unsuspend": return sendCommand(c, "/unsuspend " + name);
-    case "delete": return sendCommand(c, "/delete " + name);
-    case "registration": return sendCommand(c, "/registration " + (a === "on" ? "on" : "off"));
-    case "motd": return sendCommand(c, "/motd " + a);
-  }
-  return { ok: false, error: "unknown action" };
+  /* built and checked in core.js, like the server tools */
+  const r = C.accountCommand(String(action), name, a, b);
+  if (r.error) return { ok: false, error: r.error };
+  return sendCommand(ch(c), r.cmd);
 });

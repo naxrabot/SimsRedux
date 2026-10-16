@@ -258,11 +258,14 @@ namespace Simitone.Client.UI.Panels
         public float ClockTween;
         public override void Update(UpdateState state)
         {
-            if (state.NewKeys.Contains(Keys.Space))
+            // SimsRedux: not while typing (e.g. a cheat), not on a lot with no family, and online only
+            // between Sims of your own family (LotControl.CanTakeControl)
+            if (state.NewKeys.Contains(Keys.Space) && Game.vm?.TS1State?.CurrentFamily != null && Game.LotControl != null
+                && !UIRevampedCamera.IsTyping(state))
             {
                 var selected = Game.LotControl.ActiveEntity;
                 var familyMembers = Game.vm.Context.ObjectQueries.Avatars.Where(x =>
-                    Game.vm.TS1State.CurrentFamily.RuntimeSubset.Contains(x.Object.OBJ.GUID)
+                    Game.vm.TS1State.CurrentFamily.RuntimeSubset.Contains(x.Object.OBJ.GUID) && Game.LotControl.CanTakeControl(x as VMAvatar)
                         ).ToList();
                 var index = familyMembers.IndexOf(selected);
                 if (familyMembers.Count > 0)
@@ -308,12 +311,13 @@ namespace Simitone.Client.UI.Panels
         {
             var classic = DesktopUCP as UIClassicUCP;
             if (classic == null) return;
-            var scale = Math.Max(1f, (float)Math.Floor(GlobalSettings.Default.GraphicsHeight / 768f * 4) / 4f);
+            // (the same scale as the classic bar itself, so the player's UI Size setting is followed)
+            var scale = Simitone.Client.Utils.ReduxTheme.PanelScale(GlobalSettings.Default.GraphicsHeight);
             MainPanel.X = (UIClassicUCP.WingW + 6) * scale;
             MainPanel.Y = Game.ScreenHeight - (128 + 6);
             // the info popup rises from the top of the classic bar
             if (ClassicQueryHost != null) ClassicQueryHost.Position = new Vector2((UIClassicUCP.WingW + 6) * scale, Game.ScreenHeight - 100 * scale);
-            if (ClassicPickupHost != null) ClassicPickupHost.Position = new Vector2((UIClassicUCP.WingW + 6) * scale, Game.ScreenHeight - 128);
+            if (ClassicPickupHost != null) ClassicPickupHost.Position = new Vector2((UIClassicUCP.WingW + 6) * scale, Game.ScreenHeight - 128 * scale);
         }
 
         public override void GameResized()

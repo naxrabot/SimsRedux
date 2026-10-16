@@ -45,7 +45,8 @@ namespace Simitone.Client.UI.Controls
             if (Avatar != sel)
             {
                 Avatar = sel;
-                AvatarHead = (Avatar == null)?null:UIIconCache.GenHeadTex(Avatar);
+                // SimsRedux: the cached head (a new texture was made, and never freed, on every switch)
+                AvatarHead = (Avatar == null)?null:UIIconCache.GetObject(Avatar);
             }
         }
 

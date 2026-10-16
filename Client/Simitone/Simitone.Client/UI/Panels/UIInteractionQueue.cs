@@ -38,6 +38,7 @@ namespace Simitone.Client.UI.Panels
         // haven't stopped after a few seconds of game time, write down what they're stuck in
         // (stuck_debug.log) and reset them, the same way the game recovers from a script error.
         private ushort CancelledUID;
+        private VMEntity CancelledOwner;
         private int CancelledFrames = -1;
         private const int StuckFrames = 60 * 6; // ~6 seconds at normal speed
 
@@ -53,11 +54,14 @@ namespace Simitone.Client.UI.Panels
                 TraceFrames = -1;
                 WriteStuckLog();
                 FSO.SimAntics.Engine.VMThread.TraceEntity = null;
-                vm.SendCommand(new VMNetResetSimCmd { ObjectID = QueueOwner.ObjectID });
+                // reset the Sim that was stuck (the player may have switched to another Sim meanwhile)
+                if (CancelledOwner != null && !CancelledOwner.Dead) vm.SendCommand(new VMNetResetSimCmd { ObjectID = CancelledOwner.ObjectID });
+                CancelledOwner = null;
                 return;
             }
 
             if (CancelledFrames < 0 || QueueOwner == null || vm == null) return;
+            if (QueueOwner != CancelledOwner) { CancelledFrames = -1; return; } // switched Sims: forget it
             var queue = QueueOwner.Thread.Queue;
             bool stillDoingIt = queue.Count > 0 && queue[0].UID == CancelledUID;
             if (!stillDoingIt) { CancelledFrames = -1; return; }
@@ -296,7 +300,7 @@ namespace Simitone.Client.UI.Panels
                 if (queue[i] == itemui.Interaction)
                 {
                     HITVM.Get().PlaySoundEvent(UISounds.QueueDelete);
-                    if (i == 0) { CancelledUID = itemui.Interaction.UID; CancelledFrames = 0; }
+                    if (i == 0) { CancelledUID = itemui.Interaction.UID; CancelledOwner = QueueOwner; CancelledFrames = 0; }
                     var priority = GetElemPriority(itemui.Interaction, i);
                     if (!(itemui.Interaction.NotifyIdle && priority <= 0))
                     {

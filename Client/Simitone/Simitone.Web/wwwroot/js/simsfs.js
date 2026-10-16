@@ -121,7 +121,7 @@
   /* the landing page picture (scattered Sims photos), filling the screen; dark brown behind it while it loads */
   background: #3a2a22 url(img/redux-landing.jpg) center / cover no-repeat; overflow: auto;
   font-family: 'Segoe UI', Tahoma, sans-serif; display: flex; align-items: center; justify-content: center; padding: 16px; }
-#srx-setup .box { width: 100%; max-width: 560px; background: rgba(0, 0, 58, .92); max-height: calc(100vh - 32px); overflow: auto; border: 2px solid #7878c8; border-right-color: #000028;
+#srx-setup .box { width: 100%; max-width: 560px; background: rgba(0, 0, 58, .92); max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); overflow: auto; border: 2px solid #7878c8; border-right-color: #000028;
   border-bottom-color: #000028; box-shadow: 6px 6px 0 rgba(0,0,0,.35); padding: 24px 26px; }
 #srx-setup h1 { font-size: 26px; margin: 0 0 4px; color: #fff; font-weight: 600; }
 #srx-setup h1 .logoimg { display: block; width: 220px; max-width: 70%; margin: 0 auto 6px; }
@@ -158,7 +158,7 @@
 /* ---------- the launcher ---------- */
 #srx-setup .box.wide { max-width: 680px; padding: 0; background: rgba(4, 8, 38, .88); border: 1px solid rgba(143, 180, 255, .35);
   box-shadow: 0 24px 70px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.06); backdrop-filter: blur(6px);
-  display: flex; flex-direction: column; overflow: hidden; }
+  display: flex; flex-direction: column; overflow-x: hidden; overflow-y: auto; } /* (scrolls when it can't fit, e.g. on a phone: Play stays reachable) */
 #srx-setup .launcher { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
 #srx-setup .launcher.hidden { display: none; }
 #srx-setup .l-top { padding: 28px 30px 18px; text-align: center; background: linear-gradient(rgba(120,255,140,.07), transparent); }
@@ -170,18 +170,16 @@
 #srx-setup .ver .stage { color: #04102a; background: #78ff8c; font-weight: 700; padding: 1px 6px; margin-right: 8px; letter-spacing: .1em; }
 #srx-setup .l-acct { margin: 0 30px; padding: 14px 16px; border: 1px solid rgba(143,180,255,.2); background: rgba(0,0,0,.25);
   display: grid; grid-template-columns: auto minmax(150px, 1fr) auto; gap: 4px 14px; align-items: center; }
-#srx-setup .lstatus { white-space: nowrap; }
-#srx-setup .lbtns { max-width: 400px; }
 #srx-setup .avatar { grid-row: span 2; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 19px;
   color: #04102a; background: linear-gradient(135deg, #9fffb0, #3bc25a); }
 #srx-setup .avatar.off { background: #2a335e; color: #9fb4ff; }
 #srx-setup .lname { font-size: 16px; font-weight: 600; color: #fff; overflow-wrap: anywhere; }
 #srx-setup .badge { font-size: 10px; letter-spacing: .1em; font-weight: 700; color: #9fb4ff; border: 1px solid #5a6ab8; padding: 1px 5px; margin-left: 6px; vertical-align: 2px; }
-#srx-setup .lstatus { font-size: 12px; color: #8a96d0; display: flex; align-items: center; gap: 6px; }
+#srx-setup .lstatus { font-size: 12px; color: #8a96d0; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 #srx-setup .dot { width: 8px; height: 8px; border-radius: 50%; background: #6a6a8a; flex: none; }
 #srx-setup .dot.on { background: #78ff8c; box-shadow: 0 0 8px #78ff8c; }
 #srx-setup .dot.warn { background: #ffb547; }
-#srx-setup .lbtns { grid-row: span 2; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+#srx-setup .lbtns { grid-row: span 2; max-width: 400px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 #srx-setup button.ghost { font-size: 12px; font-weight: 600; letter-spacing: .04em; padding: 6px 11px; background: transparent; color: #c8d4ff;
   border: 1px solid rgba(143,180,255,.4); margin: 0; }
 #srx-setup button.ghost:hover { background: rgba(143,180,255,.12); color: #fff; }
@@ -259,7 +257,7 @@
   #srx-setup .l-acct { margin: 0 16px; grid-template-columns: auto 1fr; }
   #srx-setup .avatar { grid-column: 1; grid-row: 1 / span 2; } #srx-setup .lname { grid-column: 2; grid-row: 1; } #srx-setup .lstatus { grid-column: 2; grid-row: 2; }
   #srx-setup .lbtns { grid-row: 3; grid-column: 1 / -1; justify-content: flex-start; margin-top: 10px; } #srx-setup .llevel { grid-row: 4; } #srx-setup .lreport { grid-row: 5; } #srx-setup .lfolder { grid-row: 6; }
-  #srx-setup .l-srv { margin: 10px 16px 0; } #srx-setup .smotd { margin: 12px 16px 0; } #srx-setup .notes { margin: 14px 16px 0; } #srx-setup .l-bottom { padding: 14px 16px 18px; }
+  #srx-setup .l-srv { margin: 10px 16px 0; } #srx-setup .smotd { margin: 12px 16px 0; } #srx-setup .notes, #srx-setup .modbox { margin: 14px 16px 0; flex: none; } /* (the whole launcher scrolls on a phone, not a sliver of it) */ #srx-setup .l-bottom { padding: 14px 16px 18px; }
 }`;
         document.head.appendChild(style);
         const el = document.createElement('div');
@@ -302,7 +300,7 @@
   <div class="l-bottom">
     <div class="vcheck"></div>
     <button class="play">PLAY</button>
-    <div class="l-foot">build ${(document.querySelector('meta[name="srx-build"]') || {}).content || 'dev'}</div>
+    <div class="l-foot">build ${esc(buildName())}</div>
   </div>
 </div>
 <div class="setup">
@@ -342,7 +340,7 @@
   <div class="status"></div>
   <div class="again hidden" style="margin-top:10px"><button class="link change">Use a different Sims folder</button>
     <button class="link signout" style="margin-left:16px">Log out / switch account</button></div>
-  <div style="margin-top:14px;font-size:11px;color:#7878b8">build ${(document.querySelector('meta[name="srx-build"]') || {}).content || 'dev'}</div>
+  <div style="margin-top:14px;font-size:11px;color:#7878b8">build ${esc(buildName())}</div>
 </div>
 </div>`;
         document.body.appendChild(el);
@@ -387,6 +385,8 @@
         screen().bar.style.width = (total > 0 ? Math.min(100, done / total * 100) : 0).toFixed(1) + '%';
     }
     function mb(bytes) { return (bytes / 1048576).toFixed(0) + ' MB'; }
+    // the website build (index.html's srx-build, filled in when the site is published)
+    function buildName() { return (document.querySelector('meta[name="srx-build"]') || {}).content || 'dev'; }
 
     // ---------- the player's account (on the dedicated server) ----------
     //
@@ -398,17 +398,34 @@
     const LIVE_URL = 'https://tsr-lot.mbrew.studio';
     function lsGet(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } }
     function lsSet(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { } }
+    // ?server=... in the address replaces the Live server, for trying a server on this PC. Only this PC,
+    // the home network or an mbrew.studio address is accepted - a link pointing anywhere else would
+    // otherwise get the player's password typed into (and their login sent to) someone else's server.
+    const FORCED = (function () {
+        const v = new URLSearchParams(location.search).get('server');
+        if (!v) return null;
+        try {
+            const u = new URL(v);
+            const h = u.hostname.toLowerCase();
+            const local = h === 'localhost' || h === '[::1]' || /^127\./.test(h) || /^10\./.test(h) || /^192\.168\./.test(h) || /^172\.(1[6-9]|2\d|3[01])\./.test(h);
+            const ours = u.protocol === 'https:' && (h === 'mbrew.studio' || h.endsWith('.mbrew.studio'));
+            if ((u.protocol === 'https:' || u.protocol === 'http:') && (local || ours)) return u.origin;
+        } catch (e) { }
+        console.warn('[SimsRedux] ?server= ignored: only this PC, the home network or mbrew.studio servers can be used');
+        return null;
+    })();
     const Servers = {
         get channel() { return lsGet('srx-channel', 'live') === 'test' ? 'test' : 'live'; },
         set channel(c) { lsSet('srx-channel', c === 'test' ? 'test' : null); },
-        // (?server=... in the address replaces the Live server, for trying a server on this PC)
-        url(c) { return c === 'test' ? lsGet('srx-test-url', 'https://tsr-test.mbrew.studio') : ((new URLSearchParams(location.search).get('server') || LIVE_URL).replace(/\/+$/, '')); },
-        learn(servers) { if (servers && typeof servers.test === 'string' && /^https:\/\//.test(servers.test)) lsSet('srx-test-url', servers.test.replace(/\/+$/, '')); },
+        url(c) { return c === 'test' ? lsGet('srx-test-url', 'https://tsr-test.mbrew.studio') : (FORCED || LIVE_URL); },
+        // (a server picked with ?server= doesn't get to change where the Test server is)
+        learn(servers) { if (!FORCED && servers && typeof servers.test === 'string' && /^https:\/\//.test(servers.test)) lsSet('srx-test-url', servers.test.replace(/\/+$/, '')); },
     };
     const Account = (function () {
-        const forced = new URLSearchParams(location.search).get('server');
-        const SERVER = (forced || Servers.url(Servers.channel)).replace(/\/+$/, '');
-        const KEY = (!forced && Servers.channel === 'test') ? 'srx-account-test' : 'srx-account';
+        const SERVER = (FORCED || Servers.url(Servers.channel)).replace(/\/+$/, '');
+        // each server keeps its own login in this browser (a ?server= one too, so a login is only ever sent where it was made)
+        const KEY = FORCED ? (FORCED === LIVE_URL ? 'srx-account' : 'srx-account@' + FORCED)
+            : Servers.channel === 'test' ? 'srx-account-test' : 'srx-account';
         let session = null;      // { token, name, role, files }
         let root = null, onChange = null;
         let reachable = null;    // did the server answer last time? (null = not asked yet)
@@ -499,7 +516,10 @@
         // checks a remembered login is still good (and picks up role changes)
         async function refresh() {
             if (!load()) { paint(); return; }
+            const token = session.token;
             const r = await call('/api/me');
+            // logged out, or in as someone else, while the server was answering: that answer is stale
+            if (!session || session.token !== token) return;
             if (r.ok) store({ token: session.token, name: r.name, role: r.role, files: !!r.files, level: r.level | 0, xp: r.xp | 0, next: r.next | 0, powers: Array.isArray(r.powers) ? r.powers : [] });
             else if (r.status === 401) { store(null); msg('Please log in again.'); }
             else paint(); // server offline: keep the remembered login
@@ -532,9 +552,12 @@
     // Admin and Tester accounts: the Sims 1 files come from the server instead of a folder.
     async function downloadFromServer() {
         const s = Account.session;
+        if (!s || !s.token) throw new Error('you need to be logged in');
         const list = await Account.call('/api/files');
         if (!list.ok) { if (list.status === 401) Account.refresh(); throw new Error(list.error); }
-        const files = (list.files || []).filter(f => f && f.p && !SKIP_EXT.test(f.p));
+        // only plain paths inside the Sims folder (a "..", or a path from the root, could land on /userdata/)
+        const files = (Array.isArray(list.files) ? list.files : []).filter(f => f && typeof f.p === 'string' && f.p &&
+            !SKIP_EXT.test(f.p) && !/^[\\/]/.test(f.p) && !/(^|[\\/])\.\.([\\/]|$)/.test(f.p));
         if (!files.some(f => f.p.toLowerCase() === 'gamedata/uitext.iff')) throw new Error("the server's game folder doesn't have GameData\\UIText.iff in it");
         const total = files.reduce((n, f) => n + (f.s || 0), 0);
         show('Getting the game files from the server', { progress: true });
@@ -628,20 +651,26 @@
 
         let done = 0, i = 0;
         const BATCH = 100;
-        while (i < chosen.length) {
-            const batch = chosen.slice(i, i + BATCH);
-            const tx = db.transaction(STORE, 'readwrite');
-            const store = tx.objectStore(STORE);
-            for (const f of batch) {
-                const rel = (f.webkitRelativePath || f.name).replace(/\\/g, '/').substring(root.length);
-                const name = SIMS_ROOT + rel;
-                store.put({ name: normalize(name), blob: f }, key(name));
+        try {
+            while (i < chosen.length) {
+                const batch = chosen.slice(i, i + BATCH);
+                const tx = db.transaction(STORE, 'readwrite');
+                const store = tx.objectStore(STORE);
+                for (const f of batch) {
+                    const rel = (f.webkitRelativePath || f.name).replace(/\\/g, '/').substring(root.length);
+                    const name = SIMS_ROOT + rel;
+                    store.put({ name: normalize(name), blob: f }, key(name));
+                }
+                await txDone(tx);
+                i += batch.length;
+                done += batch.reduce((n, f) => n + f.size, 0);
+                setProgress(done, total);
+                status(`${i} of ${chosen.length} files (${mb(done)} of ${mb(total)})`);
             }
-            await txDone(tx);
-            i += batch.length;
-            done += batch.reduce((n, f) => n + f.size, 0);
-            setProgress(done, total);
-            status(`${i} of ${chosen.length} files (${mb(done)} of ${mb(total)})`);
+        } catch (e) {
+            // (ran out of space part-way: don't leave half a Sims folder that looks complete next visit)
+            try { await clearSims(); } catch (x) { }
+            throw e;
         }
         return true;
     }
@@ -742,20 +771,26 @@
     // and the game folder. Nothing big loads until Play is pressed.
     // The notes shipped with the website, with the changes made in the server panel on top
     // (a version edited there replaces this one, one added there is new, one hidden there is left out).
+    // a small JSON GET that gives up after a while (null if it failed); the timeout covers the body too
+    async function fetchJson(url, ms, cache) {
+        const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), ms);
+        try {
+            const r = await fetch(url, { cache, signal: ctl.signal });
+            return r.ok ? await r.json() : null;
+        } catch (e) { return null; }
+        finally { clearTimeout(t); }
+    }
+    // versions compare as numbers ("3.10" is after "3.9"): < 0, 0 or > 0
+    function cmpVer(a, b) {
+        const x = String(a).split('.').map(n => parseInt(n, 10) || 0), y = String(b).split('.').map(n => parseInt(n, 10) || 0);
+        for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) - (y[i] || 0);
+        return 0;
+    }
     let patchNotes = null;
     async function getPatchNotes() {
         if (patchNotes) return patchNotes;
-        const getJson = async (url) => {
-            try {
-                const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 5000);
-                const r = await fetch(url, { cache: 'no-cache', signal: ctl.signal });
-                clearTimeout(t);
-                return r.ok ? await r.json() : null;
-            } catch (e) { return null; }
-        };
-        const [shipped, changes] = await Promise.all([getJson('patchnotes.json'), getJson(Account.SERVER + '/api/patchnotes')]);
-        const ver = v => String(v).split('.').map(n => parseInt(n, 10) || 0);
-        const cmp = (a, b) => { const x = ver(a), y = ver(b); for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) - (y[i] || 0); return 0; };
+        const [shipped, changes] = await Promise.all([fetchJson('patchnotes.json', 5000, 'no-cache'), fetchJson(Account.SERVER + '/api/patchnotes', 5000, 'no-cache')]);
+        const cmp = cmpVer;
         const lines = v => (Array.isArray(v) ? v : []).map(t => String(t).trim()).filter(Boolean).slice(0, 30);
         const by = new Map();
         for (const src of [shipped, changes]) {
@@ -845,22 +880,19 @@
         // Live and Test: online (green), maintenance (amber) or offline (red), with how many people are
         // on; the chosen one's message of the day sits above the patch notes (every 15 seconds while showing)
         const smotd = L.querySelector('.smotd');
-        const statusOf = async (url) => {
-            try {
-                const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 6000);
-                const r = await fetch(url + '/api/status', { cache: 'no-store', signal: ctl.signal });
-                clearTimeout(t);
-                return r.ok ? await r.json() : null;
-            } catch (e) { return null; }
-        };
-        const status = { live: null, test: null };
+        const statusOf = url => fetchJson(url + '/api/status', 6000, 'no-store');
+        const srvStatus = { live: null, test: null };
         const chosen = Servers.channel;
+        let closed = false; // the launcher was left: a check still on its way mustn't paint over the next one
         const paintServers = async () => {
-            status.live = await statusOf(Servers.url('live'));
-            if (status.live) Servers.learn(status.live.servers);
-            status.test = await statusOf(Servers.url('test'));
+            const live = await statusOf(Servers.url('live'));
+            if (closed) return;
+            if (live) Servers.learn(live.servers);
+            const test = await statusOf(Servers.url('test'));
+            if (closed) return;
+            srvStatus.live = live; srvStatus.test = test;
             for (const ch of ['live', 'test']) {
-                const card = L.querySelector('.srv[data-ch="' + ch + '"]'), st = status[ch];
+                const card = L.querySelector('.srv[data-ch="' + ch + '"]'), st = srvStatus[ch];
                 card.classList.toggle('sel', ch === chosen);
                 const dot = card.querySelector('.dot'), state = card.querySelector('.sstate'), count = card.querySelector('.scount');
                 dot.className = 'dot';
@@ -870,7 +902,7 @@
                 else { dot.classList.add('warn'); state.textContent = 'Maintenance'; }
                 count.textContent = (st.online | 0) + ' online' + ((st.playing | 0) > 0 ? ' \u00b7 ' + (st.playing | 0) + ' in a lot' : '');
             }
-            const mine = status[chosen];
+            const mine = srvStatus[chosen];
             const evs = (mine && Array.isArray(mine.events)) ? mine.events : [];
             const mt = L.querySelector('.mtext');
             mt.textContent = (mine && mine.motd) || '';
@@ -890,15 +922,11 @@
         const play = L.querySelector('.play'), vcheck = L.querySelector('.vcheck');
         let webVersion = null;
         try { webVersion = DotNet.invokeMethod('SimsRedux.Web', 'SimsReduxVersion'); } catch (e) { webVersion = null; }
-        const newer = (a, b) => { // is version a newer than b?
-            const x = String(a).split('.').map(n => parseInt(n, 10) || 0), y = String(b).split('.').map(n => parseInt(n, 10) || 0);
-            for (let i = 0; i < Math.max(x.length, y.length); i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); }
-            return false;
-        };
+        const newer = (a, b) => cmpVer(a, b) > 0; // is version a newer than b?
         if (webVersion) L.querySelector('.vnum').textContent = webVersion;
         let needsUpdate = false;
         const checkVersion = () => {
-            const srv = status[chosen] && status[chosen].game;
+            const srv = srvStatus[chosen] && srvStatus[chosen].game;
             const site = (notes && notes.shippedLatest) || (latest && latest.version);
             needsUpdate = !!webVersion && ((site && newer(site, webVersion)) || (srv && newer(srv, webVersion)));
             vcheck.className = 'vcheck';
@@ -930,18 +958,22 @@
             if (on) {
                 btns.querySelector('.lrep').onclick = () => { rep.classList.toggle('hidden'); rmsg.textContent = ''; L.querySelector('.rabout').focus(); };
                 L.querySelector('.rcancel').onclick = () => rep.classList.add('hidden');
-                L.querySelector('.rsend').onclick = async () => {
+                const rsend = L.querySelector('.rsend');
+                rsend.onclick = async () => {
+                    if (rsend.disabled) return;
                     const about = L.querySelector('.rabout').value.trim(), reason = L.querySelector('.rreason').value.trim();
                     rmsg.className = 'rmsg';
                     if (!about || reason.length < 5) { rmsg.classList.add('error'); rmsg.textContent = 'Say who it is and what happened.'; return; }
                     rmsg.textContent = 'Sending...';
-                    const r = await Account.call('/api/report', { about, reason });
+                    rsend.disabled = true; // (one report per press, however often it's clicked)
+                    let r;
+                    try { r = await Account.call('/api/report', { about, reason }); } finally { rsend.disabled = false; }
                     if (!r.ok) { rmsg.classList.add('error'); rmsg.textContent = r.error || 'It could not be sent.'; return; }
                     L.querySelector('.rabout').value = ''; L.querySelector('.rreason').value = '';
                     rmsg.textContent = 'Thanks - your report went to the admin.';
                 };
             }
-            const finish = (r) => { clearInterval(serverTimer); document.removeEventListener('keydown', onKey); done(r); };
+            const finish = (r) => { closed = true; clearInterval(serverTimer); document.removeEventListener('keydown', onKey); done(r); };
             const leave = async (focus) => {
                 await Account.logout();
                 finish('account');
@@ -978,7 +1010,7 @@
             const onKey = (e) => {
                 if (e.key !== 'Enter' || L.classList.contains('hidden')) return;
                 const t = e.target && e.target.tagName;
-                if (t === 'INPUT' || t === 'TEXTAREA' || t === 'BUTTON') return;
+                if (t === 'INPUT' || t === 'TEXTAREA' || t === 'BUTTON' || t === 'SELECT') return;
                 play.click();
             };
             document.addEventListener('keydown', onKey);
@@ -1064,18 +1096,16 @@
 
     // Shows the setup screen as needed; resolves once the game can start.
     async function prepare() {
-        const build = (document.querySelector('meta[name="srx-build"]') || {}).content || 'dev';
-        console.log('[SimsRedux] web build ' + build);
+        console.log('[SimsRedux] web build ' + buildName());
         await openDb();
         screen().root.querySelector('.signout').onclick = async () => {
             try { await Account.call('/api/logout', {}); } catch (e) { }
             try { await Account.logout(); } catch (e) { }
             location.reload();
         };
-        screen().change.onclick = async () => {
+        screen().change.onclick = () => {
             if (!confirm('Choose a different Sims folder? Your current Sims files will be removed from this browser (homes saved in the game go with them).')) return;
-            await clearSims();
-            location.reload();
+            changeFolder(); // (waits for saves still on their way, so none lands after the clear)
         };
 
         const contentReady = loadSiteContent();
@@ -1091,7 +1121,7 @@
             if (r === 'play') break;
             if (r === 'switch' || r === 'update') { location.reload(); return new Promise(() => { }); }
         }
-        console.log('[SimsRedux] ' + (how === 'offline' ? 'playing offline' : 'logged in as ' + Account.session.name));
+        console.log('[SimsRedux] ' + (how === 'offline' ? 'playing offline' : 'logged in as ' + ((Account.session && Account.session.name) || '?')));
 
         // 2. the game files: already in this browser, or picked / downloaded now
         let loaded = false;
@@ -1160,7 +1190,8 @@
         if (!f.data) {
             if (f.blob && !f.loading) {
                 f.loading = true;
-                f.blob.arrayBuffer().then(b => { f.data = new Uint8Array(b); f.blob = null; });
+                f.blob.arrayBuffer().then(b => { f.data = new Uint8Array(b); f.blob = null; },
+                    e => { f.loading = false; console.warn('[SimsFS] could not load ' + f.name, e); }); // (asked again next read)
             }
             return -2;
         }

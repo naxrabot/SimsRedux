@@ -31,7 +31,7 @@ namespace Simitone.Client.UI.Panels.WorldUI
             }
             else
             {
-                Text = (value > 0) ? ("§" + value) : ("-§" + value);
+                Text = (value >= 0) ? ("§" + value) : ("-§" + (-value)); // (was "-§-50")
                 Style.Color = Model.UIStyle.Current.Text;
             }
             var measure = Style.MeasureString(Text);
@@ -71,6 +71,7 @@ namespace Simitone.Client.UI.Panels.WorldUI
 
         public override Texture2D DrawFrame(World world)
         {
+            if (MoneyTarget == null || MoneyTarget.IsDisposed) return null;
             DrawNewFrame();
             return MoneyTarget;
         }
@@ -78,6 +79,9 @@ namespace Simitone.Client.UI.Panels.WorldUI
         public override void Dispose()
         {
             base.Dispose();
+            // SimsRedux: free the picture (one was left on the graphics card for every money popup)
+            MoneyTarget?.Dispose();
+            MoneyTarget = null;
         }
     }
 }
