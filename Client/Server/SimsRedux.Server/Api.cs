@@ -17,6 +17,10 @@ namespace SimsRedux.Server
     ///   GET  /api/file?p=...       one game file            (Admin/Tester only)
     ///   GET  /api/town/info        the town's stamp and open lots (logged in)
     ///   GET  /api/town             the town's files, for the neighbourhood screen (logged in)
+    ///   GET  /api/saves/info       this account's cross saves: number, when, which device (logged in)
+    ///   GET  /api/saves?v=N        this account's saves (the bundle), if they're still number N
+    ///   POST /api/saves?base=N     new saves (refused with 409 if another device saved since N, unless &amp;force=1)
+    ///   POST /api/saves/backup     saves kept only as a backup (the ones a player chose not to keep)
     ///   GET  /lot                  an online lot (WebSocket) - passed to the game hosting it
     ///   GET  /lot/12?t=token       a house in the town (WebSocket) - opened on this server if needed
     /// </summary>
@@ -35,6 +39,8 @@ namespace SimsRedux.Server
         private readonly RateLimiter Everything = new RateLimiter(3000, TimeSpan.FromMinutes(1));
         private readonly RateLimiter ReportsByAccount = new RateLimiter(5, TimeSpan.FromHours(1));
         private readonly RateLimiter ModActions = new RateLimiter(30, TimeSpan.FromMinutes(10));
+        private readonly RateLimiter SaveUploads = new RateLimiter(60, TimeSpan.FromHours(1));
+        private readonly RateLimiter SaveDownloads = new RateLimiter(60, TimeSpan.FromHours(1));
         public const string MaintenanceText = "The server is down for maintenance - online play will be back soon.";
 
         /// <summary>Accounts on a town lot right now (key -> connections), for XP while playing.</summary>
@@ -52,7 +58,7 @@ namespace SimsRedux.Server
 
         public void Tidy()
         {
-            LoginByAddress.Tidy(); LoginByName.Tidy(); RegisterByAddress.Tidy(); Everything.Tidy(); ReportsByAccount.Tidy(); ModActions.Tidy();
+            LoginByAddress.Tidy(); LoginByName.Tidy(); RegisterByAddress.Tidy(); Everything.Tidy(); ReportsByAccount.Tidy(); ModActions.Tidy(); SaveUploads.Tidy(); SaveDownloads.Tidy();
         }
 
         public object Health()
@@ -170,6 +176,12 @@ namespace SimsRedux.Server
                 case "/api/files": if (req.Method == "GET") { await FileList(req, stream, cors); return; } break;
                 case "/api/file": if (req.Method == "GET") { await FileGet(req, stream, cors); return; } break;
                 case "/api/town/info": if (req.Method == "GET") { await TownInfo(req, stream, cors); return; } break;
+                case "/api/saves/info": if (req.Method == "GET") { await SavesInfo(req, stream, cors); return; } break;
+                case "/api/saves":
+                    if (req.Method == "GET") { await SavesGet(req, stream, cors); return; }
+                    if (req.Method == "POST") { await SavesPut(req, stream, cors, false); return; }
+                    break;
+                case "/api/saves/backup": if (req.Method == "POST") { await SavesPut(req, stream, cors, true); return; } break;
                 case "/api/town": if (req.Method == "GET") { await TownGet(req, stream, cors); return; } break;
                 case "/api/town/fresh": if (req.Method == "POST") { await TownFresh(req, stream, cors); return; } break;
                 case "/api/town/movein": if (req.Method == "POST") { await TownMoveIn(req, stream, cors); return; } break;
@@ -455,6 +467,66 @@ namespace SimsRedux.Server
             try { size = new FileInfo(entry.FullPath).Length; }
             catch { await HttpServer.SendJson(stream, 404, new { error = "That file has gone." }, cors); return; }
             await HttpServer.SendFile(stream, entry.FullPath, size, cors);
+        }
+
+        // ---------- cross saves (each account's own single-player saves) ----------
+
+        private async Task SavesInfo(Request req, Stream stream, Dictionary<string, string> cors)
+        {
+            var a = Accounts.Check(req.BearerToken());
+            if (a == null) { await HttpServer.SendJson(stream, 401, new { error = "Log in first." }, cors); return; }
+            var m = Saves.Info(a.Key);
+            await HttpServer.SendJson(stream, 200, new { ok = true, version = m?.Version ?? 0, when = m?.When, device = m?.Device, size = m?.Size ?? 0 }, cors);
+        }
+
+        private async Task SavesGet(Request req, Stream stream, Dictionary<string, string> cors)
+        {
+            var a = Accounts.Check(req.BearerToken());
+            if (a == null) { await HttpServer.SendJson(stream, 401, new { error = "Log in first." }, cors); return; }
+            if (!SaveDownloads.Allow(a.Key)) { await HttpServer.SendJson(stream, 429, new { error = "That's a lot of downloads - try again later." }, cors); return; }
+            byte[] data;
+            Saves.Meta m;
+            try { data = Saves.Get(a.Key, out m); }
+            catch (Exception e) { Log.Warn("saves: couldn't read " + a.Name + "'s: " + e.Message); await HttpServer.SendJson(stream, 500, new { error = "Your saves couldn't be read right now - try again." }, cors); return; }
+            if (data == null) { await HttpServer.SendJson(stream, 404, new { error = "No saves yet." }, cors); return; }
+            // (the device asked for a particular number: if another device saved since, it asks again)
+            if (long.TryParse(req.QueryValue("v") ?? "", out var want) && want != m.Version)
+            { await HttpServer.SendJson(stream, 409, new { error = "Your saves just changed - try again.", version = m.Version }, cors); return; }
+            await HttpServer.Send(stream, 200, "application/octet-stream", data, cors);
+        }
+
+        private async Task SavesPut(Request req, Stream stream, Dictionary<string, string> cors, bool backupOnly)
+        {
+            var a = Accounts.Check(req.BearerToken());
+            if (a == null) { await HttpServer.SendJson(stream, 401, new { error = "Log in first." }, cors); return; }
+            if (!SaveUploads.Allow(a.Key)) { await HttpServer.SendJson(stream, 429, new { error = "That's a lot of saving - your saves will go up again in a while." }, cors); return; }
+            if (!Saves.LooksRight(req.Body)) { await HttpServer.SendJson(stream, 400, new { error = "Those weren't saves (or they're too big)." }, cors); return; }
+            var device = req.QueryValue("device");
+            try
+            {
+                if (backupOnly)
+                {
+                    Saves.PutBackup(a.Key, req.Body, device);
+                    Log.Info(a.Name + "'s saves from " + device + " were kept as a backup (" + (req.Body.Length / 1024) + " KB)");
+                    await HttpServer.SendJson(stream, 200, new { ok = true }, cors);
+                    return;
+                }
+                long.TryParse(req.QueryValue("base") ?? "0", out var baseVersion);
+                bool force = req.QueryValue("force") == "1";
+                var m = Saves.Put(a.Key, req.Body, baseVersion, force, device, out var conflict);
+                if (conflict)
+                {
+                    await HttpServer.SendJson(stream, 409, new { error = "Your saves changed on another device.", version = m?.Version ?? 0, when = m?.When, device = m?.Device }, cors);
+                    return;
+                }
+                Log.Info(a.Name + " saved their game to their account from " + m.Device + " (" + (req.Body.Length / 1024) + " KB, number " + m.Version + ")");
+                await HttpServer.SendJson(stream, 200, new { ok = true, version = m.Version, when = m.When }, cors);
+            }
+            catch (Exception e)
+            {
+                Log.Warn("saves: couldn't keep " + a.Name + "'s: " + e.Message);
+                await HttpServer.SendJson(stream, 500, new { error = "Your saves couldn't be kept right now - they'll go up again later." }, cors);
+            }
         }
 
         // ---------- the town ----------

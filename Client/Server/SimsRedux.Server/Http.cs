@@ -86,7 +86,8 @@ namespace SimsRedux.Server
         private const int MaxHeader = 16 * 1024, MaxBody = 64 * 1024, MaxOpen = 400;
         /// <summary>Moving a family into the town sends its Sims' files (checked for a login once read).</summary>
         private const int MaxFamilyBody = 16 * 1024 * 1024;
-        private static int BodyLimit(Request req) => (req.Method == "POST" && req.Path == "/api/town/movein") ? MaxFamilyBody : MaxBody;
+        private static int BodyLimit(Request req) => (req.Method == "POST" && req.Path == "/api/town/movein") ? MaxFamilyBody
+            : (req.Method == "POST" && (req.Path == "/api/saves" || req.Path == "/api/saves/backup")) ? Saves.MaxBytes : MaxBody;
         private TcpListener Listener;
         private readonly Func<Request, Stream, TcpClient, Task> Handle;
         private readonly CancellationTokenSource Stop = new CancellationTokenSource();
@@ -182,6 +183,8 @@ namespace SimsRedux.Server
             }
 
             int bodyStart = headerEnd + 4;
+            // (big uploads - a family moving in, a player's saves - get longer to arrive over a slow phone connection)
+            if (BodyLimit(req) > MaxBody) cts.CancelAfter(TimeSpan.FromSeconds(180));
             if ((req.Header("Transfer-Encoding") ?? "").IndexOf("chunked", StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 // Cloudflare can pass a request body along in chunks instead of saying its length

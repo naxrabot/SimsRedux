@@ -2,6 +2,18 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "7.2",
+      "date": "Oct 16, 2026",
+      "features": [
+        "Cross saves — your neighborhood, houses, Sims and settings are kept on your account. Log in on any device and your game is there.",
+        "Saves backed up — the last few versions are kept, so nothing is lost if two devices disagree.",
+        "Which saves? — if you played on two devices without syncing, you pick which game to keep."
+      ],
+      "updates": [
+        "Device settings — controls, touch layout, UI size and graphics stay set per device."
+      ]
+    },
+    {
       "version": "7.1",
       "date": "Oct 16, 2026",
       "features": [

@@ -55,6 +55,13 @@ namespace Simitone.Web.Pages
             catch { }
         }
 
+        /// <summary>A corner notice from the page (cross saves: "backed up", "changed elsewhere").</summary>
+        [JSInvokable("SimsReduxNotice")]
+        public static void SimsReduxNotice(string title, string text)
+        {
+            try { Simitone.Client.UI.Controls.UIReduxToasts.Show(title, text); } catch { }
+        }
+
         /// <summary>The whole text in the phone keyboard's box (sent on every change).</summary>
         [JSInvokable("SimsReduxKeyboardText")]
         public static void SimsReduxKeyboardText(string text)

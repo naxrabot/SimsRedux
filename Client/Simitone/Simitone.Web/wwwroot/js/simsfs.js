@@ -90,6 +90,7 @@
     let saveChain = Promise.resolve();
     function persist(k, entry) {
         if (NO_PERSIST.test(k) || !(k.startsWith(SIMS_ROOT) || k.startsWith('/userdata/'))) return;
+        try { if (typeof Saves !== 'undefined' && Saves.isSave(k)) Saves.changed(); } catch (e) { }
         const blob = new Blob([entry.data]);
         saveChain = saveChain.then(async () => {
             const tx = (await openDb()).transaction(STORE, 'readwrite');
@@ -98,6 +99,7 @@
         }).catch(e => console.warn('[SimsFS] could not save ' + k, e));
     }
     function unpersist(k) {
+        try { if (typeof Saves !== 'undefined' && Saves.isSave(k)) Saves.changed(); } catch (e) { }
         saveChain = saveChain.then(async () => {
             const tx = (await openDb()).transaction(STORE, 'readwrite');
             tx.objectStore(STORE).delete(k);
@@ -571,6 +573,283 @@
         };
     })();
 
+
+    // ---------- cross saves ----------
+    //
+    // The player's single-player game (neighbourhood, houses, Sims - the UserData folders - and most
+    // settings) is kept on their account on the server too, so every device they log in on has the
+    // same game. Before playing, this device's saves and the account's are compared:
+    //   only the account's changed  -> they come down to this device
+    //   only this device's changed  -> they go up to the account
+    //   both changed                -> the player chooses which to keep (the other is kept as a backup)
+    // While playing, the saves go up a few seconds after the game saves. Playing offline just
+    // waits: the changes go up next time.
+    const Saves = (function () {
+        const SAVE_RE = /^\/userdata\/userdata\d*\//;            // (keys are lower-case)
+        const SETTINGS_KEY = '/userdata/redux_settings.ini';
+        // settings that belong to the device, not the player (they never travel)
+        const DEVICE_SETTINGS = ['controls', 'touchlayout', 'uiscale', 'lighting', 'antialias', 'smoothzoom', 'fullscreen'];
+        const OWNER = 'srx-saves-owner';
+        let enabled = false, timer = null, busy = false, again = false, told = false;
+
+        function isSave(k) { return SAVE_RE.test(k) || k === SETTINGS_KEY; }
+        function me() { return ((Account.session && Account.session.name) || '').toLowerCase(); }
+        function stateKey() { return 'srx-saves@' + Account.SERVER + '|' + me(); }
+        function getState() { try { return JSON.parse(lsGet(stateKey(), 'null')); } catch (e) { return null; } }
+        function setState(st) { lsSet(stateKey(), st ? JSON.stringify(st) : null); }
+        function device() {
+            const ua = navigator.userAgent || '';
+            if (/iPad/.test(ua) || (/Macintosh/.test(ua) && (navigator.maxTouchPoints || 0) > 1)) return 'iPad';
+            if (/iPhone/.test(ua)) return 'iPhone';
+            if (/Android/.test(ua)) return /Mobile/.test(ua) ? 'Android phone' : 'Android tablet';
+            if (/Windows/.test(ua)) return 'Windows PC';
+            if (/Macintosh/.test(ua)) return 'Mac';
+            if (/CrOS/.test(ua)) return 'Chromebook';
+            if (/Linux/.test(ua)) return 'Linux PC';
+            return 'a device';
+        }
+        const te = new TextEncoder(), td = new TextDecoder();
+        function settingLines(text) { return String(text || '').split(/\r?\n/).filter(l => l.indexOf('=') > 0); }
+        function isDeviceLine(l) { return DEVICE_SETTINGS.includes(l.substring(0, l.indexOf('=')).trim().toLowerCase()); }
+        function shared(data) { return te.encode(settingLines(td.decode(data)).filter(l => !isDeviceLine(l)).join('\r\n')); }
+
+        // the saves as one bundle: "SRXS", the list of files (JSON), then the files one after another
+        function pack(list) {
+            const items = list.map(f => ({ name: f.name, data: key(f.name) === SETTINGS_KEY ? shared(f.data) : f.data }))
+                .sort((a, b) => (a.name.toLowerCase() < b.name.toLowerCase() ? -1 : a.name.toLowerCase() > b.name.toLowerCase() ? 1 : 0));
+            const head = te.encode(JSON.stringify({ v: 1, files: items.map(f => [f.name, f.data.length]) }));
+            const total = 8 + head.length + items.reduce((n, f) => n + f.data.length, 0);
+            const out = new Uint8Array(total);
+            out.set(te.encode('SRXS'), 0);
+            new DataView(out.buffer).setUint32(4, head.length, true);
+            out.set(head, 8);
+            let at = 8 + head.length;
+            for (const f of items) { out.set(f.data, at); at += f.data.length; }
+            return out;
+        }
+        function unpack(u8) {
+            if (u8.length < 8 || td.decode(u8.subarray(0, 4)) !== 'SRXS') throw new Error('not a saves bundle');
+            const len = new DataView(u8.buffer, u8.byteOffset).getUint32(4, true);
+            const head = JSON.parse(td.decode(u8.subarray(8, 8 + len)));
+            let at = 8 + len;
+            const out = [];
+            for (const [name, size] of head.files) {
+                const n = normalize(String(name));
+                // only ever a save's own place (never somewhere else in this browser's storage)
+                if (!isSave(key(n))) throw new Error('unexpected file in the saves: ' + n);
+                out.push({ name: n, data: u8.slice(at, at + size) });
+                at += size;
+            }
+            return out;
+        }
+        async function through(u8, stream) {
+            const piped = new Blob([u8]).stream().pipeThrough(stream);
+            return new Uint8Array(await new Response(piped).arrayBuffer());
+        }
+        const gzip = u8 => through(u8, new CompressionStream('gzip'));
+        const gunzip = u8 => through(u8, new DecompressionStream('gzip'));
+        async function hash(u8) {
+            const d = new Uint8Array(await crypto.subtle.digest('SHA-256', u8));
+            return Array.from(d, b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        // this device's saves: from storage (before the game starts) or from memory (while playing)
+        async function fromStorage() {
+            const out = [];
+            for (const r of await allRecords()) {
+                if (!isSave(r.k) || !r.v || !r.v.blob) continue;
+                out.push({ name: r.v.name, data: new Uint8Array(await r.v.blob.arrayBuffer()) });
+            }
+            return out;
+        }
+        function fromMemory() {
+            const out = [];
+            for (const [k, f] of files) if (isSave(k) && f.data) out.push({ name: f.name, data: f.data });
+            return out;
+        }
+        // the account's saves replace this device's (in storage, before the game reads them)
+        async function toStorage(list) {
+            const records = await allRecords();
+            const localSettings = records.find(r => r.k === SETTINGS_KEY);
+            let localText = '';
+            if (localSettings && localSettings.v && localSettings.v.blob) localText = td.decode(new Uint8Array(await localSettings.v.blob.arrayBuffer()));
+            const tx = (await openDb()).transaction(STORE, 'readwrite');
+            const st = tx.objectStore(STORE);
+            for (const r of records) if (SAVE_RE.test(r.k)) st.delete(r.k);
+            for (const f of list) {
+                let data = f.data;
+                if (key(f.name) === SETTINGS_KEY) {
+                    // their settings, with this device's own (controls, layout, size, graphics) kept
+                    const mine = settingLines(localText).filter(isDeviceLine);
+                    data = te.encode(settingLines(td.decode(data)).filter(l => !isDeviceLine(l)).concat(mine).join('\r\n'));
+                }
+                st.put({ name: f.name, blob: new Blob([data]) }, key(f.name));
+            }
+            await txDone(tx);
+        }
+
+        async function binary(path, body) {
+            const headers = { 'Authorization': 'Bearer ' + ((Account.session && Account.session.token) || '') };
+            if (body) headers['Content-Type'] = 'application/octet-stream';
+            let r;
+            try { r = await fetch(Account.SERVER + path, { method: body ? 'POST' : 'GET', headers, body }); }
+            catch (e) { return { ok: false, status: 0, error: "Couldn't reach the server." }; }
+            if (!body && r.ok) return { ok: true, status: r.status, data: new Uint8Array(await r.arrayBuffer()) };
+            let j = null;
+            try { j = await r.json(); } catch (e) { }
+            if (!r.ok) return Object.assign({ ok: false, status: r.status, error: (j && j.error) || ('The server answered ' + r.status) }, j || {});
+            return Object.assign({ ok: true, status: r.status }, j || {});
+        }
+
+        async function download(version) {
+            const r = await binary('/api/saves?v=' + version);
+            if (!r.ok) throw new Error(r.error);
+            const list = unpack(await gunzip(r.data));
+            await toStorage(list);
+            setState({ version, hash: await hash(pack(await fromStorage())) });
+            return list.length;
+        }
+        async function upload(raw, h, base, force) {
+            const r = await binary('/api/saves?base=' + base + (force ? '&force=1' : '') + '&device=' + encodeURIComponent(device()), await gzip(raw));
+            if (r.ok) setState({ version: r.version, hash: h });
+            return r;
+        }
+        function when(iso) {
+            if (!iso) return '';
+            const mins = Math.round((Date.now() - Date.parse(iso)) / 60000);
+            if (!(mins >= 0)) return '';
+            if (mins < 2) return 'just now';
+            if (mins < 90) return mins + ' minutes ago';
+            const hrs = Math.round(mins / 60);
+            if (hrs < 36) return hrs + ' hours ago';
+            return Math.round(hrs / 24) + ' days ago';
+        }
+
+        // a question with two answers, over the setup screen
+        function ask(title, text, a, b) {
+            return new Promise(done => {
+                const o = document.createElement('div');
+                o.style.cssText = 'position:fixed;inset:0;z-index:1004;display:flex;align-items:center;justify-content:center;background:rgba(0,0,20,.7);padding:16px;font-family:Segoe UI,Roboto,sans-serif';
+                o.innerHTML = '<div style="max-width:440px;width:100%;background:#0b1238;border:1px solid rgba(143,180,255,.45);box-shadow:0 20px 60px rgba(0,0,0,.6);padding:20px 22px;color:#d7d7f5">'
+                    + '<div style="font-size:17px;font-weight:700;color:#fff;margin-bottom:10px"></div><div style="font-size:14px;line-height:1.5;margin-bottom:16px;white-space:pre-line"></div>'
+                    + '<div style="display:flex;gap:10px;flex-wrap:wrap"><button style="flex:1 1 160px;font:inherit;font-weight:700;padding:11px;background:#2d6ae0;color:#fff;border:1px solid #8fb4ff;cursor:pointer"></button>'
+                    + '<button style="flex:1 1 160px;font:inherit;font-weight:700;padding:11px;background:#1d2a6e;color:#fff;border:1px solid #5a6ab8;cursor:pointer"></button></div></div>';
+                o.firstChild.children[0].textContent = title;
+                o.firstChild.children[1].textContent = text;
+                const btns = o.querySelectorAll('button');
+                btns[0].textContent = a; btns[1].textContent = b;
+                btns[0].onclick = () => { o.remove(); done(0); };
+                btns[1].onclick = () => { o.remove(); done(1); };
+                document.body.appendChild(o);
+            });
+        }
+
+        // ---- before playing ----
+        async function syncBeforePlay(offline) {
+            enabled = !offline && !!(Account.session && Account.session.token);
+            if (!enabled) return;
+            try {
+                if (typeof CompressionStream === 'undefined' || !crypto.subtle) { enabled = false; console.warn('[Saves] this browser can\'t pack saves - cross saves are off here'); return; }
+                status('Checking your saves...');
+                const info = await Account.call('/api/saves/info');
+                if (!info.ok) { console.warn('[Saves] ' + info.error); status(''); return; } // (offline: they go up next time)
+                const local = await fromStorage();
+                const raw = pack(local);
+                const h = local.length ? await hash(raw) : '';
+                let st = getState();
+                const owner = lsGet(OWNER, null);
+                if (owner && owner !== me() && local.length) {
+                    // the saves in this browser were another account's
+                    if (info.version > 0) {
+                        const c = await ask('Whose saves?', 'The saves in this browser belong to ' + owner + '. Your account has its own saves (from ' + (info.device || 'another device') + ').', 'Use my saves', 'Keep the ones here');
+                        lsSet(OWNER, me());
+                        if (c === 0) { status('Getting your saves...'); await download(info.version); status(''); return; }
+                    }
+                    st = null;
+                }
+                lsSet(OWNER, me());
+                const localChanged = st ? h !== st.hash : local.length > 0;
+                const serverChanged = info.version > 0 && (!st || info.version !== st.version);
+                if (!localChanged && !serverChanged) { status(''); return; }
+                if (serverChanged && !localChanged) {
+                    status('Getting your saves from ' + (info.device || 'your account') + '...');
+                    const n = await download(info.version);
+                    console.log('[Saves] got ' + n + ' files from the account (number ' + info.version + ')');
+                    status(''); return;
+                }
+                if (localChanged && !serverChanged) {
+                    status('Backing up your saves...');
+                    const r = await upload(raw, h, st ? st.version : 0, false);
+                    if (!r.ok && r.status !== 409) console.warn('[Saves] ' + r.error);
+                    if (r.status !== 409) { status(''); return; }
+                }
+                // both changed (or it's the first time on this device and both have saves)
+                if (!st && info.version > 0) {
+                    // maybe they're the same saves after all
+                    const r = await binary('/api/saves?v=' + info.version);
+                    if (r.ok && h && await hash(pack(unpack(await gunzip(r.data)))) === h) { setState({ version: info.version, hash: h }); status(''); return; }
+                }
+                const c = await ask('Which saves do you want?',
+                    'Your game was saved on this device and on ' + (info.device || 'another device') + (info.when ? ' (' + when(info.when) + ')' : '') + '.\n\nPick the one to play. The other is kept as a backup on your account.',
+                    'Keep this device\'s', 'Use ' + (info.device || 'the other device') + '\'s');
+                if (c === 0) {
+                    status('Backing up your saves...');
+                    const r = await upload(raw, h, info.version, true);
+                    if (!r.ok) console.warn('[Saves] ' + r.error);
+                } else {
+                    status('Getting your saves...');
+                    if (local.length) await binary('/api/saves/backup?device=' + encodeURIComponent(device()), await gzip(raw));
+                    await download(info.version);
+                }
+                status('');
+            } catch (e) {
+                console.warn('[Saves] sync failed', e);
+                status('');
+            }
+        }
+
+        // ---- while playing: the game saved ----
+        function changed() {
+            if (!enabled) return;
+            clearTimeout(timer);
+            timer = setTimeout(push, 8000); // (a save writes several files: wait until it's done)
+        }
+        function notice(title, text) {
+            try { DotNet.invokeMethod('SimsRedux.Web', 'SimsReduxNotice', title, text); } catch (e) { }
+        }
+        async function push() {
+            if (busy) { again = true; return; }
+            busy = true;
+            try {
+                await saveChain;
+                const raw = pack(fromMemory());
+                const h = await hash(raw);
+                const st = getState();
+                if (st && st.hash === h) return;
+                const r = await upload(raw, h, st ? st.version : 0, false);
+                if (r.ok) {
+                    console.log('[Saves] backed up to the account (number ' + r.version + ')');
+                    if (!told) { told = true; notice('Saves backed up', 'Your game is saved to your account, ready on any device you log in on.'); }
+                } else if (r.status === 409) {
+                    notice('Saves changed elsewhere', 'Your game was also saved on ' + (r.device || 'another device') + '. Next time you start, you can pick which saves to keep.');
+                } else console.warn('[Saves] ' + r.error);
+            } catch (e) { console.warn('[Saves] backup failed', e); }
+            finally {
+                busy = false;
+                if (again) { again = false; changed(); }
+            }
+        }
+
+        return {
+            isSave, changed, syncBeforePlay,
+            /** For the launcher: a line about the saves on this account, or ''. */
+            line() {
+                const st = Account.session && Account.session.token ? getState() : null;
+                return st ? 'backed up to your account' : '';
+            },
+        };
+    })();
+
     // Admin and Tester accounts: the Sims 1 files come from the server instead of a folder.
     async function downloadFromServer() {
         const s = Account.session;
@@ -898,7 +1177,8 @@
         // the game folder (the Sims files and the homes saved in them live in this browser)
         const fstate = L.querySelector('.lfstate');
         const paintFolder = async () => {
-            fstate.textContent = (await hasGameFiles()) ? 'Saved in this browser' : "Not set up yet \u2014 you'll choose it after pressing Play";
+            const backed = Saves.line();
+            fstate.textContent = (await hasGameFiles()) ? 'Saved in this browser' + (backed ? ' \u00b7 ' + backed : '') : "Not set up yet \u2014 you'll choose it after pressing Play";
         };
         await paintFolder();
 
@@ -1176,7 +1456,12 @@
         }
         console.log('[SimsRedux] ' + (how === 'offline' ? 'playing offline' : 'logged in as ' + ((Account.session && Account.session.name) || '?')));
 
-        // 2. the game files: already in this browser, or picked / downloaded now
+        // 2. cross saves: this device's and the account's are brought in line (before the game reads them)
+        show('Getting ready', { progress: false });
+        Account.show(false);
+        await Saves.syncBeforePlay(how === 'offline');
+
+        // 3. the game files: already in this browser, or picked / downloaded now
         let loaded = false;
         try { loaded = await loadStored(); }
         catch (e) { console.warn('[SimsFS] stored files could not be read', e); }
