@@ -178,13 +178,15 @@ public static class WallBuilder
         var f0 = near.Frames[0].ToImage(palette);
         var f1 = near.Frames[1].ToImage(palette);
         var img = new Image32(f0.Width + f1.Width, f0.Height);
-        double wallH = NearWallHeight;
+        // (any zoom: the wall face is as tall, relative to the frame, as at the closest zoom)
+        double wallH = NearWallHeight * f0.Height / (double)NearFrames[0].H;
         for (int y = 0; y < img.Height; y++)
             for (int x = 0; x < img.Width; x++)
             {
                 bool left = x < f0.Width;
                 int lx = left ? x : x - f0.Width;
-                double top = left ? (img.Height - wallH - (lx + 0.5) / 2.0) : (lx + 0.5) / 2.0;
+                double slope = (lx + 0.5) / 2.0;
+                double top = left ? (img.Height - wallH - slope) : slope;
                 if (y + 0.5 < top || y + 0.5 > top + wallH) continue;
                 var src = left ? f0 : f1;
                 src.GetPixel(lx, y, out var r, out var g, out var b, out var a);

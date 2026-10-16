@@ -51,6 +51,10 @@ public static class Program
         Run("CreatorPack manifest + creator.json", TestCreatorPack);
         Run("Previews render for every kind", TestPreviews);
         Run("Texture sorter keeps real textures and drops helpers/masks/effects", TestSorter);
+        Run("Colouring in grey textures", TestColours);
+        Run("Item source info (new fields + older items)", TestItemSource);
+        Run("Editing items: rename, change kind, name clash", TestPackEdit);
+        Run("Previews render at every zoom", TestPreviewZooms);
 
         Console.WriteLine();
         Console.WriteLine($"{_pass} passed, {_fail} failed");
@@ -115,6 +119,95 @@ public static class Program
         var pic = Previews.Render("picture", PictureBuilder.Build(tex, "P Picture", 5, "", template));
         Check(pic.Width > 20 && pic.Height > 20, "picture preview size " + pic.Width + "x" + pic.Height);
         pic.SavePng(Out("preview_picture.png"));
+    }
+
+    static void TestColours()
+    {
+        var grey = new Image32(16, 16);
+        for (int y = 0; y < 16; y++) for (int x = 0; x < 16; x++) { byte v = (byte)(x < 8 ? 100 : 156); grey.SetPixel(x, y, v, v, v, 255); }
+        grey.SetPixel(0, 0, 50, 50, 50, 0); // see-through pixel
+        var c = Colours.Colourise(grey, 200, 100, 50);
+        double sr = 0, sg = 0, sb = 0; int n = 0;
+        for (int y = 0; y < 16; y++) for (int x = 0; x < 16; x++) { if (x == 0 && y == 0) continue; c.GetPixel(x, y, out var r, out var g, out var b, out _); sr += r; sg += g; sb += b; n++; }
+        Check(Math.Abs(sr / n - 200) < 6 && Math.Abs(sg / n - 100) < 4 && Math.Abs(sb / n - 50) < 3, $"average becomes the picked colour ({sr / n:F0},{sg / n:F0},{sb / n:F0})");
+        c.GetPixel(2, 5, out var dr, out _, out _, out _); c.GetPixel(12, 5, out var lr, out _, out _, out _);
+        Check(dr < lr, "darker parts stay darker");
+        c.GetPixel(0, 0, out _, out _, out _, out var a0);
+        Check(a0 == 0, "see-through stays see-through");
+        Check(Colours.TryParseHex("#A0B1c2", out var hr, out var hg, out var hb) && hr == 0xA0 && hg == 0xB1 && hb == 0xC2, "hex colour reads");
+        Check(!Colours.TryParseHex("#12345", out _, out _, out _) && !Colours.TryParseHex("zzzzzz", out _, out _, out _), "bad hex refused");
+        Check(Colours.ToHex(1, 2, 255) == "#0102FF", "hex colour writes");
+        Check(Colours.SetPresets.Count >= 12 && Colours.SetPresets.Select(p => p.Name).Distinct().Count() == Colours.SetPresets.Count, "set colours have unique names");
+    }
+
+    static void TestItemSource()
+    {
+        var a = ItemSource.ParseLegacy("FullBuild0.package 00000000ABCD1234 colour #aa8866");
+        Check(a.Package == "FullBuild0.package" && a.Instance == 0xABCD1234UL && a.Tint == "#AA8866", "older text: package, id and colour");
+        var b = ItemSource.ParseLegacy("FullBuild0.package#0x00B2D882:0x00000000:0x1234");
+        Check(b.Package == "FullBuild0.package" && b.Instance == 0x1234UL && b.Tint == null, "oldest text: type:group:instance");
+        var c = ItemSource.ParseLegacy(@"C:\Pictures\my poster.png");
+        Check(c.IsFile && c.File == @"C:\Pictures\my poster.png" && !c.IsPackage, "picture file path");
+        var d = ItemSource.ParseLegacy("");
+        Check(!d.IsFile && !d.IsPackage, "empty source");
+        var item = new CreatorItem { Source = "x" };
+        item.WriteSource(new ItemSource { Package = @"E:\Sims3\GameData\Shared\Packages\FullBuild0.package", Instance = 0x55, Tint = "#112233" });
+        var back = item.ReadSource();
+        Check(back.Package!.EndsWith("FullBuild0.package") && back.Instance == 0x55UL && back.Tint == "#112233", "new fields round trip");
+        Check(item.Source == "FullBuild0.package 0000000000000055 colour #112233", "plain source text still written: " + item.Source);
+    }
+
+    static void TestPackEdit()
+    {
+        var folder = Out("pack_edit");
+        if (Directory.Exists(folder)) Directory.Delete(folder, true);
+        var pack = CreatorPack.Open(folder);
+        var tex = MakeBrickTexture(64, 64);
+        var src = new ItemSource { Package = "/x/FullBuild0.package", Instance = 7 };
+        var f1 = pack.Add("floor", "Red Brick", 10, "", FloorBuilder.Build(tex, "Red Brick", 10, ""), src);
+        var f2 = pack.Add("floor", "Blue Brick", 10, "", FloorBuilder.Build(tex, "Blue Brick", 10, ""), src);
+        Check(f1.SourceInstance == "0000000000000007" && f1.ReadSource().Instance == 7UL, "Add stores the source");
+        // same name: file kept
+        pack.Update(f1, "floor", "Red Brick", 12, "now 12", FloorBuilder.Build(tex, "Red Brick", 12, ""), null);
+        Check(f1.File == "Downloads/Floors/redux_red_brick.flr" && f1.Price == 12 && f1.ReadSource().Instance == 7UL, "edit keeps file and source");
+        // rename: new file, old one gone
+        pack.Update(f1, "floor", "Dark Red Brick", 12, "", FloorBuilder.Build(tex, "Dark Red Brick", 12, ""), new ItemSource { Package = "/x/FullBuild0.package", Instance = 7, Tint = "#550000" });
+        Check(f1.File == "Downloads/Floors/redux_dark_red_brick.flr" && File.Exists(Path.Combine(folder, f1.File)) && !File.Exists(Path.Combine(folder, "Downloads/Floors/redux_red_brick.flr")), "rename moves the file");
+        Check(f1.Tint == "#550000", "rename stores the new colour");
+        // name clash refused
+        bool threw = false;
+        try { pack.Update(f1, "floor", "blue brick", 12, "", new byte[] { 1 }, null); } catch (InvalidOperationException) { threw = true; }
+        Check(threw && f1.Name == "Dark Red Brick" && File.ReadAllBytes(Path.Combine(folder, f1.File)).Length > 1, "can't rename onto another item");
+        // same name as another kind is fine; changing kind moves folder
+        pack.Update(f2, "wall", "Blue Brick", 14, "", WallBuilder.Build(tex, "Blue Brick", 14, ""), null);
+        Check(f2.Kind == "wall" && f2.File == "Downloads/Walls/redux_blue_brick.wll" && !File.Exists(Path.Combine(folder, "Downloads/Floors/redux_blue_brick.flr")), "changing kind moves it to Walls");
+        pack.Save();
+        var re = CreatorPack.Open(folder);
+        Check(re.Items.Count == 2 && re.Items.Any(i => i.Name == "Dark Red Brick" && i.Tint == "#550000" && i.SourcePackage == "/x/FullBuild0.package"), "edits saved to creator.json");
+        Check(CreatorPack.ReadManifest(Path.Combine(folder, "manifest.txt")).SequenceEqual(new[] { "Downloads/Floors/redux_dark_red_brick.flr", "Downloads/Walls/redux_blue_brick.wll" }), "manifest follows the renames");
+    }
+
+    static void TestPreviewZooms()
+    {
+        var tex = MakeBrickTexture(128, 128);
+        var built = new Dictionary<string, byte[]>
+        {
+            ["floor"] = FloorBuilder.Build(tex, "Z Floor", 5, ""),
+            ["wall"] = WallBuilder.Build(tex, "Z Wall", 5, ""),
+            ["picture"] = PictureBuilder.Build(tex, "Z Picture", 5, "", File.ReadAllBytes(PosterTemplate)),
+        };
+        foreach (var kv in built)
+        {
+            var sizes = new List<int>();
+            for (int z = 0; z < 3; z++)
+            {
+                var img = Previews.Render(kv.Key, kv.Value, z);
+                sizes.Add(img.Width * img.Height);
+                img.SavePng(Out($"zoom_{kv.Key}_{Previews.ZoomNames[z].ToLowerInvariant()}.png"));
+            }
+            Check(sizes[0] > sizes[1] && sizes[1] > sizes[2], $"{kv.Key}: near > medium > far ({string.Join(", ", sizes)})");
+            Check(Previews.Render(kv.Key, kv.Value).Rgba.SequenceEqual(Previews.Render(kv.Key, kv.Value, 0).Rgba), $"{kv.Key}: default preview is the near zoom");
+        }
     }
 
     // ------------------------------------------------------------------ harness

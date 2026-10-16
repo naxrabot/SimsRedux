@@ -16,6 +16,93 @@ public sealed class CreatorItem
     [JsonPropertyName("file")] public string File { get; set; } = "";
     /// <summary>Where the texture came from (e.g. "FullBuild0.package#0x00B2D882:0x00000000:0x...", or an image path).</summary>
     [JsonPropertyName("source")] public string Source { get; set; } = "";
+
+    // SimsRedux: where to find the texture again, so an item can be edited or re-made later
+    // (older items only have the "source" text above; ReadSource() understands that too).
+    /// <summary>Full path of the Sims 3 .package the texture came from (or just its file name for older items).</summary>
+    [JsonPropertyName("sourcePackage")] public string SourcePackage { get; set; } = "";
+    /// <summary>The texture's instance id in that package, as 16 hex digits.</summary>
+    [JsonPropertyName("sourceInstance")] public string SourceInstance { get; set; } = "";
+    /// <summary>Or: the picture file it came from.</summary>
+    [JsonPropertyName("sourceFile")] public string SourceFile { get; set; } = "";
+    /// <summary>The colour it was coloured in with ("#RRGGBB"), or "" for none.</summary>
+    [JsonPropertyName("tint")] public string Tint { get; set; } = "";
+
+    /// <summary>Where the item's texture came from, from the fields above or the older "source" text.</summary>
+    public ItemSource ReadSource()
+    {
+        if (SourcePackage.Length > 0 || SourceFile.Length > 0)
+            return new ItemSource
+            {
+                Package = SourcePackage.Length > 0 ? SourcePackage : null,
+                Instance = ulong.TryParse(SourceInstance.Replace("0x", "", StringComparison.OrdinalIgnoreCase), System.Globalization.NumberStyles.HexNumber, null, out var inst) ? inst : null,
+                File = SourceFile.Length > 0 ? SourceFile : null,
+                Tint = Tint.Length > 0 ? Tint : null,
+            };
+        return ItemSource.ParseLegacy(Source);
+    }
+
+    /// <summary>Stores where the texture came from (and the plain-text "source" line kept for older Creators).</summary>
+    public void WriteSource(ItemSource? src)
+    {
+        if (src == null) return;
+        SourcePackage = src.Package ?? "";
+        SourceInstance = src.Instance.HasValue ? src.Instance.Value.ToString("X16") : "";
+        SourceFile = src.File ?? "";
+        Tint = src.Tint ?? "";
+        Source = src.Describe();
+    }
+}
+
+/// <summary>Where an item's texture came from: a texture in a Sims 3 package, or a picture file; plus a colour.</summary>
+public sealed class ItemSource
+{
+    public string? Package { get; set; }
+    public ulong? Instance { get; set; }
+    public string? File { get; set; }
+    public string? Tint { get; set; }
+
+    public bool IsPackage => Package != null && Instance.HasValue;
+    public bool IsFile => File != null;
+
+    /// <summary>One line, e.g. "FullBuild0.package 00000000ABCD1234 colour #AA8866".</summary>
+    public string Describe()
+    {
+        var s = IsPackage ? Package!.Substring(Package!.LastIndexOfAny(new[] { '\\', '/' }) + 1) + " " + Instance!.Value.ToString("X16") : File ?? "";
+        if (Tint != null) s += " colour " + Tint;
+        return s;
+    }
+
+    /// <summary>
+    /// Reads the plain "source" text older items have: "Pkg.package 00000000ABCD1234 colour #RRGGBB",
+    /// "Pkg.package#0x00B2D882:0x00000000:0x1234", or a picture file path.
+    /// </summary>
+    public static ItemSource ParseLegacy(string? text)
+    {
+        var src = new ItemSource();
+        var s = (text ?? "").Trim();
+        int c = s.LastIndexOf(" colour #", StringComparison.OrdinalIgnoreCase);
+        if (c >= 0)
+        {
+            var hex = s.Substring(c + 8).Trim();
+            if (Colours.TryParseHex(hex, out _, out _, out _)) src.Tint = "#" + hex.TrimStart('#').ToUpperInvariant();
+            s = s.Substring(0, c).Trim();
+        }
+        if (s.Length == 0) return src;
+        int p = s.IndexOf(".package", StringComparison.OrdinalIgnoreCase);
+        if (p > 0)
+        {
+            src.Package = s.Substring(0, p + 8);
+            var rest = s.Substring(p + 8).Trim().TrimStart('#');
+            var last = rest.Split(':', ' ').LastOrDefault(x => x.Length > 0) ?? "";
+            last = last.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ? last.Substring(2) : last;
+            if (ulong.TryParse(last, System.Globalization.NumberStyles.HexNumber, null, out var inst)) src.Instance = inst;
+            else src.Package = null;
+            return src;
+        }
+        src.File = s;
+        return src;
+    }
 }
 
 /// <summary>
@@ -84,6 +171,13 @@ public sealed class CreatorPack
     /// (re-export keeps the same file name, and for pictures the same GUID).
     /// </summary>
     public CreatorItem Add(string kind, string name, int price, string description, string source, byte[] data)
+        => Add(kind, name, price, description, data, ItemSource.ParseLegacy(source), source);
+
+    /// <summary>Same as above, remembering exactly where the texture came from (for editing it later).</summary>
+    public CreatorItem Add(string kind, string name, int price, string description, byte[] data, ItemSource? src)
+        => Add(kind, name, price, description, data, src, null);
+
+    private CreatorItem Add(string kind, string name, int price, string description, byte[] data, ItemSource? src, string? sourceText)
     {
         var (sub, ext) = Layout(kind);
         var existing = Items.FirstOrDefault(i => i.Kind.Equals(kind, StringComparison.OrdinalIgnoreCase) && i.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
@@ -99,8 +193,42 @@ public sealed class CreatorPack
         Directory.CreateDirectory(Path.GetDirectoryName(full)!);
         System.IO.File.WriteAllBytes(full, data);
         var item = existing ?? new CreatorItem();
-        item.Kind = kind.ToLowerInvariant(); item.Name = name; item.Price = price; item.Description = description ?? ""; item.File = rel; item.Source = source ?? "";
+        item.Kind = kind.ToLowerInvariant(); item.Name = name; item.Price = price; item.Description = description ?? ""; item.File = rel;
+        if (sourceText != null) item.Source = sourceText; // (older callers: just the text)
+        else item.WriteSource(src);
         if (existing == null) Items.Add(item);
+        return item;
+    }
+
+    /// <summary>
+    /// Changes an item that's already in the pack (edit and re-export). It may get a new kind or name: the
+    /// file is then renamed to match and the old one deleted. Throws if another item already has that name.
+    /// </summary>
+    public CreatorItem Update(CreatorItem item, string kind, string name, int price, string description, byte[] data, ItemSource? src)
+    {
+        if (!Items.Contains(item)) throw new ArgumentException("That item isn't in this pack.");
+        var (sub, ext) = Layout(kind);
+        if (Items.Any(i => i != item && i.Kind.Equals(kind, StringComparison.OrdinalIgnoreCase) && i.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException($"There's already a {kind.ToLowerInvariant()} called \"{name}\".");
+        string rel = item.File;
+        bool sameKind = item.Kind.Equals(kind, StringComparison.OrdinalIgnoreCase);
+        if (!sameKind || !FileNameFor(item.Name).Equals(FileNameFor(name), StringComparison.Ordinal))
+        {
+            rel = $"{sub}/{FileNameFor(name)}{ext}";
+            int n = 2;
+            while (Items.Any(i => i != item && i.File.Equals(rel, StringComparison.OrdinalIgnoreCase)))
+                rel = $"{sub}/{FileNameFor(name)}_{n++}{ext}";
+        }
+        var full = Path.Combine(Folder, rel.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(Path.GetDirectoryName(full)!);
+        System.IO.File.WriteAllBytes(full, data);
+        if (!rel.Equals(item.File, StringComparison.OrdinalIgnoreCase))
+        {
+            var old = Path.Combine(Folder, item.File.Replace('/', Path.DirectorySeparatorChar));
+            try { if (System.IO.File.Exists(old)) System.IO.File.Delete(old); } catch (IOException) { }
+        }
+        item.Kind = kind.ToLowerInvariant(); item.Name = name; item.Price = price; item.Description = description ?? ""; item.File = rel;
+        if (src != null) item.WriteSource(src);
         return item;
     }
 

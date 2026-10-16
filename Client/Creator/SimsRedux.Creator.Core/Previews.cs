@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace SimsRedux.Creator;
@@ -12,38 +13,60 @@ namespace SimsRedux.Creator;
 /// </summary>
 public static class Previews
 {
-    public static Image32 Render(string kind, byte[] built)
+    /// <summary>The three zooms the game has, closest first (for the bigger preview).</summary>
+    public static readonly string[] ZoomNames = { "Near", "Medium", "Far" };
+
+    public static Image32 Render(string kind, byte[] built) => Render(kind, built, 0);
+
+    /// <summary>
+    /// Renders one zoom: 0 = near (closest), 1 = medium, 2 = far. Pictures are drawn at 2x, floors laid out
+    /// 3 x 3 at 2x, walls 1:1 (each zoom as the game stores it, so smaller zooms look smaller).
+    /// </summary>
+    public static Image32 Render(string kind, byte[] built, int zoom)
     {
+        if (zoom < 0 || zoom > 2) throw new ArgumentOutOfRangeException(nameof(zoom));
         var iff = IffFile.Read(built);
         switch ((kind ?? "").ToLowerInvariant())
         {
             case "floor":
             {
-                var near = Spr2.Read(iff.Get("SPR2", 513)!.Data);
-                var frame = near.Frames[0];
+                var spr = Spr2.Read(iff.Get("SPR2", (ushort)(zoom == 0 ? 513 : zoom == 1 ? 257 : 1))!.Data);
+                var frame = spr.Frames[0];
                 var pal = PaletteFor(iff, frame.PaletteId);
                 return OnBackground(TiledFloor(frame.ToImage(pal)), 40, 40, 40);
             }
             case "wall":
             {
-                var near = Spr.Read(iff.Get("SPR#", 2049)!.Data);
-                var pal = PaletteFor(iff, near.PaletteId);
-                return OnBackground(WallBuilder.PreviewCorner(near, pal), 200, 200, 200);
+                var id = zoom == 0 ? WallBuilder.NearSpriteId : zoom == 1 ? WallBuilder.MediumSpriteId : WallBuilder.FarSpriteId;
+                var spr = Spr.Read(iff.Get("SPR#", id)!.Data);
+                var pal = PaletteFor(iff, spr.PaletteId);
+                return OnBackground(WallBuilder.PreviewCorner(spr, pal), 200, 200, 200);
             }
             case "picture":
             {
-                // the biggest front-facing frame (sprite frame 1 = near zoom, facing out)
-                Image32? best = null;
-                foreach (var c in iff.All("SPR2"))
+                // the picture's front-facing frames (one per zoom, found the same way the builder finds them), biggest first
+                var fronts = new List<Image32>();
+                List<PictureBuilder.Target> targets;
+                try { targets = PictureBuilder.FindTargets(iff); } catch { targets = new(); }
+                foreach (var t in targets.Where(t => !t.Flip))
                 {
-                    Spr2 s;
-                    try { s = Spr2.Read(c.Data); } catch { continue; }
-                    if (s.Frames.Count < 2) continue;
-                    var f = s.Frames[1];
-                    if (best != null && f.Width * f.Height <= best.Width * best.Height) continue;
-                    try { best = f.ToImage(PaletteFor(iff, f.PaletteId)); } catch { }
+                    try
+                    {
+                        var s = Spr2.Read(iff.Get("SPR2", t.SpriteId)!.Data);
+                        var f = s.Frames[t.Frame];
+                        fronts.Add(f.ToImage(PaletteFor(iff, f.PaletteId)));
+                    }
+                    catch { }
                 }
-                return best == null ? new Image32(1, 1) : OnBackground(Zoom(best, 2), 200, 200, 200);
+                if (fronts.Count == 0)
+                {
+                    // (fallback: frame 1 of every sprite)
+                    foreach (var c in iff.All("SPR2"))
+                        try { var s = Spr2.Read(c.Data); if (s.Frames.Count > 1) fronts.Add(s.Frames[1].ToImage(PaletteFor(iff, s.Frames[1].PaletteId))); } catch { }
+                }
+                var sizes = fronts.OrderByDescending(f => f.Width * f.Height).ToList();
+                if (sizes.Count == 0) return new Image32(1, 1);
+                return OnBackground(Zoom(sizes[Math.Min(zoom, sizes.Count - 1)], 2), 200, 200, 200);
             }
         }
         throw new ArgumentException("Unknown item kind '" + kind + "'.");
