@@ -50,10 +50,47 @@ public static class Program
         Run("Picture build (animated paintings template) doesn't crash", TestPictureAnimated);
         Run("CreatorPack manifest + creator.json", TestCreatorPack);
         Run("Previews render for every kind", TestPreviews);
+        Run("Texture sorter keeps real textures and drops helpers/masks/effects", TestSorter);
 
         Console.WriteLine();
         Console.WriteLine($"{_pass} passed, {_fail} failed");
         return _fail == 0 ? 0 : 1;
+    }
+
+    static void TestSorter()
+    {
+        // names
+        foreach (var junk in new[] { "stoneTile01Lrg_s_0x1234ABCD", "Floor_Tile_Puzzle_m_0x00AA", "stoneTile01Lrg_4_0x99", "Wall_BathroomTile_N",
+                                     "ScreenGrabFilter_Tiles", "causticsTiled_0x3828c", "kaleidoscopeTiled_0x1", "effects_tiles", "woodFloor_spec" })
+            Check(TextureSorter.ByName(junk) != TextureKind.Usable, "name dropped: " + junk);
+        foreach (var good in new[] { "tileMarbleLrg_til_0x55", "Floor_Tile_Bathroom", "diner_tile_0x5f3bb27b", "woodPlankOak01", "sidewalkTile_concrete" })
+            Check(TextureSorter.ByName(good) == TextureKind.Usable, "name kept: " + good);
+
+        // pictures
+        Check(TextureSorter.ByLook(MakeBrickTexture(128, 128)) == TextureKind.Usable, "brick texture kept");
+        var mask = new Image32(64, 64);
+        for (int y = 0; y < 64; y++) for (int x = 0; x < 64; x++)
+            { bool red = ((x / 8) + (y / 8)) % 2 == 0; mask.SetPixel(x, y, (byte)(red ? 255 : 0), (byte)(red ? 0 : 255), 0, 255); }
+        Check(TextureSorter.ByLook(mask) == TextureKind.Mask, "red/green mask dropped");
+        var normal = new Image32(64, 64);
+        for (int y = 0; y < 64; y++) for (int x = 0; x < 64; x++) normal.SetPixel(x, y, (byte)(120 + (x % 9)), (byte)(125 + (y % 7)), 250, 255);
+        Check(TextureSorter.ByLook(normal) == TextureKind.NormalMap, "normal map dropped");
+        var flat = new Image32(64, 64); flat.Fill(40, 44, 60, 255);
+        Check(TextureSorter.ByLook(flat) == TextureKind.Blank, "flat colour dropped");
+        var clear = new Image32(64, 64); clear.Fill(255, 0, 0, 0);
+        Check(TextureSorter.ByLook(clear) == TextureKind.Blank, "see-through dropped");
+        var grid = new Image32(64, 64);
+        for (int y = 0; y < 64; y++) for (int x = 0; x < 64; x++) { bool line = x % 16 < 2 || y % 16 < 2; byte v = (byte)(line ? 0 : 255); grid.SetPixel(x, y, v, v, v, 255); }
+        Check(TextureSorter.ByLook(grid) == TextureKind.Mask, "black-and-white grout grid dropped");
+        // a real-looking wood: brown with grain
+        var wood = new Image32(64, 64);
+        for (int y = 0; y < 64; y++) for (int x = 0; x < 64; x++) { int v = (int)(20 * Math.Sin(x * 0.7 + Math.Sin(y * 0.2) * 3)); wood.SetPixel(x, y, (byte)(140 + v), (byte)(90 + v / 2), (byte)(50 + v / 3), 255); }
+        Check(TextureSorter.ByLook(wood) == TextureKind.Usable, "wood kept");
+        // a grey stone is still usable (greys aren't dropped)
+        var stone = new Image32(64, 64);
+        var rnd = new Random(3);
+        for (int y = 0; y < 64; y++) for (int x = 0; x < 64; x++) { byte v = (byte)(100 + rnd.Next(60)); stone.SetPixel(x, y, v, v, (byte)(v + 4), 255); }
+        Check(TextureSorter.ByLook(stone) == TextureKind.Usable, "grey stone kept");
     }
 
     static void TestPreviews()

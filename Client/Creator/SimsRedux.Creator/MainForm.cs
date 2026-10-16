@@ -30,6 +30,7 @@ namespace SimsRedux.Creator.App
             public string FilePath;        // or a picture file
             public string Label;
             public int Width, Height;
+            public TextureKind Kind = TextureKind.Usable; // (sorted while scanning)
         }
         private readonly List<Entry> All = new List<Entry>();
         private List<Entry> Listed = new List<Entry>();
@@ -115,7 +116,7 @@ namespace SimsRedux.Creator.App
             SearchBox.TextChanged += (s, e) => ApplyFilter();
             filters.Controls.Add(SearchBox);
             ShapeFilter = new ComboBox { Width = 190, DropDownStyle = ComboBoxStyle.DropDownList, BackColor = Color.FromArgb(8, 10, 26), ForeColor = ForeColor };
-            ShapeFilter.Items.AddRange(new object[] { "All textures (128px and up)", "Square (good for floors)", "Tall (good for walls)", "Everything" });
+            ShapeFilter.Items.AddRange(new object[] { "Usable textures only", "Usable - square (floors)", "Usable - tall (walls)", "All textures (128px and up)", "Everything" });
             ShapeFilter.SelectedIndex = 0;
             ShapeFilter.SelectedIndexChanged += (s, e) => ApplyFilter();
             filters.Controls.Add(ShapeFilter);
@@ -286,6 +287,8 @@ namespace SimsRedux.Creator.App
                         foreach (var t in pkg.ListTextures())
                             batch.Add(new Entry { Texture = t, Package = pkg, Label = t.DisplayName, Width = t.Width, Height = t.Height });
                         if (batch.Count == 0) { pkg.Dispose(); continue; }
+                        SetStatus("Sorting " + batch.Count + " textures in " + Path.GetFileName(file) + " (" + done + " of " + files.Count + ")...");
+                        SortBatch(pkg, batch, cancel.Token);
                         found += batch.Count;
                         BeginInvoke(new Action(() =>
                         {
@@ -298,9 +301,78 @@ namespace SimsRedux.Creator.App
                     catch (Exception ex) { Console.WriteLine("Skipped " + file + ": " + ex.Message); }
                     SetStatus("Scanning " + done + " of " + files.Count + " packages - " + found + " textures so far...");
                 }
-                SetStatus("Found " + found + " textures in " + files.Count + " packages. Click one to make it into a floor, wall or picture.");
+                SaveSortCache();
+                SetStatus("Found " + found + " textures in " + files.Count + " packages (" + All.Count(x => x.Kind == TextureKind.Usable && Math.Min(x.Width, x.Height) >= 128) + " usable). Click one to make it into a floor, wall or picture.");
                 BeginInvoke(new Action(() => ScanBtn.Enabled = true));
             });
+        }
+
+        // ------------------------------------------------------------------
+        // Sorting out the usable textures (remembered between scans)
+        // ------------------------------------------------------------------
+
+        private static string SortCachePath =>
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SimsReduxCreator", "sorted.txt");
+        private ConcurrentDictionary<string, TextureKind> SortCache;
+
+        private static string SortKey(Entry e) => e.Texture.PackagePath + "|" + e.Texture.Resource.Instance.ToString("X16") + "|" + e.Width + "x" + e.Height;
+
+        private void LoadSortCache()
+        {
+            if (SortCache != null) return;
+            SortCache = new ConcurrentDictionary<string, TextureKind>();
+            try
+            {
+                if (!File.Exists(SortCachePath)) return;
+                foreach (var line in File.ReadAllLines(SortCachePath))
+                {
+                    int i = line.LastIndexOf('=');
+                    if (i > 0 && int.TryParse(line.Substring(i + 1), out var k)) SortCache[line.Substring(0, i)] = (TextureKind)k;
+                }
+            }
+            catch { }
+        }
+
+        private void SaveSortCache()
+        {
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(SortCachePath));
+                File.WriteAllLines(SortCachePath, SortCache.Select(p => p.Key + "=" + (int)p.Value));
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// Sorts a package's textures: by name first (free), then by looking at the picture - several at a
+        /// time (the package file is read one at a time, the decoding and looking happen side by side).
+        /// </summary>
+        private void SortBatch(Sims3Package pkg, List<Entry> batch, CancellationToken cancel)
+        {
+            LoadSortCache();
+            var toLook = new List<Entry>();
+            foreach (var e in batch)
+            {
+                e.Kind = TextureSorter.ByName(e.Texture.Name);
+                if (e.Kind != TextureKind.Usable || Math.Min(e.Width, e.Height) < 128) continue;
+                if (SortCache.TryGetValue(SortKey(e), out var known)) e.Kind = known;
+                else toLook.Add(e);
+            }
+            try
+            {
+                Parallel.ForEach(toLook, new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, Environment.ProcessorCount - 1), CancellationToken = cancel }, e =>
+                {
+                    try
+                    {
+                        byte[] data;
+                        lock (pkg) data = pkg.Read(e.Texture.Resource);
+                        e.Kind = TextureSorter.ByLook(Dds.Decode(data));
+                    }
+                    catch { e.Kind = TextureKind.Blank; } // (can't be read: not usable)
+                    SortCache[SortKey(e)] = e.Kind;
+                });
+            }
+            catch (OperationCanceledException) { }
         }
 
         private void OpenPictureFile()
@@ -327,8 +399,11 @@ namespace SimsRedux.Creator.App
             Listed = All.Where(e =>
             {
                 if (q.Length > 0 && (e.Label ?? "").IndexOf(q, StringComparison.OrdinalIgnoreCase) < 0) return false;
-                if (e.FilePath != null || shape == 3) return true;
+                if (e.FilePath != null || shape == 4) return true;
                 if (Math.Min(e.Width, e.Height) < 128) return false;
+                if (shape == 3) return true;
+                // the "usable" views: real pictures only (helper maps, masks, effects and blanks are sorted out)
+                if (e.Kind != TextureKind.Usable) return false;
                 if (shape == 1) return e.Width == e.Height;
                 if (shape == 2) return e.Height >= e.Width * 1.5;
                 return true;
