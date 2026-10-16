@@ -2,6 +2,15 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "7.3",
+      "date": "Oct 16, 2026",
+      "features": [],
+      "updates": [
+        "Tint — only an object's main colour changes now (a bookshelf's wood, not its books; a sofa's fabric, not cushions in another colour).",
+        "Account menu — Game files & saves is in the menu under your initial now."
+      ]
+    },
+    {
       "version": "7.2",
       "date": "Oct 16, 2026",
       "features": [

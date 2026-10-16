@@ -195,6 +195,9 @@
 #srx-setup .l-acct .lname { grid-column: 2; grid-row: 1; } #srx-setup .l-acct .lstatus { grid-column: 2; grid-row: 2; }
 #srx-setup .lbtns.menu button.ghost { border: none; text-align: left; padding: 9px 12px; font-size: 13px; width: 100%; }
 #srx-setup .lbtns.menu button.ghost.danger { color: #ffb0a0; }
+#srx-setup .lbtns.menu .lfolder.inmenu { grid-column: auto; margin: 0; padding: 8px 12px 6px; border-top: none; display: block; font-size: 12px; line-height: 1.5; max-width: 260px; }
+#srx-setup .lbtns.menu .lfolder.inmenu b { display: block; }
+#srx-setup .lbtns.menu .lfolder.inmenu button.link { padding: 0; margin-top: 4px; }
 #srx-setup .lbtns.menu hr { border: none; border-top: 1px solid rgba(143,180,255,.15); margin: 4px 2px; }
 #srx-setup .lname { font-size: 16px; font-weight: 600; color: #fff; overflow-wrap: anywhere; }
 #srx-setup .badge { font-size: 10px; letter-spacing: .1em; font-weight: 700; color: #9fb4ff; border: 1px solid #5a6ab8; padding: 1px 5px; margin-left: 6px; vertical-align: 2px; }
@@ -1256,11 +1259,17 @@
 
         return new Promise(done => {
             const btns = L.querySelector('.lbtns');
+            // (the game files & saves line lives in the menu when logged in: back to its place first,
+            // since the menu is rebuilt below)
+            const lfolder = L.querySelector('.lfolder');
+            if (lfolder.parentNode !== L.querySelector('.l-acct')) L.querySelector('.l-acct').appendChild(lfolder);
+            lfolder.classList.remove('inmenu');
             const isMod = on && Array.isArray(acc.powers) && acc.powers.length > 0;
             btns.innerHTML = on ? (isMod ? '<button class="ghost lmod" role="menuitem">Moderator tools</button>' : '') + '<button class="ghost lrep" role="menuitem">Report a player</button><hr><button class="ghost lswitch" role="menuitem">Switch account</button><button class="ghost llogout danger" role="menuitem">Log out</button>'
                 : '<button class="ghost llogin">Log in</button>';
             // logged in: the buttons live in a menu that the round initial opens (logged out: just Log in, shown)
             btns.classList.toggle('menu', on);
+            if (on) { lfolder.classList.add('inmenu'); btns.insertBefore(lfolder, btns.firstChild); btns.insertBefore(document.createElement('hr'), lfolder.nextSibling); }
             btns.classList.remove('open');
             btns.setAttribute('role', on ? 'menu' : '');
             av.setAttribute('aria-expanded', 'false');
@@ -1268,7 +1277,7 @@
             av.style.cursor = on ? '' : 'default';
             const setMenu = (open) => { btns.classList.toggle('open', open); av.setAttribute('aria-expanded', open ? 'true' : 'false'); };
             av.onclick = (e) => { if (!on) return; e.stopPropagation(); setMenu(!btns.classList.contains('open')); };
-            btns.onclick = (e) => { if (e.target && e.target.tagName === 'BUTTON') setMenu(false); }; // a choice closes the menu
+            btns.onclick = (e) => { if (e.target && e.target.tagName === 'BUTTON' && !e.target.classList.contains('lchange')) setMenu(false); }; // a choice closes the menu
             if (L._srxMenuClose) document.removeEventListener('pointerdown', L._srxMenuClose, true);
             L._srxMenuClose = (e) => { if (btns.classList.contains('open') && !btns.contains(e.target) && e.target !== av) setMenu(false); };
             document.addEventListener('pointerdown', L._srxMenuClose, true);
