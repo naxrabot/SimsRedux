@@ -18,6 +18,7 @@ namespace Simitone.Client.Utils
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Coming soon: new floors, walls and wall pictures - they'll be tried out on the Test server first.",
             "Smarter Sims: a Sim stops retrying a chore they can't get to and comes back to it later.",
             "Launcher: you can still play single player while a new version is on its way.",
             "Fixes: lots of bug fixes and smoother play across the game, the launcher and online.",

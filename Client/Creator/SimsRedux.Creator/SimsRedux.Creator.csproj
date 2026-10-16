@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    SimsRedux: the Sims Redux Creator - a Windows app that turns textures from your own Sims 3
+    install (or any picture) into Sims 1 floors, walls and wall pictures for The Sims Redux.
+    New items go to the Test server first (Content/redux/creator), then get promoted to Live.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>SimsReduxCreator</AssemblyName>
+    <RootNamespace>SimsRedux.Creator.App</RootNamespace>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SimsRedux.Creator.Core\SimsRedux.Creator.Core.csproj" />
+  </ItemGroup>
+</Project>

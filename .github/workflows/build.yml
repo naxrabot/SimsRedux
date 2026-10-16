@@ -48,6 +48,14 @@ jobs:
         shell: pwsh
         run: node Client/Server/Panel/test-core.mjs
 
+      - name: Build and test the Sims Redux Creator
+        shell: pwsh
+        run: |
+          dotnet build Client/Creator/SimsRedux.Creator/SimsRedux.Creator.csproj -c Release -v minimal -clp:NoSummary 2>&1 | Tee-Object -FilePath creator.log
+          if ($LASTEXITCODE -ne 0) { Select-String -Path creator.log -Pattern ': error ' | ForEach-Object { "::error::$($_.Line.Trim())" } | Select-Object -First 10; exit 1 }
+          dotnet run --project Client/Creator/SimsRedux.Creator.Tests/SimsRedux.Creator.Tests.csproj -c Release -- "$env:RUNNER_TEMP/creator-previews"
+          if ($LASTEXITCODE -ne 0) { "::error::Creator tests failed"; exit 1 }
+
       # GitHub shows at most 10 errors per step, so the list is reported in chunks of 10.
       - name: Errors 1-10
         if: failure()

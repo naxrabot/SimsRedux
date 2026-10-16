@@ -118,6 +118,8 @@ namespace SimsRedux.Server
                 foreach (var a in new[] { "-path" + Config.GameFolder.TrimEnd('\\', '/'), "-worker", "-house" + house, "-port" + port, "-town" + TownDir, "-time" + TownClock.Now })
                     psi.ArgumentList.Add(a);
                 if (extraArgs != null) foreach (var a in extraArgs) psi.ArgumentList.Add(a);
+                // SimsRedux: the Test server's lots also load the Sims Redux Creator's new items (being tried out there)
+                if (string.Equals(Config.Channel, "test", StringComparison.OrdinalIgnoreCase)) psi.ArgumentList.Add("-creator");
                 try { w.Process = Process.Start(psi); }
                 catch (Exception e) { error = "couldn't start the game for this lot: " + e.Message; return null; }
                 Open[house] = w;

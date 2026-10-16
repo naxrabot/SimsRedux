@@ -110,6 +110,7 @@ namespace Simitone.Client.UI.Screens
 
             FSO.Common.Utils.FSOThreads.Start(() => {
                 VMContext.InitVMConfig(true);
+                FSO.Content.Content.ReduxCreatorContent = Simitone.Client.Utils.ReduxCreator.ShouldLoad(); // SimsRedux: creator items (Test server)
                 FSO.Content.Content.Init(GlobalSettings.Default.StartupPath, GameFacade.GraphicsDevice);
                 lock (this)
                 {

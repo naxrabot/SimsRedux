@@ -21,6 +21,10 @@
     <Content Include="Content\redux\mods\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- SimsRedux: items made with the Sims Redux Creator (loaded on the Test server; see Utils/ReduxCreator.cs) -->
+    <Content Include="Content\redux\creator\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <!-- SimsRedux: The Sims Redux logo (neighbourhood bar) -->
     <Content Include="Content\redux\redux_logo.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

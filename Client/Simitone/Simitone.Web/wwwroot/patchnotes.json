@@ -2,6 +2,14 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "4.6",
+      "date": "Oct 16, 2026",
+      "features": [
+        "New items on the Test server — new floors, walls and wall pictures will appear on the Test server first."
+      ],
+      "updates": []
+    },
+    {
       "version": "4.5",
       "date": "Oct 15, 2026",
       "features": [],

@@ -1,0 +1,2 @@
+# SimsRedux: items made with the Sims Redux Creator (one file per line, relative to this folder).
+# Loaded only on the Test server until promoted to Live.
