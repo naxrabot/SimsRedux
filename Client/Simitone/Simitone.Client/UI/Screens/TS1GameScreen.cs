@@ -1400,7 +1400,10 @@ namespace Simitone.Client.UI.Screens
             // SimsRedux: like Sims 1, every lot gets the game's global objects (lot controllers) a house
             // was saved without. Single player only - online lots stay exactly as the server has them.
             if (!isSurrounding && Host == null && !IsGuest && !ReduxTown.Active && !ReduxWorker.Active)
+            {
                 VMTS1Activator.EnsureGlobalSimObjects(vm);
+                LogGlobalObjects();
+            }
 
             if (isSimless)
             {
@@ -1409,6 +1412,36 @@ namespace Simitone.Client.UI.Screens
             vm.SetGlobalValue(32, (short)(isSimless ? 1 : 0));
         }
 
+
+        /// <summary>SimsRedux: notes the lot's global objects and the game's vehicles in lot_debug.log (for tracking down the trolley and a taxi).</summary>
+        private static bool VehiclesLogged;
+        private void LogGlobalObjects()
+        {
+            try
+            {
+                var lines = new List<string>();
+                lines.Add(DateTime.Now.ToString("HH:mm:ss") + " ---- global objects on lot " + vm.GetGlobalValue(10));
+                var globals = new HashSet<uint>(Content.Get().WorldObjects.ControllerObjects.Select(x => (uint)x.ID));
+                foreach (var ent in vm.Entities)
+                {
+                    var obj = ent?.Object?.OBJ;
+                    if (obj == null || !globals.Contains(obj.GUID)) continue;
+                    lines.Add("  global " + obj.GUID.ToString("X8") + " " + obj.ChunkLabel);
+                }
+                if (!VehiclesLogged)
+                {
+                    VehiclesLogged = true;
+                    var words = new[] { "taxi", "cab", "car", "trolley", "shuttle", "bus", "limo", "vehicle" };
+                    foreach (var r in Content.Get().WorldObjects.Entries.Values)
+                    {
+                        var n = (r.Name ?? "").ToLowerInvariant();
+                        if (words.Any(w => n.Contains(w))) lines.Add("  object " + ((uint)r.ID).ToString("X8") + " " + r.Name + " (" + r.FileName + ")");
+                    }
+                }
+                FSO.Common.IO.FSOFile.AppendAllLines(Path.Combine(FSOEnvironment.UserDir, "lot_debug.log"), lines);
+            }
+            catch { }
+        }
 
         private void Vm_OnGenericVMEvent(VMEventType type, object data)
         {

@@ -103,6 +103,7 @@ namespace Simitone.Client.Utils
             {
                 LastFix = now;
                 try { FixCommunityPeople(vm); } catch (Exception e) { Console.WriteLine("[SimsRedux] townies (fix): " + e.Message); }
+                try { RemoveTrolleys(vm); } catch (Exception e) { Console.WriteLine("[SimsRedux] trolleys: " + e.Message); }
             }
             if (!Enabled) return;
             if (FirstMinute < 0) FirstMinute = now;
@@ -180,9 +181,8 @@ namespace Simitone.Client.Utils
         }
 
         /// <summary>
-        /// Your own Sims always count as family (never visitors), on every lot. On a community lot nobody
-        /// greets anybody, so everyone there counts as greeted (an ungreeted visitor only offers "Greet",
-        /// which community lots don't have).
+        /// Your own Sims always count as family (never visitors), on every lot. On a community lot everyone
+        /// gets greet status 1, which is what Hot Date's social menu needs there (anything else: no menu).
         /// </summary>
         private static void FixCommunityPeople(VM vm)
         {
@@ -197,8 +197,26 @@ namespace Simitone.Client.Utils
                     if (ava.GetPersonData(VMPersonDataVariable.PersonType) == 1) ava.SetPersonData(VMPersonDataVariable.PersonType, 0);
                     continue;
                 }
-                if (community && ava.GetPersonData(VMPersonDataVariable.PersonType) == 1 && ava.GetPersonData(VMPersonDataVariable.GreetStatus) < 2)
-                    ava.SetPersonData(VMPersonDataVariable.GreetStatus, 2);
+                // Hot Date's own rule: on a community lot you can only talk to Sims whose greet status is 1
+                // (what the game gives everyone there, your own Sims included)
+                if (community && ava.GetPersonData(VMPersonDataVariable.PersonType) == 1 && ava.GetPersonData(VMPersonDataVariable.GreetStatus) != 1)
+                    ava.SetPersonData(VMPersonDataVariable.GreetStatus, 1);
+            }
+        }
+
+        /// <summary>
+        /// Unleashed's Old Town trolley kept pulling up (and piling up) in front of every lot. It isn't
+        /// used for anything here, so any that turn up are taken away.
+        /// </summary>
+        private static void RemoveTrolleys(VM vm)
+        {
+            foreach (var ent in vm.Entities.ToList())
+            {
+                if (ent == null || ent.Dead || ent is VMAvatar) continue;
+                var label = ent.Object?.OBJ?.ChunkLabel ?? "";
+                if (label.IndexOf("trolley", StringComparison.OrdinalIgnoreCase) < 0) continue;
+                Console.WriteLine("[SimsRedux] removed a trolley (" + label + ")");
+                ent.Delete(true, vm.Context);
             }
         }
 
@@ -319,7 +337,8 @@ namespace Simitone.Client.Utils
 
             // a visitor who hasn't been greeted (the game set this up from their neighbour data already)
             ava.SetPersonData(VMPersonDataVariable.PersonType, 1);
-            if (IsCommunity(vm)) ava.SetPersonData(VMPersonDataVariable.GreetStatus, 2); // (nobody greets anyone downtown)
+            // community lot: greet status 1 (Hot Date's social menu needs it); home: a stranger not yet greeted
+            ava.SetPersonData(VMPersonDataVariable.GreetStatus, (short)(IsCommunity(vm) ? 1 : 0));
             // passing through: never saved into the lot (Sims 1 sends visitors home when you leave)
             ava.SetValue(VMStackObjectVariable.MovementFlags,
                 (short)(ava.GetValue(VMStackObjectVariable.MovementFlags) | (short)VMMovementFlags.FSOExcludeUserSave));
