@@ -18,6 +18,8 @@ namespace Simitone.Client.Utils
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Fixes: lots of bug fixes and smoother play across the game, the launcher and online.",
+            "Magic Town: families can move into the Magic Town lots again.",
             "Launcher: a new background, and a Refresh button when a new version is out.",
             "New logo: The Sims Redux logo on the neighborhood bar and the launcher.",
             "Family faces: each Sim's head is centred in its picture.",

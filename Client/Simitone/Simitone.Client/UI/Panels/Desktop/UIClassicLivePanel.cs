@@ -146,6 +146,8 @@ namespace Simitone.Client.UI.Panels.Desktop
         private void SelectFamily(int slot)
         {
             if (slot < 0 || slot >= Others.Count) return;
+            // online: only Sims this player may control (not a visited friend's family)
+            if (Game.LotControl != null && !Game.LotControl.CanTakeControl(Others[slot])) return;
             FSO.HIT.HITVM.Get().PlaySoundEvent(UISounds.QueueAdd);
             Game.vm.SendCommand(new VMNetChangeControlCmd() { TargetID = Others[slot].ObjectID });
         }

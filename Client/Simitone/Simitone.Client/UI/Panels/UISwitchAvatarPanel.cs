@@ -27,7 +27,12 @@ namespace Simitone.Client.UI.Panels
             Game = screen;
             Bg = Content.Get().CustomUI.Get("pswitch_bg.png").Get(GameFacade.GraphicsDevice);
             
-            var familyMembers = Game.vm.Context.ObjectQueries.Avatars.Where(x => Game.vm.TS1State.CurrentFamily.RuntimeSubset.Contains(x.Object.OBJ.GUID));
+            // SimsRedux: no family on the lot = nothing to switch to; online, only Sims this player may control
+            var family = Game.vm?.TS1State?.CurrentFamily;
+            var familyMembers = (family?.RuntimeSubset == null)
+                ? Enumerable.Empty<FSO.SimAntics.VMEntity>()
+                : Game.vm.Context.ObjectQueries.Avatars.Where(x => family.RuntimeSubset.Contains(x.Object.OBJ.GUID)
+                    && (Game.LotControl == null || Game.LotControl.CanTakeControl(x as FSO.SimAntics.VMAvatar)));
             int i = 0;
             foreach (var fam in familyMembers)
             {

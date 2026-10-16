@@ -2,6 +2,18 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "4.4",
+      "date": "Oct 15, 2026",
+      "features": [],
+      "updates": [
+        "Bug fixes — lots of fixes for crashes and glitches across the game, the launcher and online play.",
+        "Magic Town — families can move into the Magic Town lots again.",
+        "Online play — smoother joining and leaving, and visitors can't switch to the host's Sims.",
+        "Launcher — you can type spaces, scroll with the mouse wheel, and it fits on phones.",
+        "F1 — switches to Live mode, like the original game."
+      ]
+    },
+    {
       "version": "4.3",
       "date": "Oct 15, 2026",
       "features": [],
