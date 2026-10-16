@@ -249,8 +249,8 @@
 #srx-setup .cat.feat + ul li::before { background: #78ff8c; opacity: 1; }
 #srx-setup .cat.upd + ul li::before { background: #7fc4ff; opacity: 1; }
 #srx-setup .nolder { margin-top: 12px; font-size: 12px; }
-#srx-setup .l-bottom { padding: 18px 30px 22px; position: sticky; bottom: 0; z-index: 2; margin-top: auto; background: rgba(4, 8, 38, .97); }
-#srx-setup .l-bottom::before { content: ''; position: absolute; left: 0; right: 0; bottom: 100%; height: 22px; pointer-events: none; background: linear-gradient(transparent, rgba(4, 8, 38, .97)); } /* (Play stays on screen; the page scrolls behind it) */
+#srx-setup .l-bottom { padding: 18px 30px 22px; position: sticky; bottom: 0; z-index: 2; margin-top: auto; background: rgb(5, 9, 38); }
+#srx-setup .l-bottom::before { content: ''; position: absolute; left: 0; right: 0; bottom: 100%; height: 22px; pointer-events: none; background: linear-gradient(rgba(5, 9, 38, 0), rgb(5, 9, 38)); } /* (Play stays on screen; the page scrolls behind it) */
 #srx-setup button.play { display: block; width: 100%; margin: 0; padding: 15px; font-size: 20px; font-weight: 800; letter-spacing: .3em;
   color: #04220d; background: linear-gradient(#9fffb0, #3bc25a); border: none; box-shadow: 0 6px 24px rgba(80,230,110,.25), inset 0 1px 0 rgba(255,255,255,.5); }
 #srx-setup button.play:hover { background: linear-gradient(#b8ffc5, #4fd56d); }
