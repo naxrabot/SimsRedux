@@ -59,9 +59,38 @@ namespace Simitone.Client.Utils
         {
             if (!Managed) return;
             var want = Wanted;
-            if (FSOEnvironment.SoftwareKeyboard != want)
-                Console.WriteLine("[SimsRedux] controls: " + (want ? "touch" : "PC"));
+            var detected = DetectedTouch;
+            if (FSOEnvironment.SoftwareKeyboard != want || !Logged)
+                Console.WriteLine("[SimsRedux] controls: " + (want ? "touch" : "PC") + " (setting " + Choices[Setting] + ", device looks like " + (detected ? "a phone/tablet" : "a computer") + ")");
+            Logged = true;
+            if (FSOEnvironment.SoftwareKeyboard != want || !Announced) PendingNotice = true;
             FSOEnvironment.SoftwareKeyboard = want;
+        }
+
+        private static bool Logged, Announced, PendingNotice;
+
+        /// <summary>
+        /// Called by the game screen each frame: once the screen is up, a corner notice says which
+        /// controls are on (the first time, and after they change).
+        /// </summary>
+        public static void Announce()
+        {
+            if (!Managed || !PendingNotice) return;
+            PendingNotice = false;
+            if (!Announced && !Active && Setting == Auto) { Announced = true; return; } // a computer on Auto: nothing to say
+            Announced = true;
+            try
+            {
+                var how = Setting == Auto ? " (picked for this device)" : "";
+                if (Active)
+                    Simitone.Client.UI.Controls.UIReduxToasts.Show("Touch Controls",
+                        "Touch controls are on" + how + ". Tap to choose, drag to move the camera, pinch to zoom. "
+                        + "Options has a PC Controls button for a mouse and keyboard.");
+                else
+                    Simitone.Client.UI.Controls.UIReduxToasts.Show("PC Controls",
+                        "PC controls are on" + how + ". Options > Interface > Controls switches back to touch.");
+            }
+            catch { }
         }
 
         /// <summary>Names for the setting's choices, in order.</summary>

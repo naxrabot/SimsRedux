@@ -1292,17 +1292,23 @@
     const accountToken = () => (Account.session && Account.session.token) || '';
     // set when the game started out of date: the reason online mode is shut ('' = it's open)
     const onlineBlockedReason = () => onlineBlocked || '';
-    // a phone or tablet: a touch screen as the main pointer and no mouse or trackpad attached
-    // (a tablet with a mouse counts as a computer; the game's Controls setting can override either way)
+    // a phone or tablet. Phones and tablets count as touch even when the browser says it has a fine
+    // pointer (many Android phones do); the game's Options > Interface > Controls can switch to PC
+    // (a tablet with a mouse and keyboard). ?controls=touch or ?controls=pc in the address forces it.
     function touchDevice()
     {
         try
         {
+            const forced = (new URLSearchParams(location.search).get('controls') || '').toLowerCase();
+            if (forced === 'touch') return true;
+            if (forced === 'pc' || forced === 'mouse') return false;
+            const ua = navigator.userAgent || '';
+            const touchPoints = navigator.maxTouchPoints || 0;
+            if (/Android|iPhone|iPad|iPod|Mobile|Silk|Kindle/i.test(ua)) return true;
+            if (/Macintosh/i.test(ua) && touchPoints > 1) return true; // an iPad asking for the desktop site
             const mm = (q) => window.matchMedia && window.matchMedia(q).matches;
-            const touch = (navigator.maxTouchPoints || 0) > 0 || 'ontouchstart' in window;
-            if (!touch) return false;
-            if (mm('(any-pointer: fine)')) return false;   // a mouse or trackpad is attached
-            return mm('(pointer: coarse)') || mm('(hover: none)') || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+            // anything else (a computer): touch only when a touch screen is the only pointer
+            return touchPoints > 0 && mm('(pointer: coarse)') && !mm('(any-pointer: fine)');
         }
         catch (e) { return false; }
     }

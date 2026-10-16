@@ -2,6 +2,15 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "6.5",
+      "date": "Oct 16, 2026",
+      "features": [],
+      "updates": [
+        "Touch controls — now turn on for all Android phones and tablets (some were treated like a computer).",
+        "Controls notice — a notice in the corner says whether touch or PC controls are on."
+      ]
+    },
+    {
       "version": "6.4",
       "date": "Oct 16, 2026",
       "features": [
