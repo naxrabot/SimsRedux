@@ -283,7 +283,8 @@ namespace Simitone.Client.Utils
                     // the server asked for the town's extra Sims (with no other lot open, so nothing else is writing the town)
                     try
                     {
-                        var line = ReduxPopulation.EnsurePopulated(10, 10, 4);
+                        // online: every home is left for the players - the town's own families and the new ones are townies
+                        var line = ReduxPopulation.EnsurePopulated(10, 10, 0, new HashSet<int>(OwnedFamilies()));
                         Say("populated " + (line ?? "nothing to do - the town already has its extra Sims"));
                     }
                     catch (Exception e) { Say("error populate " + e.Message); Environment.Exit(8); }

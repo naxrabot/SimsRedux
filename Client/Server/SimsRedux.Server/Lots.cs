@@ -66,15 +66,17 @@ namespace SimsRedux.Server
                 try
                 {
                     var p = Path.Combine(TownDir, PopulationMarker);
-                    return File.Exists(p) && File.ReadAllText(p).Contains("v2");
+                    if (!File.Exists(p)) return false;
+                    var t = File.ReadAllText(p);
+                    return t.Contains("v2") && t.Contains("emptyhomes"); // (5.6: every home is emptied for the players too)
                 }
                 catch { return false; }
             }
         }
 
         /// <summary>
-        /// Fills the town with extra background Sims: families move into houses for sale (a few are kept
-        /// for players) and singles become townies. Runs the game once, on its own, while no lot is open
+        /// Fills the town with extra background Sims (all townies), and moves every family that isn't a
+        /// player's out of its house, so every home is for sale for the players. Runs the game once, on its own, while no lot is open
         /// (so nothing else is writing the town). It only ever happens once per town.
         /// </summary>
         public async Task<string> PopulateTown()

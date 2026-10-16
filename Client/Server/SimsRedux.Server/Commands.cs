@@ -50,7 +50,7 @@ namespace SimsRedux.Server
             new[] { "/town fresh", "start a brand-new town: the game's Neighbourhood 1 with its starting families (the old one goes to backups/)" },
             new[] { "/town fresh empty", "start a brand-new town with houses but no families" },
             new[] { "/town sources", "every neighbourhood the server can find, with how many families live in it" },
-            new[] { "/town populate", "give the town its extra background Sims (families in houses for sale, townies) - done by itself once per town" },
+            new[] { "/town populate", "give the town its extra background Sims and empty every home that isn't a player's (they all become townies) - done by itself once per town" },
             new[] { "/town time [<day> <time>]", "the online town's clock (runs while anyone plays) - e.g. /town time 2 7:30pm" },
             new[] { "/town owners", "which account's family lives in which house" },
             new[] { "/town disown <account>", "the account no longer owns its town family (they stay as a town family)" },

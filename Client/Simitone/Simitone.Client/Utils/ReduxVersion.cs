@@ -19,6 +19,7 @@ namespace Simitone.Client.Utils
         public static readonly string[] WhatsNew =
         {
             "New neighbours: new background families move into empty homes and new townies are out and about - on community lots and walking past your home.",
+            "Online town: every home is free for players to move into - the town's families are out and about as townies instead.",
             "Online town: more neighbours and townies too - townies now show up on online lots, the same for everyone there.",
             "Shop staff: you can talk to clerks, waiters, chefs and other workers on community lots.",
             "Talking to Sims: townies and guests on community lots can be talked to again.",

@@ -93,7 +93,7 @@ namespace Simitone.Client.Utils
         /// keepFree: how many houses for sale are always left empty for players. Returns a line about
         /// what it did (or null if there was nothing to do).
         /// </summary>
-        public static string EnsurePopulated(int families = 8, int singles = 8, int keepFree = 2)
+        public static string EnsurePopulated(int families = 8, int singles = 8, int keepFree = 2, HashSet<int> emptyHomesExcept = null)
         {
             try
             {
@@ -102,9 +102,18 @@ namespace Simitone.Client.Utils
                 if (marker == null) return null;
                 var neigh = Content.Get().Neighborhood;
                 var rand = new Random();
+                bool emptyHomes = emptyHomesExcept != null;
                 if (FSOFile.Exists(marker))
                 {
                     var text = FSOFile.ReadAllText(marker);
+                    if (text.Contains(Version) && emptyHomes && !text.Contains(EmptyHomesMark))
+                    {
+                        // the online town: everyone moves out of the houses (players' families stay)
+                        int evicted = EmptyHomes(neigh, emptyHomesExcept);
+                        neigh.SaveNeighbourhood(true);
+                        FSOFile.AppendAllText(marker, EmptyHomesMark + "\r\n");
+                        return evicted + " families moved out of their houses - every home is for sale, and they're townies now";
+                    }
                     if (text.Contains(Version)) return null;
                     // made by 5.4: those families were put in the family bin - they become background Sims
                     GeneratedFor = null;
@@ -112,14 +121,17 @@ namespace Simitone.Client.Utils
                     foreach (var f in neigh.MainResource.List<FSO.Files.Formats.IFF.Chunks.FAMI>() ?? new List<FSO.Files.Formats.IFF.Chunks.FAMI>())
                         if (IsGenerated(f.ChunkID)) old.Add(f);
                     foreach (var f in old) f.Unknown = 0;
-                    int moved = MoveIntoHouses(neigh, old, keepFree, rand);
+                    int moved = 0, out1 = 0;
+                    if (emptyHomes) out1 = EmptyHomes(neigh, emptyHomesExcept);
+                    else moved = MoveIntoHouses(neigh, old, keepFree, rand);
                     neigh.SaveNeighbourhood(true);
-                    FSOFile.AppendAllText(marker, Version + "\r\n");
-                    return "the town's extra Sims are background Sims now (" + moved + " families moved into houses)";
+                    FSOFile.AppendAllText(marker, Version + "\r\n" + (emptyHomes ? EmptyHomesMark + "\r\n" : ""));
+                    return emptyHomes ? "the town's extra Sims are townies now, and " + out1 + " families moved out of their houses"
+                        : "the town's extra Sims are background Sims now (" + moved + " families moved into houses)";
                 }
 
                 // written first: if anything goes wrong part way, it's never made twice
-                FSOFile.WriteAllText(marker, "SimsRedux: extra Sims made " + DateTime.Now.ToString("yyyy-MM-dd HH:mm") + "\r\n" + Version + "\r\n");
+                FSOFile.WriteAllText(marker, "SimsRedux: extra Sims made " + DateTime.Now.ToString("yyyy-MM-dd HH:mm") + "\r\n" + Version + "\r\n" + (emptyHomes ? EmptyHomesMark + "\r\n" : ""));
                 var surnames = Surnames.OrderBy(x => rand.Next()).ToList();
                 var made = new List<FSO.Files.Formats.IFF.Chunks.FAMI>();
                 int sims = 0;
@@ -138,11 +150,14 @@ namespace Simitone.Client.Utils
                 }
                 // background Sims: not waiting in the family bin, not one of the player's families
                 foreach (var f in made) f.Unknown = 0;
-                int housed = MoveIntoHouses(neigh, made, keepFree, rand);
+                int housed = 0, evictedNew = 0;
+                if (emptyHomes) evictedNew = EmptyHomes(neigh, emptyHomesExcept);
+                else housed = MoveIntoHouses(neigh, made, keepFree, rand);
                 neigh.SaveNeighbourhood(true);
                 GeneratedFor = null; // re-read the list
                 TexNames = null;
-                var line = "made " + sims + " new Sims in " + made.Count + " households (" + housed + " moved into houses, the rest are townies)";
+                var line = "made " + sims + " new Sims in " + made.Count + " households"
+                    + (emptyHomes ? " (all townies; " + evictedNew + " families moved out so every home is for sale)" : " (" + housed + " moved into houses, the rest are townies)");
                 Console.WriteLine("[SimsRedux] population: " + line);
                 return line;
             }
@@ -151,6 +166,31 @@ namespace Simitone.Client.Utils
                 Console.WriteLine("[SimsRedux] population failed: " + e.Message);
                 return "couldn't make the extra Sims: " + e.Message;
             }
+        }
+
+        private const string EmptyHomesMark = "emptyhomes";
+
+        /// <summary>
+        /// The online town: every family living in a house moves out (the house goes up for sale, things and
+        /// all) and becomes townies - except the families players own. Returns how many moved out.
+        /// </summary>
+        private static int EmptyHomes(TS1NeighborhoodProvider neigh, HashSet<int> keep)
+        {
+            int moved = 0;
+            foreach (var fam in (neigh.MainResource.List<FSO.Files.Formats.IFF.Chunks.FAMI>() ?? new List<FSO.Files.Formats.IFF.Chunks.FAMI>()).ToList())
+            {
+                if (fam.HouseNumber <= 0 || keep.Contains(fam.ChunkID)) continue;
+                var house = (short)fam.HouseNumber;
+                try
+                {
+                    neigh.MoveOut(house);
+                    fam.Unknown = 0; // a townie family now: out and about, not waiting in the family bin
+                    moved++;
+                    Console.WriteLine("[SimsRedux] population: family " + fam.ChunkID + " moved out of house " + house);
+                }
+                catch (Exception e) { Console.WriteLine("[SimsRedux] population: couldn't move family " + fam.ChunkID + " out: " + e.Message); }
+            }
+            return moved;
         }
 
         /// <summary>
