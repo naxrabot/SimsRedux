@@ -29,7 +29,7 @@ namespace Simitone.Client.Utils
                 if (first || list.Count == 0) return; // (the first check only finds where the list is up to)
                 foreach (var n in list)
                 {
-                    try { UIClassicDialog.Show(n.Item1, n.Item2, Tuple.Create<string, Action>("OK", () => { })); }
+                    try { Simitone.Client.UI.Controls.UIReduxToasts.Show(n.Item1, n.Item2); } // a corner notice
                     catch (Exception e) { Console.WriteLine("[SimsRedux] Couldn't show a server message: " + e.Message); }
                 }
             });

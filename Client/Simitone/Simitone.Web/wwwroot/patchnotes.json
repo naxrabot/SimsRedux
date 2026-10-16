@@ -2,6 +2,17 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "5.9",
+      "date": "Oct 16, 2026",
+      "features": [
+        "Item cards — point at anything in Buy or Build mode to see a big picture, the price, the description and what it does for your Sims.",
+        "Notifications — notices pop up in the top-right corner and fade away on their own (or close them with the X). They no longer pause the game."
+      ],
+      "updates": [
+        "Updates — no more \"Updated to\" popup when the game starts; the patch notes are on the launcher."
+      ]
+    },
+    {
       "version": "5.8",
       "date": "Oct 16, 2026",
       "features": [],

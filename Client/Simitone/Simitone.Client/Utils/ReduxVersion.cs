@@ -18,6 +18,8 @@ namespace Simitone.Client.Utils
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Item cards: point at anything in Buy or Build mode to see a big picture, the price, the description and what it does.",
+            "Notifications: notices pop up in the top-right corner and fade away (or close them with X) - they no longer pause the game.",
             "Buy and Build: the search box and dropper sit on the right of the bar, item details show on the classic bar, and tab names fit their tabs.",
             "Buy and Build: hidden test items with no picture no longer show up.",
             "Dropper: in Buy or Build mode, press I (or the Dropper button) and click anything on your lot - or a floor - to pick the same item from the catalog.",

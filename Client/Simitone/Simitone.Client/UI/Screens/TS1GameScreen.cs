@@ -771,6 +771,7 @@ namespace Simitone.Client.UI.Screens
                     + " lotVisible=" + (LotControl?.Visible.ToString() ?? "-")
                     + " onTop=" + string.Join(",", GetChildren().Skip(Math.Max(0, GetChildren().Count - 4)).Select(x => x.GetType().Name)));
             }
+            Simitone.Client.UI.Controls.UIReduxToasts.Attach(this); // SimsRedux: corner notices, on top of everything
             ReduxVisitors.Tick(this); // SimsRedux: townies and walk-bys (single player, and the lots this game hosts)
             if (vm != null) vm.Update();
 

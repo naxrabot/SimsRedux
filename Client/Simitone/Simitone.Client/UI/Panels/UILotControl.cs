@@ -443,6 +443,15 @@ namespace Simitone.Client.UI.Panels
 
             // SimsRedux: in the classic interface, the game's questions use the original Sims 1 popup
             VMDialogType ctype = (info.Operand == null) ? VMDialogType.Message : info.Operand.Type;
+            // SimsRedux: a plain notice (just an OK button) pops up in the top-right corner and the game
+            // carries on - it's answered straight away, so nothing waits on it
+            if (ctype == VMDialogType.Message)
+            {
+                Simitone.Client.UI.Controls.UIReduxToasts.Show(info.Title, info.Message);
+                if (info.Block) ClassicResponse(0);
+                DialogLog("(shown as a corner notice) " + info.Title);
+                return;
+            }
             if (UIClassicNeighborhoodBar.Enabled && (ctype == VMDialogType.Message || ctype == VMDialogType.YesNo || ctype == VMDialogType.YesNoCancel))
             {
                 var block = info.Block;

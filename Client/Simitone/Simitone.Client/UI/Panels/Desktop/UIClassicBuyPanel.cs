@@ -587,6 +587,7 @@ namespace Simitone.Client.UI.Panels.Desktop
         private int BuiltColumns = -1;
         private void RebuildThumbs()
         {
+            HoverGUID = 0; // (the pictures under the mouse are being replaced)
             foreach (var t in Thumbs) Remove(t);
             Thumbs.Clear();
             int cols = Columns;
@@ -603,8 +604,8 @@ namespace Simitone.Client.UI.Panels.Desktop
                     thumb.Position = new Vector2(ThumbStart + c * ThumbStep, r == 0 ? ThumbRow1 : ThumbRow2);
                     thumb.Unaffordable = item.Price > budget;
                     thumb.Selected = index == SelectedIndex;
-                    var tip = GetName(item) + "  §" + item.Price.ToString("##,#0");
-                    thumb.OnHover = (t, on) => { if (on) HoverText = tip; else if (HoverText == tip) HoverText = null; };
+                    var guid = item.GUID;
+                    thumb.OnHover = (t, on) => { if (on) HoverGUID = guid; else if (HoverGUID == guid) HoverGUID = 0; };
                     thumb.OnClick = (t) => BuyItem(t.Index);
                     Add(thumb);
                     Thumbs.Add(thumb);
@@ -733,14 +734,15 @@ namespace Simitone.Client.UI.Panels.Desktop
             var bought = control.vm.Context.CreateObjectInstance(guid, LotTilePos.OUT_OF_WORLD, Direction.NORTH, holder.UseNet);
             if (bought != null && bought.Objects.Count != 0)
             {
-                control.QueryPanel.Active = false; // (the classic bar shows what it is instead)
-                HeldInfo = DescribeForSale(bought.BaseObject);
+                control.QueryPanel.Active = false; // (the item card above the bar shows what it is instead)
+                HeldGUID = guid;
                 holder.SetSelected(bought);
             }
         }
 
-        /// <summary>SimsRedux: what's being placed - name, price and what it does for a Sim (like the original catalog).</summary>
-        private string HeldInfo;
+        /// <summary>SimsRedux: the item card above the bar - for the picture under the mouse, or what's being placed.</summary>
+        private UIReduxItemCard Card = new UIReduxItemCard();
+        private uint HoverGUID, HeldGUID;
 
         public static string DescribeForSale(VMEntity ent)
         {
@@ -929,7 +931,8 @@ namespace Simitone.Client.UI.Panels.Desktop
                 Game.LotControl.PickupPanel.Opacity = 0f;
                 Game.LotControl.QueryPanel.Active = false; // the Simitone info card - the classic bar shows it instead
             }
-            if (holding == null || holding.IsBought) HeldInfo = null;
+            if (holding == null || holding.IsBought) HeldGUID = 0;
+            if (!Visible) HoverGUID = 0;
             if (Visible)
             {
                 // search and dropper sit on the bar's top edge, at the right
@@ -977,8 +980,17 @@ namespace Simitone.Client.UI.Panels.Desktop
             base.Draw(batch);
 
             // name / price of whatever is under the mouse, in a small box above the bar
-            var tip = HoverText ?? HeldInfo;
-            if ((CurrentView != View.Start || SellExtras.Count > 0 || DropperActive || HeldInfo != null) && !string.IsNullOrEmpty(tip))
+            // the item card: the picture under the mouse, or else what's being placed
+            var cardGUID = HoverGUID != 0 ? HoverGUID : HeldGUID;
+            if (cardGUID != 0 && (SellCatcher == null || !SellCatcher.Visible))
+            {
+                Card.SetObject(cardGUID, GetIcon(cardGUID));
+                Card.Draw(this, batch, SubX, BarY - 2);
+                return;
+            }
+            Card.Hide();
+            var tip = HoverText;
+            if ((CurrentView != View.Start || SellExtras.Count > 0 || DropperActive) && !string.IsNullOrEmpty(tip))
             {
                 int w = 12 + tip.Length * 6;
                 var box = new Rectangle(ThumbX, BarY - 20, w, 17);

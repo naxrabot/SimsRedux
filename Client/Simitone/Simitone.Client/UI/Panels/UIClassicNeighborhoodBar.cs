@@ -167,7 +167,7 @@ namespace Simitone.Client.UI.Panels
                 AddVersionLine(ReduxVersion.Text, 9, new Color(205, 210, 255), textX, bandMid + 8, textW, 12);
             }
 
-            ReduxVersion.ShowUpdatePopupOnce();
+            // (SimsRedux: no "Updated to" popup any more - the launcher shows the patch notes)
             if (!moveIn) ReduxFreshHood.OfferIfEmpty();
 
             // SimsRedux: in the online town, "Online Town" sits where the neighbourhood arrows are
