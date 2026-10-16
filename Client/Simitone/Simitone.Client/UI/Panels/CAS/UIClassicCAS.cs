@@ -92,9 +92,9 @@ namespace Simitone.Client.UI.Panels.CAS
         public string Skin = "lgt";
         public int HeadIndex, BodyIndex;
 
-        // Personality LED slots (measured from CreateACharBack)
-        private const int LedX = 228;
-        private const int LedWidth = 60;       // 10 LEDs
+        // Personality LED slots (measured from CreateACharBack; the Redux look draws its own, wider)
+        private int LedX = 228;
+        private int LedWidth = 60;             // 10 LEDs
         private static readonly int[] LedY = { 132, 164, 196, 228, 260 };
         private const int LedHeight = 23;
         private const int PointsX = 118, PointsY = 341;
@@ -103,9 +103,15 @@ namespace Simitone.Client.UI.Panels.CAS
         private static readonly Vector2 PreviewPos = new Vector2(573, 117);
         private static readonly Vector2 PreviewSize = new Vector2(182, 263);
 
+        /// <summary>SimsRedux: the Redux look (rounded panels and buttons in the UI colour) instead of the Sims 1 art.</summary>
+        private readonly bool R;
+        private UIReduxTextButton PickUpBtn, PickDownBtn;
+
         public UIClassicCAS(TS1CASScreen screen)
         {
             Screen = screen;
+            R = ReduxTheme.Redux;
+            if (R) { LedX = 196; LedWidth = 130; }
             FamilyBkg = TS1UIGraphics.Get("Nbhd/DsgnFamBkg.bmp");
             SimBkg = TS1UIGraphics.Get("Nbhd/CreateACharBack.bmp");
             PersLED = TS1UIGraphics.Get("Nbhd/DesignCharPersLED.bmp");
@@ -121,6 +127,22 @@ namespace Simitone.Client.UI.Panels.CAS
         // ------------------------------------------------------------------
         // Layout
         // ------------------------------------------------------------------
+
+        /// <summary>A Sims 1 art button, or in the Redux look a text button at the given place.</summary>
+        private UITS1Button RBtn(string path, int x, int y, int frames, bool cutout, string caption, int rx, int ry, int rw, int rh)
+        {
+            if (!R) return Btn(path, x, y, frames, cutout);
+            var btn = new UIReduxTextButton(caption, rw, rh);
+            btn.Position = new Vector2(rx, ry);
+            Add(btn);
+            return btn;
+        }
+
+        private UITS1Button RAutoBtn(string path, int x, int y, string caption, int rx, int ry, int rw, int rh)
+        {
+            if (!R) return AutoBtn(path, x, y);
+            return RBtn(path, x, y, 4, false, caption, rx, ry, rw, rh);
+        }
 
         private UITS1Button Btn(string path, int x, int y, int frames = 4, bool cutout = false)
         {
@@ -174,14 +196,23 @@ namespace Simitone.Client.UI.Panels.CAS
             PickBkg = TS1UIGraphics.Get("Nbhd/PickBkg.bmp");
             PickRowBkg = TS1UIGraphics.Get("Nbhd/FamilyPickItemBkg.bmp");
 
-            PickTitle = Label("SELECT A FAMILY", 0, 10, 20);
+            PickTitle = Label(R ? "Select a Family" : "SELECT A FAMILY", 0, R ? 22 : 10, 20);
             PickTitle.Size = new Vector2(800, 30);
             PickTitle.Alignment = TextAlignment.Center;
 
-            PickCancelBtn = Btn("Nbhd/PAFCancel.bmp", 142, 535, 6, true); // 6-frame sheet with a baked-in background
-            PickAddBtn = AutoBtn("Nbhd/PAFAddFamily.bmp", 325, 532);
-            PickDeleteBtn = AutoBtn("Nbhd/PAFDeleteFamily.bmp", 415, 532);
-            PickMoveInBtn = AutoBtn("Nbhd/PAFMoveIn.bmp", 507, 532);
+            PickCancelBtn = RBtn("Nbhd/PAFCancel.bmp", 142, 535, 6, true, "Cancel", 42, 536, 140, 38); // 6-frame sheet with a baked-in background
+            PickAddBtn = RAutoBtn("Nbhd/PAFAddFamily.bmp", 325, 532, "New Family", 300, 536, 150, 38);
+            PickDeleteBtn = RAutoBtn("Nbhd/PAFDeleteFamily.bmp", 415, 532, "Delete", 462, 536, 120, 38);
+            PickMoveInBtn = RAutoBtn("Nbhd/PAFMoveIn.bmp", 507, 532, "Move In", 594, 536, 150, 38);
+            if (R)
+            {
+                // more than six families: buttons to scroll the list (there's no mouse wheel on a phone)
+                PickUpBtn = new UIReduxTextButton("Up", 44, 34) { Position = new Vector2(RowX + RowW + 10, RowY + 4) };
+                PickDownBtn = new UIReduxTextButton("Down", 44, 34) { Position = new Vector2(RowX + RowW + 10, RowY + RowH * VisibleRows - 40) };
+                PickUpBtn.OnButtonClick += (b) => PickScroll = Math.Max(0, PickScroll - 1);
+                PickDownBtn.OnButtonClick += (b) => PickScroll = Math.Min(Math.Max(0, Rows.Count - VisibleRows), PickScroll + 1);
+                Add(PickUpBtn); Add(PickDownBtn);
+            }
 
             PickCancelBtn.OnButtonClick += (b) => Screen.ClassicBackToNeighborhood();
             PickAddBtn.OnButtonClick += (b) => Screen.SetMode(UICASMode.FamilyEdit);
@@ -288,6 +319,12 @@ namespace Simitone.Client.UI.Panels.CAS
             }
             LastWheel = wheel;
             PickScroll = Math.Max(0, Math.Min(Math.Max(0, Rows.Count - VisibleRows), PickScroll));
+            if (PickUpBtn != null)
+            {
+                PickUpBtn.Visible = PickDownBtn.Visible = Rows.Count > VisibleRows;
+                PickUpBtn.Disabled = PickScroll <= 0;
+                PickDownBtn.Disabled = PickScroll >= Rows.Count - VisibleRows;
+            }
         }
 
         private void DrawPickRows(UISpriteBatch batch)
@@ -320,6 +357,157 @@ namespace Simitone.Client.UI.Panels.CAS
             }
         }
 
+        // ------------------------------------------------------------------
+        // SimsRedux: the Redux look
+        // ------------------------------------------------------------------
+
+        private void RPanel(UISpriteBatch batch, int x, int y, int w, int h, bool inset = true)
+        {
+            if (inset) DrawLocalTexture(batch, ReduxTheme.Box(w, h, 12, ReduxTheme.Deeper, ReduxTheme.Edge, ReduxTheme.Rim, 1), new Vector2(x, y));
+            else DrawLocalTexture(batch, ReduxTheme.Box(w, h, 12, ReduxTheme.Hi, ReduxTheme.Deep, ReduxTheme.Rim, 1), new Vector2(x, y));
+        }
+
+        private void Heading(UISpriteBatch batch, string text, int x, int y)
+        {
+            DrawText(batch, text, new Vector2(x, y), 12, new Color(200, 215, 255));
+        }
+
+        private void DrawRedux(UISpriteBatch batch, Texture2D px)
+        {
+            // the window
+            DrawLocalTexture(batch, ReduxTheme.Box(800, 600, 18, Color.Black * 0.4f, Color.Black * 0.4f, Color.Transparent, 0), new Vector2(3, 5));
+            DrawLocalTexture(batch, ReduxTheme.Box(800, 600, 18, ReduxTheme.Deep, ReduxTheme.Deeper, ReduxTheme.Rim, 2), Vector2.Zero);
+            DrawLocalTexture(batch, ReduxTheme.Box(796, 70, 16, ReduxTheme.Hi * 0.9f, ReduxTheme.Deep * 0.2f, Color.Transparent, 0), new Vector2(2, 2));
+            // the bar the buttons sit on
+            DrawLocalTexture(batch, ReduxTheme.Box(780, 54, 14, ReduxTheme.Deeper, ReduxTheme.Edge, ReduxTheme.Rim, 1), new Vector2(10, 528));
+
+            if (PickPage)
+            {
+                DrawPickRowsRedux(batch);
+                return;
+            }
+
+            if (!SimPage)
+            {
+                DrawCentered(batch, "Create a Family", 14, 20, Color.White);
+                Heading(batch, "Family name", 172, 56);
+                RPanel(batch, 266, 46, 270, 36);
+                RPanel(batch, 75, 98, 512, 312);
+                if (Screen.WIPFamily.Count == 0)
+                    DrawCentered(batch, "Press Add a Sim to make the first member of the family.", 240, 13, new Color(190, 200, 235), 75, 512);
+                if (SelectedMember >= 0)
+                {
+                    int col = SelectedMember % Cols, row = SelectedMember / Cols;
+                    var slot = new Vector2(GridX + col * SlotW + 3, GridY + row * SlotH + 1);
+                    DrawLocalTexture(batch, ReduxTheme.Box(SlotW - 6, SlotH - 2, 10, ReduxTheme.Hi * 0.55f, ReduxTheme.Deep * 0.55f, ReduxTheme.Glow, 2), slot);
+                }
+                DrawText(batch, "Up to " + MaxFamily + " Sims. Name the family, then press Done.", new Vector2(80, 420), 11, new Color(175, 185, 225));
+                return;
+            }
+
+            // the Sim page
+            DrawCentered(batch, "Create a Sim", 14, 20, Color.White);
+            Heading(batch, "Name", 222, 56);
+            RPanel(batch, 266, 46, 270, 36);
+
+            // personality
+            RPanel(batch, 78, 98, 272, 290);
+            Heading(batch, "Personality", 94, 108);
+            float seg = LedWidth / 10f;
+            for (int i = 0; i < 5; i++)
+            {
+                for (int j = 0; j < 10; j++)
+                {
+                    bool on = j < Personality[i];
+                    var pos = new Vector2(LedX + j * seg + 1, LedY[i] + 3);
+                    var w = (int)Math.Max(3, seg - 3);
+                    DrawLocalTexture(batch, ReduxTheme.Box(w, LedHeight - 6, 3,
+                        on ? new Color(150, 255, 150) : ReduxTheme.Edge, on ? new Color(40, 190, 70) : ReduxTheme.Deeper,
+                        on ? new Color(200, 255, 200) : ReduxTheme.Rim * 0.6f, 1), pos);
+                }
+            }
+            int remaining = MaxPoints - PointsUsed;
+            DrawText(batch, "Points left", new Vector2(94, PointsY - 1), 12, Color.White);
+            var barW = LedWidth;
+            DrawLocalTexture(batch, ReduxTheme.Box(barW, 16, 8, ReduxTheme.Edge, ReduxTheme.Deeper, ReduxTheme.Rim, 1), new Vector2(LedX, PointsY));
+            int fill = (int)(barW * remaining / (float)MaxPoints);
+            if (fill > 4) DrawLocalTexture(batch, ReduxTheme.Box(fill, 16, 8, new Color(255, 236, 140), new Color(220, 170, 40), Color.Transparent, 0), new Vector2(LedX, PointsY));
+            DrawText(batch, remaining.ToString(), new Vector2(LedX + barW + 6, PointsY - 1), 12, new Color(255, 236, 140));
+
+            // age, skin, gender
+            RPanel(batch, 362, 98, 196, 290);
+            Heading(batch, "Age", 377, 114);
+            Heading(batch, "Skin", 377, 200);
+            Heading(batch, "Gender", 377, 286);
+
+            // the preview
+            RPanel(batch, 565, 98, 200, 290, false);
+            Heading(batch, "Head and body", 580, 101);
+
+            // biography
+            Heading(batch, "Biography", 30, 404);
+            RPanel(batch, 24, 422, 752, 96);
+        }
+
+        private void DrawPickRowsRedux(UISpriteBatch batch)
+        {
+            if (Rows.Count == 0)
+                DrawCentered(batch, "No families yet - press New Family to make one.", RowY + 120, 14, new Color(190, 200, 235));
+            for (int i = 0; i < VisibleRows; i++)
+            {
+                int index = i + PickScroll;
+                if (index >= Rows.Count) break;
+                int y = RowY + i * RowH;
+                bool sel = index == PickSelection;
+                DrawLocalTexture(batch, ReduxTheme.Box(RowW, RowH - 6, 14,
+                    sel ? ReduxTheme.Hi : ReduxTheme.Deep, sel ? ReduxTheme.Deep : ReduxTheme.Deeper,
+                    sel ? ReduxTheme.Glow : ReduxTheme.Rim, sel ? 2 : 1), new Vector2(RowX, y + 3));
+
+                var row = Rows[index];
+                var fam = row.Family;
+                DrawText(batch, row.Name, new Vector2(RowX + 16, y + 8), 14, Color.White);
+                DrawText(batch, "\u00A7" + fam.Budget.ToString("N0"), new Vector2(RowX + 520, y + 10), 13, new Color(255, 240, 160));
+                DrawText(batch, "Friends: " + fam.FamilyFriends, new Vector2(RowX + 520, y + 32), 11, new Color(190, 200, 235));
+                for (int f = 0; f < row.Faces.Count; f++)
+                {
+                    var face = row.Faces[f];
+                    if (face == null) continue;
+                    var pos = new Vector2(RowX + 16 + f * 46, y + 28);
+                    float scale = 32f / Math.Max(1, Math.Max(face.Width, face.Height));
+                    DrawLocalTexture(batch, face, null, pos, new Vector2(scale, scale));
+                }
+            }
+        }
+
+        private void DrawCentered(UISpriteBatch batch, string text, int y, int size, Color color, int x = 0, int w = 800)
+        {
+            var style = StyleOf(size);
+            style.Color = color;
+            DrawLocalString(batch, text, new Vector2(x, y), style, new Rectangle(0, 0, w, size + 10), TextAlignment.Center | TextAlignment.Middle);
+            style.Color = Color.White;
+        }
+
+        private TextStyle StyleOf(int size)
+        {
+            TextStyle style;
+            if (!TextStyles.TryGetValue(size, out style))
+            {
+                style = PickTitle.CaptionStyle.Clone();
+                style.Size = size;
+                style.Color = Color.White;
+                TextStyles[size] = style;
+            }
+            return style;
+        }
+
+        private void DrawText(UISpriteBatch batch, string text, Vector2 pos, int size, Color color)
+        {
+            var style = StyleOf(size);
+            style.Color = color;
+            DrawLocalString(batch, text, pos, style);
+            style.Color = Color.White;
+        }
+
         private Dictionary<int, TextStyle> TextStyles = new Dictionary<int, TextStyle>();
         private void DrawText(UISpriteBatch batch, string text, Vector2 pos, int size)
         {
@@ -338,12 +526,12 @@ namespace Simitone.Client.UI.Panels.CAS
         {
             FamilyName = NameBox(272, 50, 258, 28);
 
-            AddBtn = Btn("Nbhd/AddPersonBtn.bmp", 597, 103);
-            DeleteBtn = Btn("Nbhd/DeletePersonBtn.bmp", 597, 210);
-            EditBtn = Btn("Nbhd/EditPersonBtn.bmp", 597, 312);
+            AddBtn = RBtn("Nbhd/AddPersonBtn.bmp", 597, 103, 4, false, "Add a Sim", 604, 110, 160, 40);
+            DeleteBtn = RBtn("Nbhd/DeletePersonBtn.bmp", 597, 210, 4, false, "Delete Sim", 604, 214, 160, 40);
+            EditBtn = RBtn("Nbhd/EditPersonBtn.bmp", 597, 312, 4, false, "Edit Sim", 604, 162, 160, 40);
 
-            FamCancelBtn = Btn("Nbhd/DesignFamCancel.bmp", 420, 535, 6, true);
-            FamDoneBtn = Btn("Nbhd/DesignFamDone.bmp", 610, 535, 6, true);
+            FamCancelBtn = RBtn("Nbhd/DesignFamCancel.bmp", 420, 535, 6, true, "Cancel", 430, 536, 150, 38);
+            FamDoneBtn = RBtn("Nbhd/DesignFamDone.bmp", 610, 535, 6, true, "Done", 600, 536, 160, 38);
 
             AddBtn.OnButtonClick += (b) => OpenSimEditor(-1);
             EditBtn.OnButtonClick += (b) => { if (SelectedMember >= 0) OpenSimEditor(SelectedMember); };
@@ -365,13 +553,13 @@ namespace Simitone.Client.UI.Panels.CAS
             SimName = NameBox(272, 50, 258, 28);
 
             // circle widget: age on top, skin in the middle row, gender on the bottom
-            ChildBtn = Btn("Nbhd/DesignCharChildBtn.bmp", 405, 108);
-            AdultBtn = Btn("Nbhd/DesignCharAdultBtn.bmp", 500, 102);
-            LightBtn = Btn("Nbhd/DesignCharLightBtn.bmp", 400, 202);
-            MediumBtn = Btn("Nbhd/DesignCharMediumBtn.bmp", 454, 202);
-            DarkBtn = Btn("Nbhd/DesignCharDarkBtn.bmp", 500, 202);
-            MaleBtn = Btn("Nbhd/DesignCharMaleBtn.bmp", 400, 275);
-            FemaleBtn = Btn("Nbhd/DesignCharFemaleBtn.bmp", 500, 275);
+            ChildBtn = RBtn("Nbhd/DesignCharChildBtn.bmp", 405, 108, 4, false, "Child", 465, 136, 80, 34);
+            AdultBtn = RBtn("Nbhd/DesignCharAdultBtn.bmp", 500, 102, 4, false, "Adult", 375, 136, 80, 34);
+            LightBtn = RBtn("Nbhd/DesignCharLightBtn.bmp", 400, 202, 4, false, "Light", 375, 222, 54, 34);
+            MediumBtn = RBtn("Nbhd/DesignCharMediumBtn.bmp", 454, 202, 4, false, "Medium", 433, 222, 54, 34);
+            DarkBtn = RBtn("Nbhd/DesignCharDarkBtn.bmp", 500, 202, 4, false, "Dark", 491, 222, 54, 34);
+            MaleBtn = RBtn("Nbhd/DesignCharMaleBtn.bmp", 400, 275, 4, false, "Male", 375, 308, 80, 34);
+            FemaleBtn = RBtn("Nbhd/DesignCharFemaleBtn.bmp", 500, 275, 4, false, "Female", 465, 308, 80, 34);
 
             ChildBtn.OnButtonClick += (b) => ChangeType(Male, true, Skin);
             AdultBtn.OnButtonClick += (b) => ChangeType(Male, false, Skin);
@@ -389,17 +577,17 @@ namespace Simitone.Client.UI.Panels.CAS
             Add(Preview);
 
             // head / body arrows around the preview box (added after the preview so they draw on top)
-            HeadLeft = Btn("Nbhd/DesignCharSkinsLeftBtn.bmp", 580, 130);
-            HeadRight = Btn("Nbhd/DesignCharSkinsRightBtn.bmp", 730, 130);
-            BodyLeft = Btn("Nbhd/DesignCharSkinsLeftBtn.bmp", 580, 300);
-            BodyRight = Btn("Nbhd/DesignCharSkinsRightBtn.bmp", 730, 300);
+            HeadLeft = RBtn("Nbhd/DesignCharSkinsLeftBtn.bmp", 580, 130, 4, false, "<", 571, 150, 30, 34);
+            HeadRight = RBtn("Nbhd/DesignCharSkinsRightBtn.bmp", 730, 130, 4, false, ">", 727, 150, 30, 34);
+            BodyLeft = RBtn("Nbhd/DesignCharSkinsLeftBtn.bmp", 580, 300, 4, false, "<", 571, 296, 30, 34);
+            BodyRight = RBtn("Nbhd/DesignCharSkinsRightBtn.bmp", 730, 300, 4, false, ">", 727, 296, 30, 34);
             HeadLeft.OnButtonClick += (b) => { HeadIndex--; UpdatePreview(); };
             HeadRight.OnButtonClick += (b) => { HeadIndex++; UpdatePreview(); };
             BodyLeft.OnButtonClick += (b) => { BodyIndex--; UpdatePreview(); };
             BodyRight.OnButtonClick += (b) => { BodyIndex++; UpdatePreview(); };
 
             for (int i = 0; i < 5; i++)
-                TraitLabels[i] = Label(TraitNames[i], 98, LedY[i] + 2, 12);
+                TraitLabels[i] = Label(TraitNames[i], R ? 94 : 98, LedY[i] + 2, 12);
             ListenForMouse(new Rectangle(LedX - 6, LedY[0], LedWidth + 6, LedY[4] + LedHeight - LedY[0]), OnLedMouse);
 
             Bio = new UITextEdit();
@@ -411,8 +599,8 @@ namespace Simitone.Client.UI.Panels.CAS
             Bio.MaxLines = 5;
             Add(Bio);
 
-            SimCancelBtn = Btn("Nbhd/DesignCharCancelBtn.bmp", 420, 535, 6, true);
-            SimDoneBtn = Btn("Nbhd/DesignCharDoneBtn.bmp", 610, 535, 6, true);
+            SimCancelBtn = RBtn("Nbhd/DesignCharCancelBtn.bmp", 420, 535, 6, true, "Cancel", 430, 536, 150, 38);
+            SimDoneBtn = RBtn("Nbhd/DesignCharDoneBtn.bmp", 610, 535, 6, true, "Done", 600, 536, 160, 38);
             SimCancelBtn.OnButtonClick += (b) => SetPage(false);
             SimDoneBtn.OnButtonClick += (b) => AcceptSim();
 
@@ -676,6 +864,7 @@ namespace Simitone.Client.UI.Panels.CAS
 
             PickTitle.Visible = pick;
             PickCancelBtn.Visible = PickAddBtn.Visible = PickDeleteBtn.Visible = PickMoveInBtn.Visible = pick;
+            if (PickUpBtn != null) PickUpBtn.Visible = PickDownBtn.Visible = pick && Rows.Count > VisibleRows;
 
             FamilyName.Visible = fam;
             AddBtn.Visible = EditBtn.Visible = DeleteBtn.Visible = fam;
@@ -723,7 +912,8 @@ namespace Simitone.Client.UI.Panels.CAS
 
             // black out everything outside the 800x600 layout
             var px = TextureGenerator.GetPxWhite(GameFacade.GraphicsDevice);
-            DrawLocalTexture(batch, px, null, new Vector2(-2000, -2000), new Vector2(4800, 4600), Color.Black);
+            DrawLocalTexture(batch, px, null, new Vector2(-2000, -2000), new Vector2(4800, 4600), R ? ReduxTheme.Edge : Color.Black);
+            if (R) { DrawRedux(batch, px); base.Draw(batch); return; }
 
             DrawLocalTexture(batch, PickPage ? PickBkg : (SimPage ? SimBkg : FamilyBkg), Vector2.Zero);
 

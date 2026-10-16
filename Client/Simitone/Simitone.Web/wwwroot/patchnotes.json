@@ -2,6 +2,16 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "6.7",
+      "date": "Oct 16, 2026",
+      "features": [],
+      "updates": [
+        "Create-A-Family — the new Redux look, with clear text buttons and room for every option.",
+        "Create-A-Sim — the new Redux look: personality bars, age, skin and gender buttons, head and body arrows.",
+        "Family list — Up and Down buttons when you have more than six families."
+      ]
+    },
+    {
       "version": "6.6",
       "date": "Oct 16, 2026",
       "features": [

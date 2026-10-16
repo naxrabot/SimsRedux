@@ -18,6 +18,7 @@ namespace Simitone.Client.Utils
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Create-A-Family and Create-A-Sim have the new Redux look: rounded panels and buttons in your UI colour.",
             "Touch camera: drag with one finger to move around, hold two fingers to pan, pinch to zoom and twist to turn.",
             "Phones: menus fit the screen (nothing cut off), whichever way up you hold it - turn the phone and the game follows.",
             "Touch controls now turn on for all Android phones and tablets, and a notice in the corner says which controls are on.",
