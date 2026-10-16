@@ -2,6 +2,21 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "7.1",
+      "date": "Oct 16, 2026",
+      "features": [
+        "Redux on touch — phones and tablets get the Sims 1 control panel, sized for fingers.",
+        "Placing things by touch — drag an object to move it, tap a spot to put it down, or use Turn Left, Turn Right, Place and Sell.",
+        "Build by touch — draw walls and lay floors with your finger; two fingers move the camera.",
+        "Tint by touch — press and hold an object in Buy or Build mode.",
+        "Neighborhood — drag with one finger to look around.",
+        "Touch Layout setting — Options > Interface: Redux or Simple."
+      ],
+      "updates": [
+        "Sliders — the volume and Tint sliders can be dragged with a finger."
+      ]
+    },
+    {
       "version": "7.0",
       "date": "Oct 16, 2026",
       "features": [

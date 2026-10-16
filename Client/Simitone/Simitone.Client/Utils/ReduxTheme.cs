@@ -59,6 +59,13 @@ namespace Simitone.Client.Utils
         public static float PanelScale(int screenHeight)
         {
             var s = Scale;
+            if (ReduxTouch.ReduxLayout && s == 0)
+            {
+                // touch: as big as fits (the panel is about 1040 wide and the bar shouldn't take more
+                // than about a third of the screen), so every button is finger-sized
+                var w = FSO.Client.GlobalSettings.Default.GraphicsWidth;
+                return Math.Max(0.6f, Math.Min(1.4f, Math.Min(w / 1040f, screenHeight / 470f)));
+            }
             if (s > 0) return s / 100f;
             return Math.Max(1f, (float)Math.Floor(screenHeight / 768f * 4) / 4f);
         }

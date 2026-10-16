@@ -73,7 +73,7 @@ namespace Simitone.Client.UI.Panels.LotControls
         public override void Update(UpdateState state)
         {
             LastState = state;
-            if (Owner.LiveMode || !FSOEnvironment.SoftwareKeyboard) Visible = false;
+            if (Owner.LiveMode || !FSOEnvironment.SoftwareKeyboard || Simitone.Client.Utils.ReduxTouch.ReduxLayout) Visible = false; // (the Redux layout has its own)
             else
             {
                 var custom = (Owner.CustomControl != null);

@@ -157,7 +157,7 @@ namespace Simitone.Client.UI.Controls
             base.Update(state);
             var width = FSO.Client.UI.Framework.UIScreen.Current?.ScreenWidth ?? 1024;
             // (touch controls: below the clock and the cutaway button in the top-right corner)
-            Position = new Vector2(width - W - 12, FSO.Common.FSOEnvironment.SoftwareKeyboard ? TouchTop : Top);
+            Position = new Vector2(width - W - 12, (FSO.Common.FSOEnvironment.SoftwareKeyboard && !Simitone.Client.Utils.ReduxTouch.ReduxLayout) ? TouchTop : Top);
             double dt = 1.0 / Math.Max(1, FSO.Common.FSOEnvironment.RefreshRate);
             for (int i = Toasts.Count - 1; i >= 0; i--)
             {

@@ -260,6 +260,13 @@ namespace Simitone.Client.UI.Panels
                                 "PC controls are on. They start when you go back to the neighborhood or open a lot. "
                                 + "To go back to touch, choose Options > Interface > Controls.");
                         }) { Icon = PCIcon() });
+                        // back to the Redux layout (the Sims 1 control panel made for fingers)
+                        opts.Add(new UICatFunc("Redux Layout", "opt_neigh.png", () =>
+                        {
+                            Simitone.Client.Utils.ReduxTouch.Layout = Simitone.Client.Utils.ReduxTouch.LayoutRedux;
+                            Simitone.Client.UI.Controls.UIReduxToasts.Show("Redux Layout",
+                                "The Redux layout comes on when you go back to the neighborhood or open a lot.");
+                        }));
                     }
                     panel = new UIButtonSubpanel(Game, opts.ToArray());
                     break;

@@ -160,7 +160,12 @@ namespace Simitone.Client.UI.Panels
                                 {
                                     Mode = 3;
                                     var screenMiddle = new Point(GameFacade.Screens.CurrentUIScreen.ScreenWidth / 2, GameFacade.Screens.CurrentUIScreen.ScreenHeight / 2);
-                                    Master.ShowPieMenu(((TapPoint - screenMiddle).ToVector2() / Master.World.BackbufferScale).ToPoint() + screenMiddle, state);
+                                    var holdPt = ((TapPoint - screenMiddle).ToVector2() / Master.World.BackbufferScale).ToPoint() + screenMiddle;
+                                    // SimsRedux (Redux layout): a long press on an object in Buy / Build mode is the
+                                    // PC's right-click - its Tint window
+                                    if (Simitone.Client.Utils.ReduxTouch.ReduxLayout && !Master.LiveMode && Master.ObjectHolder.Holding == null && Master.CustomControl == null)
+                                        Master.OpenTintAt(TapPoint);
+                                    else Master.ShowPieMenu(holdPt, state);
                                 }
                             }
                         }

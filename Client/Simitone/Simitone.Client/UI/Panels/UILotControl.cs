@@ -697,6 +697,27 @@ namespace Simitone.Client.UI.Panels
             BlockingDialog = null;
         }
 
+        // SimsRedux touch with the Redux layout: Buy and Build with a finger
+        private int TouchHoldID = -1;     // the finger moving the held object
+        private Point TouchHoldStart;
+        private DateTime TouchHoldTime;
+        private float TouchHoldMoved;
+        private int TouchToolID = -1;     // the finger drawing with a build tool
+        /// <summary>2 = press the held object down next update, 1 = let go of it (it's placed).</summary>
+        public int PendingPlace;
+
+        private static Point FingerOf(UpdateState state, int id)
+        {
+            var m = state.MouseStates.FirstOrDefault(x => x.ID == id);
+            return m != null ? new Point(m.MouseState.X, m.MouseState.Y) : new Point(state.MouseState.X, state.MouseState.Y);
+        }
+
+        /// <summary>Place the held object where it is now (the touch Place button, or a tap).</summary>
+        public void TouchPlace() { if (ObjectHolder.Holding != null && PendingPlace == 0) PendingPlace = 2; }
+
+        /// <summary>Opens the Tint window for the object at this point on the screen (touch: a long press).</summary>
+        public void OpenTintAt(Point screen) { OnRightClickWorld(screen); }
+
         private void OnMouse(UIMouseEventType type, UpdateState state)
         {
             if (!vm.Ready) return;
@@ -723,10 +744,54 @@ namespace Simitone.Client.UI.Panels
                         return;
                     }
                 }
+                if (Simitone.Client.Utils.ReduxTouch.ReduxLayout && !LiveMode)
+                {
+                    var id = state.CurrentMouseID;
+                    var p = FingerOf(state, id);
+                    if (CustomControl != null)
+                    {
+                        // a build tool: the finger is the mouse (draw walls, lay floors...); two fingers move the camera
+                        if (TouchToolID == -1 && Touch.MiceDown.Count == 0)
+                        {
+                            TouchToolID = id;
+                            var wp = ToWorldScreen(new Vector2(p.X, p.Y));
+                            CustomControl.MousePosition = new Point((int)wp.X, (int)wp.Y);
+                            CustomControl.MouseDown(state);
+                            return;
+                        }
+                    }
+                    else if (ObjectHolder.Holding != null)
+                    {
+                        // holding something: one finger moves it (a tap puts it down there); a second finger moves the camera
+                        if (TouchHoldID == -1 && Touch.MiceDown.Count == 0)
+                        {
+                            TouchHoldID = id;
+                            TouchHoldStart = p;
+                            TouchHoldTime = DateTime.UtcNow;
+                            TouchHoldMoved = 0;
+                            ObjectHolder.TouchPoint = p;
+                            return;
+                        }
+                        if (TouchHoldID != -1) { Touch.MiceDown.Add(TouchHoldID); TouchHoldID = -1; }
+                    }
+                }
                 Touch.MiceDown.Add(state.CurrentMouseID);
             }
             else if (type == UIMouseEventType.MouseUp)
             {
+                if (state.CurrentMouseID == TouchToolID)
+                {
+                    TouchToolID = -1;
+                    if (CustomControl != null) CustomControl.MouseUp(state);
+                    return;
+                }
+                if (state.CurrentMouseID == TouchHoldID)
+                {
+                    TouchHoldID = -1;
+                    // a tap (not a drag): put it down right there
+                    if (TouchHoldMoved < 24 && (DateTime.UtcNow - TouchHoldTime).TotalSeconds < 0.5) TouchPlace();
+                    return;
+                }
                 Touch.MiceDown.Remove(state.CurrentMouseID);
                 if (!FSOEnvironment.SoftwareKeyboard)
                 {
@@ -780,6 +845,7 @@ namespace Simitone.Client.UI.Panels
                 */
                 if (FSOEnvironment.SoftwareKeyboard && ObjectHolder.Holding == null)
                 {
+                    if (Simitone.Client.Utils.ReduxTouch.ReduxLayout) ObjectHolder.TouchPoint = new Point(state.MouseState.X, state.MouseState.Y); // (the finger, on the screen)
                     ObjectHolder.MouseDown(state);
                 }
                 return;
@@ -1459,7 +1525,15 @@ namespace Simitone.Client.UI.Panels
                 if (LiveMode) LiveModeUpdate(state, scrolled);
                 else if (CustomControl != null)
                 {
-                    if (FSOEnvironment.SoftwareKeyboard) CustomControl.MousePosition = new Point(UIScreen.Current.ScreenWidth / 2, UIScreen.Current.ScreenHeight / 2);
+                    if (Simitone.Client.Utils.ReduxTouch.ReduxLayout)
+                    {
+                        // the Redux layout on touch: the tool follows the finger
+                        CustomControl.Modifiers = 0;
+                        var fp = TouchToolID != -1 ? FingerOf(state, TouchToolID) : new Point(state.MouseState.X, state.MouseState.Y);
+                        var wp = ToWorldScreen(new Vector2(fp.X, fp.Y));
+                        CustomControl.MousePosition = new Point((int)wp.X, (int)wp.Y);
+                    }
+                    else if (FSOEnvironment.SoftwareKeyboard) CustomControl.MousePosition = new Point(UIScreen.Current.ScreenWidth / 2, UIScreen.Current.ScreenHeight / 2);
                     else
                     {
                         CustomControl.Modifiers = 0;
@@ -1472,7 +1546,23 @@ namespace Simitone.Client.UI.Panels
                     }
                     CustomControl.Update(state, scrolled);
                 }
-                else ObjectHolder.Update(state, scrolled);
+                else
+                {
+                    if (Simitone.Client.Utils.ReduxTouch.ReduxLayout)
+                    {
+                        // the finger moving the held object
+                        if (TouchHoldID != -1 && ObjectHolder.Holding != null)
+                        {
+                            var fp = FingerOf(state, TouchHoldID);
+                            TouchHoldMoved = Math.Max(TouchHoldMoved, (fp - TouchHoldStart).ToVector2().Length());
+                            ObjectHolder.TouchPoint = fp;
+                        }
+                        // a tap or the Place button: press, then let go on the next update (like a click)
+                        if (PendingPlace == 1) { ObjectHolder.MouseUp(state); PendingPlace = 0; }
+                        else if (PendingPlace == 2) { if (ObjectHolder.Holding != null) { ObjectHolder.MouseDown(state); PendingPlace = 1; } else PendingPlace = 0; }
+                    }
+                    ObjectHolder.Update(state, scrolled);
+                }
 
                 //set cutaway around mouse
                 UpdateCutaway(state);

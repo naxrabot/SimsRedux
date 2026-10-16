@@ -101,6 +101,27 @@ namespace Simitone.Client.Utils
             catch { }
         }
 
+        // ---- the touch layout ----
+
+        public const int LayoutRedux = 0, LayoutSimple = 1;
+        public static readonly string[] LayoutChoices = { "Redux", "Simple" };
+
+        /// <summary>
+        /// Touch layout: 0 = the Redux interface (the Sims 1 control panel, sized for fingers - the
+        /// default), 1 = Simitone's simple phone layout.
+        /// </summary>
+        public static int Layout
+        {
+            get { return Math.Max(0, Math.Min(1, ReduxSettings.GetInt("touchlayout", LayoutRedux))); }
+            set { ReduxSettings.Set("touchlayout", Math.Max(0, Math.Min(1, value))); }
+        }
+
+        /// <summary>Touch controls with the Redux interface (the PC panels, made for fingers).</summary>
+        public static bool ReduxLayout { get { return FSOEnvironment.SoftwareKeyboard && Managed && Layout == LayoutRedux; } }
+
+        /// <summary>Whether a screen builds the Redux/PC panels (PC controls, or touch with the Redux layout).</summary>
+        public static bool UseDesktopUI { get { return !FSOEnvironment.SoftwareKeyboard || ReduxLayout; } }
+
         /// <summary>Names for the setting's choices, in order.</summary>
         public static readonly string[] Choices = { "Auto", "Touch", "PC" };
     }

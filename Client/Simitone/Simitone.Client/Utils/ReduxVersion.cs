@@ -18,6 +18,8 @@ namespace Simitone.Client.Utils
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Touch: the Redux interface (the Sims 1 control panel) now works on phones and tablets, sized for your fingers. Drag a held object to move it, tap to put it down, and use Turn / Place / Sell.",
+            "Touch: long-press an object in Buy or Build mode to Tint it. Drag with one finger to move around the neighborhood.",
             "Bug fixes: Build mode's dropper works, the Tint window's colour dropper works in Build mode, Tint saves on things Sims are using, and typing in a box no longer changes game speed.",
             "Phones: the phone's keyboard opens for names and chat, and PC Controls on a tablet works with taps.",
             "Touch: taps land exactly where your finger is, and you can press, hold and drag to move the camera.",

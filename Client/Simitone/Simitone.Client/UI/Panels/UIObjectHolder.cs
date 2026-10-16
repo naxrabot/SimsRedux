@@ -176,8 +176,15 @@ namespace Simitone.Client.UI.Panels
             Holding.CanPlace = status;
         }
 
+        /// <summary>
+        /// SimsRedux touch (Redux layout): where the finger last put the held object (null = the middle
+        /// of the screen). It only moves while a finger is on the lot, so tapping a button doesn't drag it.
+        /// </summary>
+        public Point? TouchPoint;
+
         public void ClearSelected()
         {
+            TouchPoint = null;
             //TODO: selected items are only spooky ghosts of the items themselves.
             //      ...so that they dont cause serverside desyncs
             //      and so that clearing selections doesnt delete already placed objects.
@@ -380,7 +387,7 @@ namespace Simitone.Client.UI.Panels
             if (Holding != null && Roommate)
             {
                 if (MouseClicked) Holding.Clicked = true;
-                var mpos = FSOEnvironment.SoftwareKeyboard ? new Point(UIScreen.Current.ScreenWidth / 2, UIScreen.Current.ScreenHeight / 2) : state.MouseState.Position;
+                var mpos = FSOEnvironment.SoftwareKeyboard ? (TouchPoint ?? new Point(UIScreen.Current.ScreenWidth / 2, UIScreen.Current.ScreenHeight / 2)) : state.MouseState.Position;
                 if (MouseIsDown && Holding.Clicked)
                 {
                     bool updatePos = MouseClicked;

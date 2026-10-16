@@ -287,6 +287,12 @@ namespace Simitone.Client.UI.Panels
         // SimsRedux: scroll the map with WASD / arrow keys or by dragging with the right mouse button
         private Point? DragFrom;
         private Vector2 DragCenter;
+        // touch: one finger dragging the map
+        private Point? TouchFrom;
+        private int TouchID;
+        private Vector2 TouchCenter;
+        /// <summary>The finger moved the map: lifting it doesn't open the house under it.</summary>
+        public bool TouchPanned;
         public override void Update(UpdateState state)
         {
             base.Update(state);
@@ -302,7 +308,31 @@ namespace Simitone.Client.UI.Panels
                 if (kb.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.S) || kb.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.Down)) move.Y += 1;
             }
             var mouse = state.MouseState;
-            if (mouse.RightButton == Microsoft.Xna.Framework.Input.ButtonState.Pressed)
+            if (FSO.Common.FSOEnvironment.SoftwareKeyboard)
+            {
+                // SimsRedux touch: one finger held and moved drags the map (a tap still picks a house)
+                MultiMouse finger = null;
+                int down = 0;
+                foreach (var m in state.MouseStates)
+                    if (!m.Dead && m.MouseState.LeftButton == Microsoft.Xna.Framework.Input.ButtonState.Pressed) { down++; if (finger == null) finger = m; }
+                if (down == 1)
+                {
+                    var p = new Point(finger.MouseState.X, finger.MouseState.Y);
+                    if (TouchFrom == null || TouchID != finger.ID) { TouchFrom = p; TouchID = finger.ID; TouchCenter = ClampCenter(_cp); TouchPanned = false; }
+                    else
+                    {
+                        var d = new Vector2(p.X - TouchFrom.Value.X, p.Y - TouchFrom.Value.Y);
+                        if (!TouchPanned && d.Length() > 18) TouchPanned = true;
+                        if (TouchPanned)
+                        {
+                            var target = ClampCenter(TouchCenter - d / ScaleX);
+                            if (target != _cp) { _cp = target; UpdatePosition(); }
+                        }
+                    }
+                }
+                else TouchFrom = null; // (TouchPanned stays until the next finger, so the lift isn't a house tap)
+            }
+            else if (mouse.RightButton == Microsoft.Xna.Framework.Input.ButtonState.Pressed)
             {
                 if (DragFrom == null) { DragFrom = new Point(mouse.X, mouse.Y); DragCenter = ClampCenter(_cp); }
                 else
@@ -643,6 +673,7 @@ namespace Simitone.Client.UI.Panels
                     switch (evt)
                     {
                         case UIMouseEventType.MouseUp:
+                            if (panel != null && panel.TouchPanned) { Hovered = false; break; } // (the end of a drag across the map)
                             HITVM.Get().PlaySoundEvent(FSO.Client.UI.Model.UISounds.NeighborhoodClick);
                             Hovered = false;
                             if (panel != null && panel.HoveredHouse == this) panel.HoveredHouse = null;

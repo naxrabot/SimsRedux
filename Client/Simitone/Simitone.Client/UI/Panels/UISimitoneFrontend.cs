@@ -105,6 +105,8 @@ namespace Simitone.Client.UI.Panels
                     Add(ClassicPickupHost);
                     Add(ClassicQueryHost);
                 }
+                // SimsRedux touch (Redux layout): Turn / Place / Sell for the object in your hand
+                if (Simitone.Client.Utils.ReduxTouch.ReduxLayout) Add(new UIReduxHoldBar(screen));
             }
             else
             {

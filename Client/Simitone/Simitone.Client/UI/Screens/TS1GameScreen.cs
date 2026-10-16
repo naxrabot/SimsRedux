@@ -44,7 +44,7 @@ namespace Simitone.Client.UI.Screens
     {
         public UIContainer WindowContainer;
         public bool Downtown;
-        public bool Desktop = !FSOEnvironment.SoftwareKeyboard;
+        public bool Desktop = ReduxTouch.UseDesktopUI; // SimsRedux: the Redux panels with touch controls too
 
         public UILotControl LotControl { get; set; }
         public UISimitoneFrontend Frontend { get; set; }
@@ -1137,7 +1137,7 @@ namespace Simitone.Client.UI.Screens
             try
             {
                 ReduxTouch.Apply();
-                Desktop = !FSOEnvironment.SoftwareKeyboard;
+                Desktop = ReduxTouch.UseDesktopUI;
             }
             catch { }
         }

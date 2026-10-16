@@ -153,6 +153,14 @@ namespace Simitone.Client.UI.Panels.Desktop
                             ? "Controls: Auto uses touch on a phone or tablet with no mouse."
                             : "Controls switch when you next open a lot or go to the neighborhood.";
                     });
+                // the look with touch controls: this interface made for fingers, or Simitone's simple one
+                AddChoices("Touch Layout", "PopupOptTransUI", ReduxTouch.LayoutChoices,
+                    () => ReduxTouch.Layout,
+                    (v) =>
+                    {
+                        ReduxTouch.Layout = v;
+                        Note = "The touch layout changes when you next open a lot or go to the neighborhood.";
+                    });
             }
         }
 
