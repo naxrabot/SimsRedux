@@ -92,6 +92,7 @@ namespace Simitone.Client
         void Window_ClientSizeChanged(object sender, EventArgs e)
         {
             if (newChange || !GlobalSettings.Default.Windowed || FSOEnvironment.SoftwareKeyboard) return;
+            if (Simitone.Client.Utils.ReduxTouch.Managed) return; // the website sizes the game itself (ResizeTo)
             if (Window.ClientBounds.Width == 0 || Window.ClientBounds.Height == 0) return;
             newChange = true;
             var width = Math.Max(1, Window.ClientBounds.Width);

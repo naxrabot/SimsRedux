@@ -241,6 +241,7 @@ namespace Simitone.Client.UI.Screens
 
         public void NeighSelection(NeighSelectionMode mode)
         {
+            ApplyControls();
             Content.Get().Neighborhood.PreparePersonDataFromObject = PersonGeneratorHelper.PreparePersonDataFromObject;
             Content.Get().Neighborhood.AddMissingNeighbors();
             // SimsRedux: single player - a neighbourhood gets a batch of extra families the first time it opens
@@ -689,11 +690,13 @@ namespace Simitone.Client.UI.Screens
             Visible = World?.Visible != false && World?.State.Cameras.HideUI != true;
             GameFacade.Game.IsMouseVisible = Visible;
 
-            if (state.NewKeys.Contains(Keys.D1)) ChangeSpeedTo(1);
-            if (state.NewKeys.Contains(Keys.D2)) ChangeSpeedTo(2);
-            if (state.NewKeys.Contains(Keys.D3)) ChangeSpeedTo(3);
-            if (state.NewKeys.Contains(Keys.P)) ChangeSpeedTo(0);
-            if (state.NewKeys.Contains(Keys.D0))
+            // (not while typing - a name, chat, the Tint window's colour code...)
+            bool typing = Simitone.Client.UI.Panels.UIRevampedCamera.IsTyping(state);
+            if (!typing && state.NewKeys.Contains(Keys.D1)) ChangeSpeedTo(1);
+            if (!typing && state.NewKeys.Contains(Keys.D2)) ChangeSpeedTo(2);
+            if (!typing && state.NewKeys.Contains(Keys.D3)) ChangeSpeedTo(3);
+            if (!typing && state.NewKeys.Contains(Keys.P)) ChangeSpeedTo(0);
+            if (!typing && state.NewKeys.Contains(Keys.D0))
             {
                 //frame advance
                 ChangeSpeedTo(1);
@@ -1125,8 +1128,23 @@ namespace Simitone.Client.UI.Screens
 
         private VMMarshal SavedLot;
 
+        /// <summary>
+        /// SimsRedux: touch or PC controls (the Controls setting) take effect here too - going between
+        /// a lot and the neighbourhood keeps the same screen, so it's checked each time a lot opens.
+        /// </summary>
+        private void ApplyControls()
+        {
+            try
+            {
+                ReduxTouch.Apply();
+                Desktop = !FSOEnvironment.SoftwareKeyboard;
+            }
+            catch { }
+        }
+
         public void InitializeLot()
         {
+            ApplyControls();
             CleanupLastWorld();
             VisitingHouse = false; // (DoSwitchLot sets it again after arriving at another family's house)
             World = new FSO.LotView.World(GameFacade.GraphicsDevice);
@@ -1162,6 +1180,7 @@ namespace Simitone.Client.UI.Screens
 
         public void InitializeLot(VMMarshal marshal)
         {
+            ApplyControls();
             InitializeLot();
             vm.MyUID = 65537;
             vm.Load(marshal);
@@ -1238,6 +1257,7 @@ namespace Simitone.Client.UI.Screens
 
         public void InitializeLot(string lotName, bool external)
         {
+            ApplyControls();
             if (lotName == "" || lotName[0] == '!') return;
             InitializeLot();
             

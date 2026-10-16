@@ -17,6 +17,7 @@ namespace Simitone.Web
         [JSImport("globalThis.SimsFS.accountName")] internal static partial string JsAccountName();
         [JSImport("globalThis.SimsFS.onlineBlockedReason")] internal static partial string JsOnlineBlockedReason();
         [JSImport("globalThis.SimsFS.touchDevice")] internal static partial bool JsTouchDevice();
+        [JSImport("globalThis.SimsFS.forcedControls")] internal static partial string JsForcedControls();
 
         public static void Install()
         {
@@ -31,6 +32,7 @@ namespace Simitone.Web
             // touch or PC controls: chosen from the device (or the Controls setting)
             ReduxTouch.Managed = true;
             ReduxTouch.DeviceIsTouch = JsTouchDevice;
+            ReduxTouch.Forced = JsForcedControls;
         }
     }
 }

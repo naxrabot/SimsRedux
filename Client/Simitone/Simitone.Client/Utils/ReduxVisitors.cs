@@ -334,7 +334,7 @@ namespace Simitone.Client.Utils
                 var nfam = (famNum > 0) ? neigh.GetFamily((ushort)famNum) : null;
                 if (nfam != null && fam != null && nfam.ChunkID == fam.ChunkID) continue;
                 if (nfam != null && playerFamilies.Contains(nfam.ChunkID)) continue; // online: a player's own family is theirs to move about
-                if (nfam == null || (nfam.HouseNumber <= 0 && (nfam.Unknown == 0 || ReduxPopulation.IsGenerated(nfam.ChunkID)))) townies.Add(n); // townies (no family, the townie family, or the extra Sims made for the town)
+                if (nfam == null || (nfam.HouseNumber <= 0 && nfam.Unknown == 0)) townies.Add(n); // townies (no family, or a townie family - the extra Sims made for the town are those too)
                 else if (nfam.HouseNumber > 0) neighbours.Add(n); // a family living in the neighbourhood
                 // (families waiting in the family bin don't wander about)
             }

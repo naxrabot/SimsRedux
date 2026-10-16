@@ -96,7 +96,9 @@ namespace SimsRedux.Server
             {
                 var w = Get(house, out var error, new[] { "-populate" });
                 if (w == null) return "couldn't start the game for it: " + error;
-                await WaitExit(w, TimeSpan.FromMinutes(4));
+                // (making 20 households and saving the town can take a while on a slow PC - it's only
+                // stopped if it really hangs, never part way through a normal run)
+                await WaitExit(w, TimeSpan.FromMinutes(15));
                 return w.PopulateResult ?? (w.Problem ?? "the game didn't finish").Replace("error ", "");
             }
             finally { Populating = false; }
@@ -137,6 +139,9 @@ namespace SimsRedux.Server
             error = null;
             lock (Lock)
             {
+                // (the town is being given its new neighbours: no lots until that's done - not even
+                // the one it's using, which never takes players)
+                if (Populating && !(extraArgs != null && extraArgs.Contains("-populate"))) { error = "the town is getting its new neighbours - try again in a minute"; return null; }
                 if (Open.TryGetValue(house, out var w) && !w.Finished)
                 {
                     // a move in/out or /money needs a lot started for it: the open one never got those
@@ -145,7 +150,6 @@ namespace SimsRedux.Server
                     return w;
                 }
                 if (!TownReady) { error = "the town hasn't been set up yet (/town import)"; return null; }
-                if (Populating && !(extraArgs != null && extraArgs.Contains("-populate"))) { error = "the town is getting its new neighbours - try again in a minute"; return null; }
                 if (!Houses().Contains(house)) { error = "there's no house " + house + " in the town"; return null; }
                 var exe = GameExe();
                 if (exe == null) { error = "the game program wasn't found - build the solution, or set it with /lots game <path to Simitone.exe>"; return null; }
@@ -392,8 +396,15 @@ namespace SimsRedux.Server
             Directory.CreateDirectory(to);
             foreach (var f in Directory.EnumerateFiles(from))
             {
-                // (a single-player neighbourhood's note about its own extra Sims isn't the town's)
-                if (string.Equals(Path.GetFileName(f), PopulationMarker, StringComparison.OrdinalIgnoreCase)) continue;
+                // (a single-player neighbourhood's note about its own extra Sims isn't the town's - but a
+                // server town's own note comes along, so a town brought back from a backup isn't
+                // given a second batch of neighbours)
+                if (string.Equals(Path.GetFileName(f), PopulationMarker, StringComparison.OrdinalIgnoreCase))
+                {
+                    string note = "";
+                    try { note = File.ReadAllText(f); } catch { }
+                    if (!note.Contains("emptyhomes")) continue;
+                }
                 File.Copy(f, Path.Combine(to, Path.GetFileName(f)), true);
             }
             foreach (var sub in new[] { "Houses", "Characters" })

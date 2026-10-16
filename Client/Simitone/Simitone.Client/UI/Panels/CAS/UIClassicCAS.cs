@@ -800,6 +800,8 @@ namespace Simitone.Client.UI.Panels.CAS
                 // clicking left of the first LED clears the trait
                 int wanted = (int)Math.Ceiling((pos.X - LedX) / (LedWidth / 10f));
                 wanted = Math.Max(0, Math.Min(10, wanted));
+                // tapping the top lit light turns it off (so a trait can go back down to 0 by tapping)
+                if (wanted > 0 && wanted == Personality[i]) wanted--;
                 // can't spend more than the 25-point budget
                 int available = MaxPoints - (PointsUsed - Personality[i]);
                 Personality[i] = Math.Min(wanted, available);

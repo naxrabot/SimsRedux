@@ -179,16 +179,18 @@
 #srx-setup .l-acct { position: relative; }
 #srx-setup button.avatar { margin: 0; padding: 0; border: none; position: relative; cursor: pointer; font: inherit; font-weight: 700; font-size: 19px; color: #04102a;
   background: linear-gradient(135deg, #9fffb0, #3bc25a); box-shadow: 0 0 0 0 rgba(120,255,140,0); transition: box-shadow .15s; }
-#srx-setup button.avatar:hover, #srx-setup button.avatar[aria-expanded="true"] { background: linear-gradient(135deg, #b8ffc5, #4fd56d); box-shadow: 0 0 0 3px rgba(120,255,140,.35); }
+#srx-setup button.avatar:not(:disabled):hover, #srx-setup button.avatar[aria-expanded="true"] { background: linear-gradient(135deg, #b8ffc5, #4fd56d); box-shadow: 0 0 0 3px rgba(120,255,140,.35); }
 #srx-setup button.avatar::after { content: ''; position: absolute; right: -2px; bottom: -2px; width: 16px; height: 16px; border-radius: 50%;
   background: #0b1238 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 6.5l3.5 3.5 3.5-3.5' fill='none' stroke='%23c8d4ff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/12px no-repeat;
   border: 1px solid rgba(143,180,255,.5); }
 #srx-setup button.avatar[aria-expanded="true"]::after { transform: rotate(180deg); }
+#srx-setup button.avatar:disabled { cursor: default; } #srx-setup button.avatar:disabled::after { display: none; }
+#srx-setup button.avatar.off, #srx-setup button.avatar.off:hover { background: #2a335e; color: #9fb4ff; box-shadow: none; }
 #srx-setup .lbtns.menu { position: absolute; z-index: 5; top: 66px; left: 12px; grid-row: auto; grid-column: auto; margin: 0; max-width: none; min-width: 210px;
   flex-direction: column; flex-wrap: nowrap; gap: 2px; justify-content: flex-start; padding: 6px; background: #0b1238; border: 1px solid rgba(143,180,255,.35);
   box-shadow: 0 14px 34px rgba(0,0,0,.55); }
 #srx-setup .lbtns.menu:not(.open) { display: none; }
-#srx-setup .l-acct:has(.lbtns.menu) .lname { grid-column: 2; grid-row: 1; } #srx-setup .l-acct:has(.lbtns.menu) .lstatus { grid-column: 2; grid-row: 2; }
+#srx-setup .l-acct .lname { grid-column: 2; grid-row: 1; } #srx-setup .l-acct .lstatus { grid-column: 2; grid-row: 2; }
 #srx-setup .lbtns.menu button.ghost { border: none; text-align: left; padding: 9px 12px; font-size: 13px; width: 100%; }
 #srx-setup .lbtns.menu button.ghost.danger { color: #ffb0a0; }
 #srx-setup .lbtns.menu hr { border: none; border-top: 1px solid rgba(143,180,255,.15); margin: 4px 2px; }
@@ -1013,7 +1015,11 @@
                     rmsg.textContent = 'Thanks - your report went to the admin.';
                 };
             }
-            const finish = (r) => { closed = true; clearInterval(serverTimer); document.removeEventListener('keydown', onKey); done(r); };
+            const finish = (r) => {
+                closed = true; clearInterval(serverTimer); document.removeEventListener('keydown', onKey);
+                if (L._srxMenuClose) { document.removeEventListener('pointerdown', L._srxMenuClose, true); L._srxMenuClose = null; }
+                done(r);
+            };
             const leave = async (focus) => {
                 await Account.logout();
                 finish('account');
@@ -1054,7 +1060,7 @@
                 finish('update');
             };
             const onKey = (e) => {
-                if (e.key === 'Escape' && btns.classList.contains('open')) { btns.classList.remove('open'); av.setAttribute('aria-expanded', 'false'); return; }
+                if (e.key === 'Escape' && btns.classList.contains('open')) { btns.classList.remove('open'); av.setAttribute('aria-expanded', 'false'); av.focus(); e.preventDefault(); return; }
                 if (e.key !== 'Enter' || L.classList.contains('hidden')) return;
                 const t = e.target && e.target.tagName;
                 if (t === 'INPUT' || t === 'TEXTAREA' || t === 'BUTTON' || t === 'SELECT') return;
@@ -1326,6 +1332,11 @@
     // a phone or tablet. Phones and tablets count as touch even when the browser says it has a fine
     // pointer (many Android phones do); the game's Options > Interface > Controls can switch to PC
     // (a tablet with a mouse and keyboard). ?controls=touch or ?controls=pc in the address forces it.
+    // ?controls=touch / ?controls=pc in the address (wins over the game's Controls setting)
+    function forcedControls()
+    {
+        try { return (new URLSearchParams(location.search).get('controls') || '').toLowerCase(); } catch (e) { return ''; }
+    }
     function touchDevice()
     {
         try
@@ -1344,5 +1355,5 @@
         catch (e) { return false; }
     }
     const accountName = () => (Account.session && Account.session.name) || '';
-    window.SimsFS = { touchDevice, accountServer, accountToken, accountName, onlineBlockedReason, changeFolder, setFullScreen, isFullScreen, prepare, fileExists, dirExists, fileSize, read, write, deleteFile, createDir, deleteDir, moveFile, list, normalize };
+    window.SimsFS = { touchDevice, forcedControls, accountServer, accountToken, accountName, onlineBlockedReason, changeFolder, setFullScreen, isFullScreen, prepare, fileExists, dirExists, fileSize, read, write, deleteFile, createDir, deleteDir, moveFile, list, normalize };
 })();

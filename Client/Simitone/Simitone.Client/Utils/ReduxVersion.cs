@@ -18,6 +18,8 @@ namespace Simitone.Client.Utils
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Bug fixes: Build mode's dropper works, the Tint window's colour dropper works in Build mode, Tint saves on things Sims are using, and typing in a box no longer changes game speed.",
+            "Phones: the phone's keyboard opens for names and chat, and PC Controls on a tablet works with taps.",
             "Touch: taps land exactly where your finger is, and you can press, hold and drag to move the camera.",
             "Launcher: your account options are in a menu - click your initial next to your name.",
             "Create-A-Family and Create-A-Sim have the new Redux look: rounded panels and buttons in your UI colour.",

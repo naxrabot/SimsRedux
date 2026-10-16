@@ -171,6 +171,17 @@
                     try { DotNet.invokeMethod('SimsRedux.Web', 'SimsReduxKeyboardClosed'); } catch (e) { }
                 });
                 document.body.appendChild(box);
+                if (window.visualViewport)
+                {
+                    var opened = false;
+                    window.visualViewport.addEventListener('resize', function ()
+                    {
+                        if (!window.srxKbWanted || document.activeElement !== box) { opened = false; return; }
+                        var h = window.visualViewport.height, full = window.innerHeight || h;
+                        if (h < full * 0.8) opened = true;              // the keyboard is up
+                        else if (opened && h >= full * 0.92) { opened = false; box.blur(); } // and it's gone again
+                    });
+                }
             }
             if (show)
             {
@@ -204,6 +215,10 @@
             // disable context menu on right click
             canvas.addEventListener("contextmenu", e => e.preventDefault());
 
+            // the engine sets the canvas to the window's size whenever the window changes; put the
+            // game's own size back at once (the game catches up on its next check)
+            window.addEventListener('resize', function () { requestAnimationFrame(function () { try { window.simsReduxFitCanvas(); } catch (e) { } }); });
+
             // Fingers: read here and turned into the game's own pixels, measured from where the
             // picture really is on the page right now (it's stretched to fit, and phones move things
             // around as their address bar comes and goes). Each touch gets its own number.
@@ -211,7 +226,8 @@
             var srxTouch = function (e, phase)
             {
                 var r = canvas.getBoundingClientRect(), used = false;
-                var sx = r.width > 0 ? canvas.width / r.width : 1, sy = r.height > 0 ? canvas.height / r.height : 1;
+                var game = window.simsReduxCanvasSize();
+                var sx = r.width > 0 ? game[0] / r.width : 1, sy = r.height > 0 ? game[1] / r.height : 1;
                 for (var i = 0; i < e.changedTouches.length; i++)
                 {
                     var t = e.changedTouches[i];

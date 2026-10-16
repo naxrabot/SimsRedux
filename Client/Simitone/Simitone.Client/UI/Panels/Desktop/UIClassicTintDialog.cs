@@ -53,6 +53,7 @@ namespace Simitone.Client.UI.Panels.Desktop
         {
             Game = game;
             ObjectID = objectID;
+            Active = this;
             Style = TextStyle.DefaultLabel.Clone(); Style.Size = 12; Style.Color = new Color(220, 226, 250);
             TitleStyle = TextStyle.DefaultLabel.Clone(); TitleStyle.Size = 17; TitleStyle.Color = Color.White; TitleStyle.Shadow = true;
 
@@ -201,6 +202,7 @@ namespace Simitone.Client.UI.Panels.Desktop
         private void HexTyped()
         {
             var t = (Hex.CurrentText ?? "").Trim().TrimStart('#');
+            if (t.Length == 3) t = "" + t[0] + t[0] + t[1] + t[1] + t[2] + t[2]; // #RGB short codes
             if (t.Length != 6) return;
             int rgb;
             if (!int.TryParse(t, System.Globalization.NumberStyles.HexNumber, null, out rgb)) return;
@@ -215,6 +217,8 @@ namespace Simitone.Client.UI.Panels.Desktop
             Hue = h;
             Colourful = s;
             Brightness = v >= 0.78f ? (v - 0.78f) / 0.22f : v / 0.78f - 1;
+            // (pure white / black would flatten every bit of shading: the White and Black swatches' limits)
+            Brightness = Math.Max(-0.85f, Math.Min(0.85f, Brightness));
             Strength = 1f;
             SwatchIndex = -1;
             SyncStrips();
@@ -226,6 +230,7 @@ namespace Simitone.Client.UI.Panels.Desktop
         {
             var lot = Game.LotControl;
             if (lot == null) return;
+            DropFocus();
             UIScreen.RemoveDialog(this);
             if (lot.CustomControl != null) { lot.CustomControl.Release(); lot.CustomControl = null; }
             var dropper = new UIReduxDropper(lot, null, null, null);
@@ -299,17 +304,41 @@ namespace Simitone.Client.UI.Panels.Desktop
         private void Preview(bool updateHex)
         {
             if (updateHex) UpdateHex();
-            var obj = Target;
-            if (obj == null) return;
-            foreach (var part in obj.MultitileGroup.Objects)
-            {
-                var comp = part.WorldUI as ObjectComponent;
-                if (comp != null) comp.Tint = Current;
-            }
+            // the lot follows a few times a second (each new colour is a fresh set of pictures)
+            PreviewDirty = true;
             StrengthStrip.HueForGradient = Hue;
             StrengthStrip.Colourful = Colourful;
             BrightStrip.HueForGradient = Hue;
             BrightStrip.Colourful = Colourful;
+        }
+
+        private bool PreviewDirty;
+        private DateTime LastWorldPreview = DateTime.MinValue;
+        private HashSet<uint> Previewed = new HashSet<uint>();
+
+        /// <summary>The object on the lot shown in this colour (on this screen only).</summary>
+        private void ShowOnLot(uint tint)
+        {
+            PreviewDirty = false;
+            LastWorldPreview = DateTime.UtcNow;
+            var obj = Target;
+            if (obj == null) return;
+            Previewed.Add(tint);
+            foreach (var part in obj.MultitileGroup.Objects)
+            {
+                var comp = part.WorldUI as ObjectComponent;
+                if (comp != null) comp.Tint = tint;
+            }
+        }
+
+        private void DropFocus()
+        {
+            try
+            {
+                var im = GameFacade.Screens?.inputManager;
+                if (im != null && Hex != null && im.GetFocus() == Hex) im.SetFocus(null);
+            }
+            catch { }
         }
 
         private void Send(uint tint)
@@ -320,32 +349,41 @@ namespace Simitone.Client.UI.Panels.Desktop
 
         private void Apply()
         {
-            Send(Current);
+            var tint = Current;
+            // back to how it really is: the colour comes from the (synced, saved) command, so if it's
+            // refused the object doesn't keep a colour only this screen can see
+            ShowOnLot(OriginalTint);
+            Send(tint);
+            Previewed.Remove(tint);
             Close();
         }
 
         private void CancelAndClose()
         {
-            var obj = Target;
-            if (obj != null)
-                foreach (var part in obj.MultitileGroup.Objects)
-                {
-                    var comp = part.WorldUI as ObjectComponent;
-                    if (comp != null) comp.Tint = OriginalTint;
-                }
+            ShowOnLot(OriginalTint);
             Close();
         }
 
         private void Close()
         {
+            DropFocus();
             UIScreen.RemoveDialog(this);
+            if (Active == this) Active = null;
+            // the pictures made while trying colours aren't needed any more
+            Previewed.Remove(OriginalTint);
+            try { ReduxTint.Forget(Previewed); } catch { }
+            Previewed.Clear();
         }
+
+        /// <summary>The Tint window that's open (also while it steps aside for the colour dropper).</summary>
+        public static UIClassicTintDialog Active;
 
         public override void Update(UpdateState state)
         {
             Position = new Vector2((int)((GlobalSettings.Default.GraphicsWidth - W) / 2), 30);
             if (state.NewKeys.Contains(Microsoft.Xna.Framework.Input.Keys.Escape)) { CancelAndClose(); return; }
             if (Target == null) { Close(); return; } // object gone (sold, swapped...)
+            if (PreviewDirty && (DateTime.UtcNow - LastWorldPreview).TotalMilliseconds >= 120) ShowOnLot(Current);
             base.Update(state);
         }
 
@@ -371,7 +409,8 @@ namespace Simitone.Client.UI.Panels.Desktop
 
             // the hex box and a little patch of the colour
             int rowY = SwY + 2 * (SwH + SwGap) + 2;
-            DrawLocalTexture(batch, ReduxTheme.Box(26, 24, 6, ShownColour, ShownColour, new Color(20, 20, 40), 1), new Vector2(Pad, rowY));
+            DrawLocalTexture(batch, ReduxTheme.Box(26, 24, 6, Color.White, Color.White, Color.Transparent, 0), null, new Vector2(Pad, rowY), Vector2.One, ShownColour);
+            DrawLocalTexture(batch, ReduxTheme.Box(26, 24, 6, Color.Transparent, Color.Transparent, new Color(20, 20, 40), 1), new Vector2(Pad, rowY));
             DrawLocalTexture(batch, ReduxTheme.Box(96, 24, 8, ReduxTheme.Deeper, ReduxTheme.Deep, ReduxTheme.Rim, 1), new Vector2(Pad + 34, rowY));
 
             int y = rowY + 26 + 30;

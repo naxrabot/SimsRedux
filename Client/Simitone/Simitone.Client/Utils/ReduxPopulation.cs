@@ -115,7 +115,8 @@ namespace Simitone.Client.Utils
                         return evicted + " families moved out of their houses - every home is for sale, and they're townies now";
                     }
                     if (text.Contains(Version)) return null;
-                    // made by 5.4: those families were put in the family bin - they become background Sims
+                    // made by 5.4 (those families were put in the family bin), or a batch that was cut short
+                    // part way: the families it made become background Sims, and it's finished off now
                     GeneratedFor = null;
                     var old = new List<FSO.Files.Formats.IFF.Chunks.FAMI>();
                     foreach (var f in neigh.MainResource.List<FSO.Files.Formats.IFF.Chunks.FAMI>() ?? new List<FSO.Files.Formats.IFF.Chunks.FAMI>())
@@ -130,8 +131,9 @@ namespace Simitone.Client.Utils
                         : "the town's extra Sims are background Sims now (" + moved + " families moved into houses)";
                 }
 
-                // written first: if anything goes wrong part way, it's never made twice
-                FSOFile.WriteAllText(marker, "SimsRedux: extra Sims made " + DateTime.Now.ToString("yyyy-MM-dd HH:mm") + "\r\n" + Version + "\r\n" + (emptyHomes ? EmptyHomesMark + "\r\n" : ""));
+                // written first (each family made is added to it), so nothing is ever made twice; the
+                // version line goes in last - a batch cut short is finished off by the next run instead
+                FSOFile.WriteAllText(marker, "SimsRedux: extra Sims made " + DateTime.Now.ToString("yyyy-MM-dd HH:mm") + "\r\n");
                 var surnames = Surnames.OrderBy(x => rand.Next()).ToList();
                 var made = new List<FSO.Files.Formats.IFF.Chunks.FAMI>();
                 int sims = 0;
@@ -153,7 +155,8 @@ namespace Simitone.Client.Utils
                 int housed = 0, evictedNew = 0;
                 if (emptyHomes) evictedNew = EmptyHomes(neigh, emptyHomesExcept);
                 else housed = MoveIntoHouses(neigh, made, keepFree, rand);
-                neigh.SaveNeighbourhood(true);
+                neigh.SaveNeighbourhood(true); // (once, for the whole batch)
+                FSOFile.AppendAllText(marker, Version + "\r\n" + (emptyHomes ? EmptyHomesMark + "\r\n" : ""));
                 GeneratedFor = null; // re-read the list
                 TexNames = null;
                 var line = "made " + sims + " new Sims in " + made.Count + " households"
@@ -256,7 +259,7 @@ namespace Simitone.Client.Utils
             members.RemoveAll(x => x == null);
             if (members.Count == 0) return null;
 
-            var fam = SimitoneNeighbourGenerator.CreateFamily(surname, members.Count, members.ToArray());
+            var fam = SimitoneNeighbourGenerator.CreateFamily(surname, members.Count, members.ToArray(), false);
             if (fam == null) return null;
             FSOFile.AppendAllText(marker, "family " + fam.ChunkID + "\r\n");
             return fam;

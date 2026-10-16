@@ -167,7 +167,7 @@ namespace Simitone.Client.UI.Panels.Desktop
         {
             if (text.Length < 2)
             {
-                if (CurrentTool == Tool.Search) SelectTool(Tool.Hand);
+                if (CurrentTool == Tool.Search) SelectTool(Tool.Hand, true); // (keeps the letter you're still typing)
                 return;
             }
             var words = text.ToLowerInvariant();
@@ -186,7 +186,9 @@ namespace Simitone.Client.UI.Panels.Desktop
             if (results.Count > 0) ShowEntries(results);
         }
 
-        private bool DropperActive { get { return Game.LotControl?.CustomControl is UIReduxDropper; } }
+        // (the catalog's own dropper - not the Tint window's colour dropper, which works in either mode)
+        private bool DropperActive { get { return MyDropper != null && Game.LotControl?.CustomControl == MyDropper; } }
+        private UIReduxDropper MyDropper;
 
         /// <summary>The dropper: click something on the lot (or a floor) to pick the same thing.</summary>
         private void ToggleDropper()
@@ -196,7 +198,7 @@ namespace Simitone.Client.UI.Panels.Desktop
             if (DropperActive) { lot.CustomControl.Release(); lot.CustomControl = null; return; }
             ClearHolding();
             ToolCursor = FSO.Common.Rendering.Framework.CursorType.Normal;
-            lot.CustomControl = new UIReduxDropper(lot, DropperObject, DropperFloor,
+            lot.CustomControl = MyDropper = new UIReduxDropper(lot, DropperObject, DropperFloor,
                 () => HoverText = "Nothing to pick there - click an object or a floor.");
             HoverText = "Dropper: click an object or a floor on the lot.";
         }
@@ -204,7 +206,7 @@ namespace Simitone.Client.UI.Panels.Desktop
         private void PutDropperAway()
         {
             var lot = Game.LotControl;
-            if (lot?.CustomControl is UIReduxDropper) { lot.CustomControl.Release(); lot.CustomControl = null; }
+            if (DropperActive) { lot.CustomControl.Release(); lot.CustomControl = null; }
         }
 
         /// <summary>Shows the page with this picture on it.</summary>
@@ -219,7 +221,12 @@ namespace Simitone.Client.UI.Panels.Desktop
         {
             PutDropperAway();
             var item = Content.Get().WorldCatalog.GetItemByGUID(guid);
-            if (item != null)
+            if (item == null)
+            {
+                // not in any catalog (a dirty plate, the mailbox...): not something you can buy
+                HoverText = "That isn't for sale.";
+                return;
+            }
             {
                 var tool = ObjectCategories.Where(x => x.Value == item.Value.Category).Select(x => x.Key).FirstOrDefault();
                 if (tool != Tool.None)
@@ -254,14 +261,16 @@ namespace Simitone.Client.UI.Panels.Desktop
         // Tools
         // ------------------------------------------------------------------
 
-        private void SelectTool(Tool tool)
+        private void SelectTool(Tool tool) { SelectTool(tool, false); }
+
+        private void SelectTool(Tool tool, bool keepSearch)
         {
             ClearHolding();
             ClearArea();
             CurrentTool = tool;
             foreach (var t in Tools) t.Button.Selected = t.Tool == tool;
             AreaHint = null;
-            if (tool != Tool.Search) Search?.ClearText();
+            if (tool != Tool.Search && !keepSearch) Search?.ClearText();
 
             switch (tool)
             {
@@ -582,8 +591,8 @@ namespace Simitone.Client.UI.Panels.Desktop
                 Add(GrowTab);
             }
             int cols = Math.Max(1, Columns);
-            GrowTab.Visible = Thumbs.Count > 0 && (Tall || Entries.Count > cols * 2);
-            GrowTab.Up = !Tall || Rows <= 2;
+            GrowTab.Visible = Thumbs.Count > 0 && Entries.Count > cols * 2;
+            GrowTab.Up = !Tall;
             GrowTab.Position = new Vector2(ThumbStart + 4, GridTop - UIReduxGrowTab.H);
         }
 
@@ -820,7 +829,7 @@ namespace Simitone.Client.UI.Panels.Desktop
                 Game.LotControl.QueryPanel.Active = false; // the Simitone info card - the classic bar shows it instead
                 // search and dropper sit on the bar's top edge, at the right
                 var width = GlobalSettings.Default.GraphicsWidth / ((Parent?.Parent as UIClassicUCP)?.UIScale ?? 1f);
-                Search.Position = new Vector2((int)(width - UIReduxCatalogSearch.TotalW - 12), GridTop - UIReduxCatalogSearch.BoxH);
+                Search.Position = new Vector2((int)Math.Max(ThumbStart + UIReduxGrowTab.W + 12, width - UIReduxCatalogSearch.TotalW - 12), GridTop - UIReduxCatalogSearch.BoxH);
             }
             if (Visible || ShownCursor != null) UpdateCursor();
             base.Update(state);

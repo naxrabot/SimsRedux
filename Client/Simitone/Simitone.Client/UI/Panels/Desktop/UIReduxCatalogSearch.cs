@@ -68,9 +68,38 @@ namespace Simitone.Client.UI.Panels.Desktop
         /// <summary>Empties the box (when leaving the search results), without searching again.</summary>
         public void ClearText()
         {
+            DropFocus();
             if (string.IsNullOrEmpty(Box.CurrentText)) { Last = ""; return; }
             Box.CurrentText = "";
             Last = "";
+        }
+
+        private bool WasDown;
+
+        /// <summary>The box lets go of the keyboard (so I, Esc and the camera keys work again).</summary>
+        public void DropFocus()
+        {
+            var im = FSO.Client.GameFacade.Screens?.inputManager;
+            if (im != null && im.GetFocus() == Box) im.SetFocus(null);
+        }
+
+        public override void Update(UpdateState state)
+        {
+            base.Update(state);
+            var im = FSO.Client.GameFacade.Screens?.inputManager;
+            bool focused = im != null && im.GetFocus() == Box;
+            bool down = state.MouseState.LeftButton == Microsoft.Xna.Framework.Input.ButtonState.Pressed;
+            if (focused)
+            {
+                // Enter or Esc finishes typing; so does clicking anywhere else
+                if (state.NewKeys.Contains(Microsoft.Xna.Framework.Input.Keys.Enter) || state.NewKeys.Contains(Microsoft.Xna.Framework.Input.Keys.Escape)) DropFocus();
+                else if (down && !WasDown)
+                {
+                    var p = GetMousePosition(state.MouseState);
+                    if (p.X < 0 || p.Y < 0 || p.X > BoxW || p.Y > BoxH) DropFocus();
+                }
+            }
+            WasDown = down;
         }
 
         public override void Draw(UISpriteBatch batch)

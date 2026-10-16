@@ -130,16 +130,18 @@ namespace Simitone.Client.UI.Panels.Desktop
         {
             if (text.Length < 2)
             {
-                if (CurrentView == View.Search) ShowStart();
+                if (CurrentView == View.Search) ShowStart(true); // (keeps the letter you're still typing)
                 return;
             }
             ClearHolding();
             var words = text.ToLowerInvariant();
-            var results = AllBuyItems().Where(x => HasCatalogPicture(x.GUID) && (GetName(x) ?? "").ToLowerInvariant().Contains(words)).ToList();
+            var results = AllBuyItems().Where(x => HasCatalogPicture(x.GUID) && GetSubsort(x) > 0 && (GetName(x) ?? "").ToLowerInvariant().Contains(words)).ToList();
             OpenCatalog(View.Search, 0, "Search: " + text, "BackFMisc", results, new List<Subsort>());
         }
 
-        private bool DropperActive { get { return Game.LotControl?.CustomControl is UIReduxDropper; } }
+        // (the catalog's own dropper - not the Tint window's colour dropper, which works in either mode)
+        private bool DropperActive { get { return MyDropper != null && Game.LotControl?.CustomControl == MyDropper; } }
+        private UIReduxDropper MyDropper;
 
         /// <summary>The dropper: click something on the lot to buy another one like it.</summary>
         private void ToggleDropper()
@@ -148,7 +150,7 @@ namespace Simitone.Client.UI.Panels.Desktop
             if (lot == null) return;
             if (DropperActive) { lot.CustomControl.Release(); lot.CustomControl = null; return; }
             ClearHolding();
-            lot.CustomControl = new UIReduxDropper(lot, DropperPicked,
+            lot.CustomControl = MyDropper = new UIReduxDropper(lot, DropperPicked,
                 (floor) => HoverText = "Floors are picked in Build mode.",
                 () => HoverText = "Nothing to pick there - click an object.");
             HoverText = "Dropper: click an object on the lot.";
@@ -158,11 +160,18 @@ namespace Simitone.Client.UI.Panels.Desktop
         private void DropperPicked(uint guid)
         {
             var lot = Game.LotControl;
-            if (lot.CustomControl is UIReduxDropper) { lot.CustomControl.Release(); lot.CustomControl = null; }
+            if (DropperActive) { lot.CustomControl.Release(); lot.CustomControl = null; }
             Search.ClearText();
             var item = Content.Get().WorldCatalog.GetItemByGUID(guid);
-            if (item != null && item.Value.Category >= 0 && item.Value.Category < 8)
+            if (item == null)
             {
+                // not in any catalog (a dirty plate, the mailbox...): not something you can buy
+                HoverText = "That isn't for sale.";
+                return;
+            }
+            if (item.Value.Category >= 0 && item.Value.Category < 8)
+            {
+                ChosenType.Remove(item.Value.Category); // (show every type, so the picked one is on the page)
                 OpenFunction(item.Value.Category);
                 var index = Items.FindIndex(x => x.GUID == guid);
                 if (index >= 0)
@@ -238,10 +247,12 @@ namespace Simitone.Client.UI.Panels.Desktop
         }
 
         /// <summary>The start page: room row (or the lot type's own row) above the function row.</summary>
-        private void ShowStart()
+        private void ShowStart() { ShowStart(false); }
+
+        private void ShowStart(bool keepSearch)
         {
             ClearAll();
-            Search?.ClearText();
+            if (!keepSearch) Search?.ClearText();
             CurrentView = View.Start;
             Mode = GetMode();
 
@@ -397,7 +408,7 @@ namespace Simitone.Client.UI.Panels.Desktop
             {
                 foreach (var s in SpecialCategories())
                 {
-                    var mask = 1 << s.Bit;
+                    var mask = (s.Bit == 7) ? ((1 << 7) | 16) : (1 << s.Bit); // (the same as the start page's Miscellaneous)
                     subs.Add(new Subsort { Name = s.Name, Filter = (x) => (GetSubsort(x) & mask) > 0, Button = MakeSubButton(s.Art, s.Name) });
                 }
                 subs.Add(new Subsort { Name = "All", Filter = (x) => true, Button = MakeSubButton("cpanel/Catalog/SubSortIcons/BuySubSortAll.bmp", "All") });
@@ -536,7 +547,7 @@ namespace Simitone.Client.UI.Panels.Desktop
                 return;
             }
             string chosen;
-            if (!ChosenType.TryGetValue(TypeCategory, out chosen) || !tabs.Contains(chosen)) chosen = ReduxCatalogTypes.All;
+            if (CurrentView == View.Search || !ChosenType.TryGetValue(TypeCategory, out chosen) || !tabs.Contains(chosen)) chosen = ReduxCatalogTypes.All;
             TypeTabs = new UIReduxTabStrip(tabs, chosen);
             TypeTabs.Position = new Vector2(ArrowLX, BarY + 6);
             TypeTabs.OnPick += (name) =>
@@ -617,8 +628,8 @@ namespace Simitone.Client.UI.Panels.Desktop
                 Add(GrowTab);
             }
             int cols = Math.Max(1, Columns);
-            GrowTab.Visible = CurrentView != View.Start && (Tall || Items.Count > cols * 2);
-            GrowTab.Up = !Tall || Rows <= 2;
+            GrowTab.Visible = CurrentView != View.Start && Items.Count > cols * 2;
+            GrowTab.Up = !Tall;
             GrowTab.Position = new Vector2(ThumbStart + 4, GridTop - UIReduxGrowTab.H);
         }
 
@@ -976,7 +987,7 @@ namespace Simitone.Client.UI.Panels.Desktop
             {
                 // search and dropper sit on the bar's top edge, at the right
                 var width = GlobalSettings.Default.GraphicsWidth / ((Parent?.Parent as UIClassicUCP)?.UIScale ?? 1f);
-                Search.Position = new Vector2((int)(width - UIReduxCatalogSearch.TotalW - 12), GridTop - UIReduxCatalogSearch.BoxH);
+                Search.Position = new Vector2((int)Math.Max(ThumbStart + UIReduxGrowTab.W + 12, width - UIReduxCatalogSearch.TotalW - 12), GridTop - UIReduxCatalogSearch.BoxH);
                 if (GrowTab != null && CurrentView == View.Start) GrowTab.Visible = false;
                 // the dropper: I to pick up / put away, Esc to put it away
                 if (!UIRevampedCamera.IsTyping(state))

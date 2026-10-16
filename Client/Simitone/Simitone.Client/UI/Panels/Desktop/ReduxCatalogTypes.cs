@@ -189,7 +189,14 @@ namespace Simitone.Client.UI.Panels.Desktop
             if (present.Contains(other) && !tabs.Contains(other)) tabs.Add(other);
             if (tabs.Count < 2) return new List<string>();
             tabs.Insert(0, All);
-            if (tabs.Count > maxTabs) tabs = tabs.Take(maxTabs).ToList();
+            if (tabs.Count > maxTabs)
+            {
+                // too many for the strip: keep All and Other (everything dropped is still under All)
+                bool hasOther = tabs.Contains(other);
+                tabs.Remove(other);
+                tabs = tabs.Take(maxTabs - (hasOther ? 1 : 0)).ToList();
+                if (hasOther) tabs.Add(other);
+            }
             return tabs;
         }
     }

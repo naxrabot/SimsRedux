@@ -990,6 +990,9 @@ namespace Simitone.Client.UI.Panels
             try
             {
                 if (LiveMode || ObjectHolder.Holding != null) return;
+                // (one Tint window at a time - also while it's stepped aside for its colour dropper)
+                if (CustomControl is Simitone.Client.UI.Panels.Desktop.UIReduxDropper
+                    || Simitone.Client.UI.Panels.Desktop.UIClassicTintDialog.Active != null) return;
                 var game = Parent as TS1GameScreen;
                 if (game == null || vm == null) return;
                 var pt = ToWorldScreen(new Vector2(screen.X, screen.Y));

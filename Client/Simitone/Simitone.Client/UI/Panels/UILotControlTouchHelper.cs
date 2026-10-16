@@ -198,7 +198,7 @@ namespace Simitone.Client.UI.Panels
                         //again, anchor should change to single point without drastic scroll change
                         var mouse = state.MouseStates.FirstOrDefault(x => x.ID == MiceDown.First());
                         TapPoint = new Point(mouse.MouseState.X, mouse.MouseState.Y);
-                        if (TouchCam) { Cam.End(); Cam.BeginDrag(TapPoint.ToVector2()); RotateAngle = Cam.TwistAngle; }
+                        if (TouchCam) { RotateAngle = Cam.TwistAngle; Cam.End(); Cam.BeginDrag(TapPoint.ToVector2()); }
                         Mode = 1;
                     } else if (transitionTo == -1)
                     {

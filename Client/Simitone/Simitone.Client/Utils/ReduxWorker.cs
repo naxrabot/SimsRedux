@@ -204,9 +204,27 @@ namespace Simitone.Client.Utils
         private static DateTime OwnedRead;
 
         /// <summary>The town families that belong to players (from owners.json, read at most once a minute). Empty off the server.</summary>
-        public static HashSet<int> OwnedFamilies()
+        public static HashSet<int> OwnedFamilies() { return OwnedFamilies(false); }
+
+        /// <summary>
+        /// strict: an owners.json that's there but can't be read throws, instead of counting as "nobody
+        /// owns anything" (moving families out of houses must never forget a player's family).
+        /// </summary>
+        public static HashSet<int> OwnedFamilies(bool strict)
         {
             if (!Active || string.IsNullOrEmpty(Town)) return new HashSet<int>();
+            if (strict)
+            {
+                var set2 = new HashSet<int>();
+                var path2 = Path.Combine(Town, "owners.json");
+                if (File.Exists(path2))
+                {
+                    using (var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(path2)))
+                        foreach (var p in doc.RootElement.EnumerateObject())
+                            if (p.Value.TryGetProperty("Family", out var f) && f.TryGetInt32(out var n)) set2.Add(n);
+                }
+                return set2;
+            }
             if ((DateTime.UtcNow - OwnedRead).TotalSeconds < 60) return OwnedCache;
             OwnedRead = DateTime.UtcNow;
             var set = new HashSet<int>();
@@ -284,7 +302,7 @@ namespace Simitone.Client.Utils
                     try
                     {
                         // online: every home is left for the players - the town's own families and the new ones are townies
-                        var line = ReduxPopulation.EnsurePopulated(10, 10, 0, new HashSet<int>(OwnedFamilies()));
+                        var line = ReduxPopulation.EnsurePopulated(10, 10, 0, new HashSet<int>(OwnedFamilies(true)));
                         Say("populated " + (line ?? "nothing to do - the town already has its extra Sims"));
                     }
                     catch (Exception e) { Say("error populate " + e.Message); Environment.Exit(8); }

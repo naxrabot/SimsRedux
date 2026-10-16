@@ -25,11 +25,11 @@ namespace Simitone.Client.UI.Controls
             public bool Closing;
         }
 
-        public const int W = 320, Pad = 10, Gap = 8, Top = 64, TouchTop = 150, MaxShown = 4;
+        public const int W = 320, Pad = 10, Gap = 8, Top = 64, TouchTop = 150, MaxShown = 4, MaxLines = 8;
 
         private static UIReduxToasts Instance;
         private List<Toast> Toasts = new List<Toast>();
-        private UIMouseEventRef Mouse;
+        private UIMouseEventRef[] Mice = new UIMouseEventRef[MaxShown + 2];
         private bool MouseOver;
         private TextStyle TitleStyle, BodyStyle, XStyle;
 
@@ -62,7 +62,8 @@ namespace Simitone.Client.UI.Controls
             TitleStyle = TextStyle.DefaultLabel.Clone(); TitleStyle.Size = 12; TitleStyle.Color = Color.White; TitleStyle.Shadow = true;
             BodyStyle = TextStyle.DefaultLabel.Clone(); BodyStyle.Size = 10; BodyStyle.Color = new Color(220, 226, 248);
             XStyle = TextStyle.DefaultLabel.Clone(); XStyle.Size = 11; XStyle.Color = Color.White;
-            Mouse = ListenForMouse(new Rectangle(0, 0, 1, 1), OnMouse);
+            // one click area per notice, so taps between them reach the game
+            for (int i = 0; i < Mice.Length; i++) Mice[i] = ListenForMouse(new Rectangle(0, 0, 0, 0), OnMouse);
         }
 
         private void Push(string title, string message)
@@ -89,7 +90,9 @@ namespace Simitone.Client.UI.Controls
         {
             var lines = new List<string>();
             float width = W - Pad * 2;
-            foreach (var para in (text ?? "").Replace("\r", "").Split('\n'))
+            var paras = (text ?? "").Replace("\r", "").Split('\n');
+            var lastPara = paras.Length > 0 ? paras[paras.Length - 1] : null;
+            foreach (var para in paras)
             {
                 var words = para.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
                 var line = "";
@@ -98,13 +101,35 @@ namespace Simitone.Client.UI.Controls
                     var test = line.Length == 0 ? w : line + " " + w;
                     float size;
                     try { size = BodyStyle.MeasureString(test).X; } catch { size = test.Length * 6; }
-                    if (size > width && line.Length > 0) { lines.Add(line); line = w; }
+                    if (size > width && line.Length > 0)
+                    {
+                        // (at most 8 lines - a long message is cut short, not a wall of text)
+                        if (lines.Count == MaxLines - 1) { lines.Add(line + "..."); return lines; }
+                        lines.Add(line); line = w;
+                    }
                     else line = test;
                 }
-                if (line.Length > 0) lines.Add(line);
-                if (lines.Count >= 8) { lines[lines.Count - 1] += "..."; break; }
+                if (line.Length > 0)
+                {
+                    if (lines.Count == MaxLines - 1 && para != lastPara) { lines.Add(line + "..."); return lines; }
+                    lines.Add(line);
+                }
+                if (lines.Count >= MaxLines) return lines;
             }
             return lines;
+        }
+
+        /// <summary>The text, shortened with "..." until it fits the width.</summary>
+        private static string Fit(string text, TextStyle style, float width)
+        {
+            text = text ?? "";
+            try
+            {
+                if (style.MeasureString(text).X <= width) return text;
+                while (text.Length > 1 && style.MeasureString(text + "...").X > width) text = text.Substring(0, text.Length - 1);
+                return text.TrimEnd() + "...";
+            }
+            catch { return text; }
         }
 
         private void OnMouse(UIMouseEventType type, UpdateState state)
@@ -119,7 +144,7 @@ namespace Simitone.Client.UI.Controls
                 {
                     if (p.Y >= y && p.Y < y + t.Height)
                     {
-                        t.Closing = true; // a click anywhere on a notice (or its X) closes it
+                        if (!t.Closing) t.Closing = true; // a click anywhere on a notice (or its X) closes it
                         break;
                     }
                     y += t.Height + Gap;
@@ -142,9 +167,22 @@ namespace Simitone.Client.UI.Controls
                 if (!MouseOver) t.Age += dt;
                 if (t.Age >= t.Life) t.Closing = true;
             }
+            // the stack never runs off the bottom of the screen: the oldest go first
+            var screenH = FSO.Client.UI.Framework.UIScreen.Current?.ScreenHeight ?? 768;
+            int room = Math.Max(120, screenH - (int)Position.Y - 12);
             int h = 0;
             foreach (var t in Toasts) h += t.Height + Gap;
-            Mouse.Region = new Rectangle(0, 0, W, Math.Max(1, h));
+            for (int i = 0; i < Toasts.Count - 1 && h > room; i++)
+                if (!Toasts[i].Closing) { Toasts[i].Closing = true; h -= Toasts[i].Height + Gap; }
+            // only the notices take clicks (up to the last one that isn't leaving); the rest of the
+            // corner is left to the game
+            int y2 = 0;
+            for (int i = 0; i < Mice.Length; i++)
+            {
+                if (i < Toasts.Count && !Toasts[i].Closing) Mice[i].Region = new Rectangle(0, y2, W, Toasts[i].Height);
+                else Mice[i].Region = new Rectangle(0, 0, 0, 0);
+                if (i < Toasts.Count) y2 += Toasts[i].Height + Gap;
+            }
         }
 
         public override void Draw(UISpriteBatch batch)
@@ -160,7 +198,8 @@ namespace Simitone.Client.UI.Controls
                 DrawLocalTexture(batch, ReduxTheme.Box(W, t.Height, 10, Color.Black * 0.35f, Color.Black * 0.35f, Color.Transparent, 0), null, new Vector2(x + 2, y + 3), Vector2.One, Color.White * fade);
                 DrawLocalTexture(batch, ReduxTheme.Box(W, t.Height, 10, ReduxTheme.Hi, ReduxTheme.Deep, ReduxTheme.Rim, 1), null, new Vector2(x, y), Vector2.One, Color.White * fade);
                 TitleStyle.Color = Color.White * fade;
-                DrawLocalString(batch, t.Title, new Vector2(x + Pad, y + Pad), TitleStyle, new Rectangle(0, 0, W - Pad * 2 - 20, 18), TextAlignment.Left | TextAlignment.Middle);
+                TitleStyle.Shadow = fade > 0.95f; // (the shadow can't fade with it)
+                DrawLocalString(batch, Fit(t.Title, TitleStyle, W - Pad * 2 - 22), new Vector2(x + Pad, y + Pad), TitleStyle, new Rectangle(0, 0, W - Pad * 2 - 20, 18), TextAlignment.Left | TextAlignment.Middle);
                 XStyle.Color = Color.White * (0.8f * fade);
                 DrawLocalString(batch, "X", new Vector2(x + W - Pad - 14, y + Pad), XStyle, new Rectangle(0, 0, 14, 18), TextAlignment.Center | TextAlignment.Middle);
                 BodyStyle.Color = new Color(220, 226, 248) * fade;

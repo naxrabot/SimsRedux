@@ -2,6 +2,30 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "7.0",
+      "date": "Oct 16, 2026",
+      "features": [
+        "Phone keyboard — tap a name or chat box and your phone's keyboard opens."
+      ],
+      "updates": [
+        "Build mode dropper — it works now (it switched itself off straight away).",
+        "Tint colour dropper — works in Build mode too.",
+        "Tint — saves properly on things a Sim is using or with something on them, and #RGB codes work.",
+        "Tint — smoother while you drag the sliders.",
+        "Typing — numbers typed in a box (like a colour code) no longer change the game speed.",
+        "Search — Backspace keeps your letters, results match the lot type, and I and Esc work again after searching.",
+        "Dropper — things that aren't for sale (like dirty plates) can't be copied for free.",
+        "Decorative catalog — the Other tab is back.",
+        "Create-A-Sim — tap the top lit light to take a personality point back off.",
+        "Notices — long messages are cut short, and taps between notices reach the game.",
+        "Touch — twist to turn works when your fingers lift one at a time.",
+        "Touch — the Controls setting takes effect when you go to a lot or the neighborhood.",
+        "Tablets — PC Controls works with taps; add ?controls=touch to the address to force touch.",
+        "Turning the phone — the game resizes without a jumpy frame.",
+        "Launcher — Esc closes the account menu without starting the game."
+      ]
+    },
+    {
       "version": "6.9",
       "date": "Oct 16, 2026",
       "features": [],

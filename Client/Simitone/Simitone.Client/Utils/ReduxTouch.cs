@@ -23,6 +23,9 @@ namespace Simitone.Client.Utils
         /// <summary>What the website found: a touch screen with no mouse (a phone or tablet).</summary>
         public static Func<bool> DeviceIsTouch;
 
+        /// <summary>The website address can force it (?controls=touch or ?controls=pc): "touch", "pc" or "".</summary>
+        public static Func<string> Forced;
+
         /// <summary>The Controls setting: 0 = Auto (the default), 1 = Touch, 2 = PC (mouse and keyboard).</summary>
         public static int Setting
         {
@@ -44,6 +47,11 @@ namespace Simitone.Client.Utils
         {
             get
             {
+                // the address wins over the saved setting (a way back if the setting is ever wrong for the device)
+                string forced = "";
+                try { forced = (Forced?.Invoke() ?? "").ToLowerInvariant(); } catch { }
+                if (forced == "touch") return true;
+                if (forced == "pc" || forced == "mouse") return false;
                 var s = Setting;
                 if (s == Touch) return true;
                 if (s == Mouse) return false;
