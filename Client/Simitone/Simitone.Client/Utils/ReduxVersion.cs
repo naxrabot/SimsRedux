@@ -18,6 +18,7 @@ namespace Simitone.Client.Utils
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "321 new things to buy: BNJ x LVR chairs, bookcases, dressers, rugs and windows, Bara's 1940s diner set, and SML's IKEA Stuff Pack.",
             "Phones and tablets: the screen stays on while the game is open.",
             "Getting the game files from the server is much faster - many files per download, squeezed smaller - and only what's missing or changed is downloaded again.",
             "Touch: tapping a catalog picture picks the item up again, so you can buy and place things on a phone.",

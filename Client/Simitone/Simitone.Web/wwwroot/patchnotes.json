@@ -2,6 +2,17 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "8.0",
+      "date": "Oct 16, 2026",
+      "features": [
+        "321 new objects — custom content now ships with the game for everyone.",
+        "BNJ x LVR — chairs, bookcases, dressers, rugs and lots of windows.",
+        "Bara's 1940s diner — a bar, counters, dining tables, chairs, a food case and a tobacco sign.",
+        "SML's IKEA Stuff Pack — sofas, armchairs, coffee tables, shelves, lamps, mirrors, desks and more, in several colours."
+      ],
+      "updates": []
+    },
+    {
       "version": "7.9",
       "date": "Oct 16, 2026",
       "features": [

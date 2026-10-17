@@ -6,3 +6,6 @@ Mods shipped with The Sims Redux (thank you to their makers):
 - Lenna: Hidden Objects Unlocked
 - Kakengo: Improved Pets
 - Slower Motives (Mod The Sims): its needs-decay rates are built into the game itself
+- Kyoen, BNJ x LVR (vardari.to/sims): chairs, bookcases, dressers, rugs and windows
+- Bara: 1940s bar, counters, dining tables, chairs, food case and tobacco sign
+- SML: IKEA Stuff Pack (sofas, armchairs, tables, shelves, lamps, mirrors and more)
