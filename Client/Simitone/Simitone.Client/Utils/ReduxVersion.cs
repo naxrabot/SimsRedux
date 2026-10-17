@@ -18,6 +18,7 @@ namespace Simitone.Client.Utils
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Computer: games now have their own menu - click the computer, then Play Games, then Twisted Metal 2.",
             "Computer: Sims now keep playing until their Fun is nearly full, and keep writing, chatting or hacking until you stop them - before, most stopped after a few game minutes.",
             "Writing: a progress bar shows over your Sim's head while they practise writing or work on a novel, like when studying.",
             "Twisted Metal 2: the game now sits inside the computer's screen instead of floating in front of it.",

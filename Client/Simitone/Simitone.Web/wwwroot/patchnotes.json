@@ -2,6 +2,14 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "8.8",
+      "date": "Oct 17, 2026",
+      "features": [],
+      "updates": [
+        "Play Games menu — the computer's games are kept together now: click the computer, then Play Games, then Twisted Metal 2."
+      ]
+    },
+    {
       "version": "8.7",
       "date": "Oct 17, 2026",
       "features": [

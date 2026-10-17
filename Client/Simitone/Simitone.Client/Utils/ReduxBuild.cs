@@ -8,7 +8,7 @@ namespace Simitone.Client.Utils
     /// </summary>
     public static class ReduxBuild
     {
-        public const string Number = "8.7";
+        public const string Number = "8.8";
         public const string Stage = "Beta";
     }
 }
