@@ -18,6 +18,7 @@ namespace Simitone.Client.Utils
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Fixed: showers, baths and playing on the computer ended after a second or two with the need filled all at once - they last as long as they should again, with needs going up as they go.",
             "Computer: writing, novels, chatting, hacking and Twisted Metal 2 keep going now (they stopped after a few seconds), and skills and fun go up.",
             "New on the computer: Play Twisted Metal 2 - the game plays on the monitor while your Sim has fun.",
             "Online: the Writing skill and novels now go with your Sims to the online town and back.",
