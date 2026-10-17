@@ -705,6 +705,8 @@ namespace Simitone.Client.UI.Panels
         private int TouchToolID = -1;     // the finger drawing with a build tool
         /// <summary>2 = press the held object down next update, 1 = let go of it (it's placed).</summary>
         public int PendingPlace;
+        /// <summary>SimsRedux touch: where the finger that just tapped went down (screen pixels).</summary>
+        public Point? TouchTapRaw;
 
         private static Point FingerOf(UpdateState state, int id)
         {
@@ -845,7 +847,15 @@ namespace Simitone.Client.UI.Panels
                 */
                 if (FSOEnvironment.SoftwareKeyboard && ObjectHolder.Holding == null)
                 {
-                    if (Simitone.Client.Utils.ReduxTouch.ReduxLayout) ObjectHolder.TouchPoint = new Point(state.MouseState.X, state.MouseState.Y); // (the finger, on the screen)
+                    if (Simitone.Client.Utils.ReduxTouch.ReduxLayout && CustomControl == null)
+                    {
+                        // SimsRedux: pick up what's under the finger right away, at the spot it tapped
+                        var raw = TouchTapRaw ?? new Point(state.MouseState.X, state.MouseState.Y);
+                        TouchTapRaw = null;
+                        ObjectHolder.TouchPoint = raw;
+                        if (!ObjectHolder.TryPickUp(state, raw)) ObjectHolder.TouchPoint = null;
+                        return;
+                    }
                     ObjectHolder.MouseDown(state);
                 }
                 return;

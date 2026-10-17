@@ -146,6 +146,7 @@ namespace Simitone.Client.UI.Panels
                             {
                                 Mode = -1;
                                 var screenMiddle = new Point(GameFacade.Screens.CurrentUIScreen.ScreenWidth / 2, GameFacade.Screens.CurrentUIScreen.ScreenHeight / 2);
+                                Master.TouchTapRaw = TapPoint; // (Buy / Build: the exact spot, to pick up what's there)
                                 Master.ShowPieMenu(((TapPoint - screenMiddle).ToVector2() / Master.World.BackbufferScale).ToPoint() + screenMiddle, state);
                             }
                             else

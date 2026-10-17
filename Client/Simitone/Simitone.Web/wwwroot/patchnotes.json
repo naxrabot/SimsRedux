@@ -2,6 +2,14 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "8.2",
+      "date": "Oct 16, 2026",
+      "features": [],
+      "updates": [
+        "Moving things on touch — tap something already in your house in Buy or Build mode to pick it up, drag it with one finger, then tap to put it down (or use Turn, Place and Sell)."
+      ]
+    },
+    {
       "version": "8.1",
       "date": "Oct 16, 2026",
       "features": [],

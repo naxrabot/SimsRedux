@@ -455,9 +455,30 @@ namespace Simitone.Client.UI.Panels
             else if (MouseClicked)
             {
                 //not holding an object, but one can be selected
-                var pickPt = ParentControl.ToWorldScreen(new Vector2(state.MouseState.X, state.MouseState.Y));
+                TryPickUp(state, state.MouseState.Position);
+            }
+
+            if (ParentControl.MouseIsOn && !ParentControl.RMBScroll)
+            {
+                GameFacade.Cursor.SetCursor(cur);
+            }
+
+            MouseWasDown = MouseIsDown;
+        }
+
+        /// <summary>
+        /// Picks up the placed object at this point on the screen (if it can be moved). A mouse click
+        /// uses the mouse; SimsRedux touch passes the exact spot the finger tapped (once the finger has
+        /// lifted, the "mouse" position isn't reliably where it was).
+        /// </summary>
+        public bool TryPickUp(UpdateState state, Point screen)
+        {
+            {
+
+                //not holding an object, but one can be selected
+                var pickPt = ParentControl.ToWorldScreen(new Vector2(screen.X, screen.Y));
                 var newHover = World.GetObjectIDAtScreenPos((int)pickPt.X, (int)pickPt.Y, GameFacade.GraphicsDevice);
-                if (MouseClicked && (newHover != 0) && (vm.GetObjectById(newHover) is VMGameObject))
+                if ((newHover != 0) && (vm.GetObjectById(newHover) is VMGameObject))
                 {
                     var objGroup = vm.GetObjectById(newHover).MultitileGroup;
                     var objBasePos = objGroup.BaseObject.Position;
@@ -475,7 +496,7 @@ namespace Simitone.Client.UI.Panels
                         if (UseNet) RecursiveHide(Holding.RealEnt);
                         Holding.CanDelete = canDelete;
                         Holding.MoveTarget = newHover;
-                        var estBase = state.MouseState.Position; //FSOEnvironment.SoftwareKeyboard ? new Point(UIScreen.Current.ScreenWidth / 2, UIScreen.Current.ScreenHeight / 2) : state.MouseState.Position;
+                        var estBase = screen; //FSOEnvironment.SoftwareKeyboard ? new Point(UIScreen.Current.ScreenWidth / 2, UIScreen.Current.ScreenHeight / 2) : state.MouseState.Position;
                         Holding.TilePosOffset = new Vector2(objBasePos.x / 16f, objBasePos.y / 16f) - World.EstTileAtPosWithScroll(ParentControl.ToWorldScreen(new Vector2(estBase.X, estBase.Y)) / FSOEnvironment.DPIScaleFactor);
                         if (OnPickup != null) OnPickup(Holding, state);
                         //ExecuteEntryPoint(12); //User Pickup
@@ -486,14 +507,8 @@ namespace Simitone.Client.UI.Panels
                         ShowErrorAtMouse(state, success);
                     }
                 }
-            }
-
-            if (ParentControl.MouseIsOn && !ParentControl.RMBScroll)
-            {
-                GameFacade.Cursor.SetCursor(cur);
-            }
-
-            MouseWasDown = MouseIsDown;
+                        }
+            return Holding != null;
         }
 
         private void RecursiveHide(VMEntity ent)
