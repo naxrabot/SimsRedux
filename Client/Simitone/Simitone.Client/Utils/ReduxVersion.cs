@@ -18,6 +18,9 @@ namespace Simitone.Client.Utils
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "New: about 680 more downloadable objects (17 beds among them), 350 walls, 540 floors and around 100 outfits - all mixed into the normal Buy, Build and Create-A-Sim catalogs.",
+            "Tint: only the object's own colour changes now (a bed's blanket, not its pillow or metal frame).",
+            "Website: the custom content now downloads compressed (about half the size) and is kept, so it only downloads again when it changes.",
             "Fixed: writing, chatting, hacking and computer games stopped after a few seconds - Sims now keep at it (games until Fun is nearly full).",
             "Computer: Play is now inside Play Games (as Computer Games), next to Twisted Metal 2.",
             "Twisted Metal 2: the picture is lined up with the monitor's screen again, and fills it.",

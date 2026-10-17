@@ -119,6 +119,7 @@ jobs:
             || { grep -E 'error ' publish.log | sort -u | head -20 | while read -r l; do echo "::error::$l"; done; exit 1; }
           grep -i "SimsRedux:" publish.log | while read -r l; do echo "::warning::$l"; done
           echo "::warning::shaders: $(ls publish/wwwroot/Content/Web/Effects | wc -l), content files: $(find publish/wwwroot/Content -type f | wc -l)"
+          echo "::warning::$(python Client/Simitone/Simitone.Web/tools/bundle_content.py publish/wwwroot/Content)"
           cd publish/wwwroot
           touch .nojekyll
           rm -f .gitignore   # the project's own ignore list must not hide the content from this branch
@@ -182,6 +183,7 @@ jobs:
           sed -i "s/__BUILD__/classic-$(date -u +%m%d-%H%M)-${GITHUB_SHA::7}/" Client/Simitone/Simitone.Web/wwwroot/index.html
           dotnet publish Client/Simitone/Simitone.Web/Simitone.Web.csproj -c Release -v minimal -clp:NoSummary -o publish > publish.log 2>&1 \
             || { grep -E 'error ' publish.log | sort -u | head -20 | while read -r l; do echo "::error::$l"; done; exit 1; }
+          python Client/Simitone/Simitone.Web/tools/bundle_content.py publish/wwwroot/Content
           echo "::warning::classic version: $(du -sh publish/wwwroot | cut -f1)"
 
       - name: Add it to the website as /classic/

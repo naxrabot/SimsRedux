@@ -2,6 +2,17 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "9.0",
+      "date": "Oct 17, 2026",
+      "features": [
+        "More custom content — about 680 more objects (17 beds among them), 350 walls, 540 floors and around 100 outfits, all mixed into the normal Buy, Build and Create-A-Sim catalogs."
+      ],
+      "updates": [
+        "Tint — only the object's own colour changes now: a bed's blanket, not its pillow or metal frame.",
+        "Faster downloads — the custom content downloads compressed (about half the size) and is kept between visits, so it only downloads again when it changes."
+      ]
+    },
+    {
       "version": "8.9",
       "date": "Oct 17, 2026",
       "features": [],

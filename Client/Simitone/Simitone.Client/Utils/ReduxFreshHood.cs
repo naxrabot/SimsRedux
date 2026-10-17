@@ -59,6 +59,15 @@ namespace Simitone.Client.Utils
             AskedThisRun = true;
             try
             {
+                // how much custom content loaded (so a missing pack is easy to spot)
+                int shipped = FSO.Content.TS1.TS1ObjectProvider.ReduxModCatalogItems, own = FSO.Content.TS1.TS1ObjectProvider.DownloadsCatalogItems;
+                Simitone.Client.UI.Controls.UIReduxToasts.Show("Custom content",
+                    shipped == 0 ? "The game's custom objects didn't load (0 items). Please tell the admin."
+                                 : shipped + " custom items are in Buy and Build mode" + (own > 0 ? " (plus " + own + " from your Downloads folder)." : "."));
+            }
+            catch { }
+            try
+            {
                 // a brand-new game: the starting neighbourhood exactly as it came, never filled in yet
                 if (!ReduxSettings.GetBool("hoodpopulated", false))
                 {

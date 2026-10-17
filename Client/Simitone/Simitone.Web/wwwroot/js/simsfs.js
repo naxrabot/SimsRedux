@@ -1104,6 +1104,10 @@
             console.warn('[SimsFS] no Content/files.txt', e);
             return;
         }
+        // the custom content comes in a few compressed bundles (tools/bundle_content.py)
+        const bundles = list.filter(l => l.endsWith('.srxpack.gz'));
+        list = list.filter(l => !l.endsWith('.srxpack.gz'));
+        const bundleJob = loadBundles(bundles);
         // a handful at a time: browsers refuse thousands of downloads at once
         const queue = list.slice();
         async function worker() {
@@ -1123,6 +1127,53 @@
             }
         }
         await Promise.all(Array.from({ length: 8 }, worker));
+        await bundleJob;
+    }
+
+    // The custom content bundles: kept in the browser's cache by name (the name changes whenever
+    // what's inside does), so they're only downloaded again after an update changes them.
+    async function loadBundles(names) {
+        if (!names.length) return;
+        let cache = null;
+        try { if (window.caches) cache = await caches.open('srx-bundles'); } catch (e) { cache = null; }
+        // bundles from older versions aren't needed any more
+        if (cache) {
+            try {
+                const want = new Set(names.map(n => new URL('Content/' + n, location.href).href));
+                for (const req of await cache.keys()) if (!want.has(req.url)) await cache.delete(req);
+            } catch (e) { }
+        }
+        for (const name of names) {
+            const url = 'Content/' + name;
+            let u8 = null;
+            for (let attempt = 0; attempt < 3 && !u8; attempt++) {
+                try {
+                    let r = cache ? await cache.match(url) : null;
+                    if (!r) {
+                        r = await fetch(url);
+                        if (!r.ok) throw new Error(r.status);
+                        if (cache) { try { await cache.put(url, r.clone()); } catch (e) { } }
+                    }
+                    const gz = await r.arrayBuffer();
+                    u8 = new Uint8Array(await new Response(new Blob([gz]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer());
+                } catch (e) {
+                    if (cache) { try { await cache.delete(url); } catch (e2) { } }
+                    if (attempt === 2) console.warn('[SimsFS] could not load ' + url, e);
+                }
+            }
+            if (!u8) continue;
+            const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+            let o = 0, n = 0;
+            while (o + 6 <= u8.length) {
+                const pl = dv.getUint16(o, true); o += 2;
+                const path = new TextDecoder().decode(u8.subarray(o, o + pl)); o += pl;
+                const size = dv.getUint32(o, true); o += 4;
+                if (o + size > u8.length) break;
+                addFile('Content/' + path, { size, data: u8.subarray(o, o + size) });
+                o += size; n++;
+            }
+            console.log('[SimsFS] ' + name + ': ' + n + ' files');
+        }
     }
 
     function isLazy(k) { return LAZY.some(r => r.test(k)); }
