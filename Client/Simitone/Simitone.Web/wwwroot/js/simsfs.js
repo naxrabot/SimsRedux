@@ -1094,10 +1094,14 @@
 
     // ---------- loading ----------
 
+    // Where the website's game content is: the backup copy of the game at /classic/ uses the main
+    // site's (it's the same), so the website only holds it once.
+    const SITE_CONTENT = /\/classic\//.test(location.pathname) ? '../Content/' : 'Content/';
+
     async function loadSiteContent() {
         let list;
         try {
-            const r = await fetch('Content/files.txt', { cache: 'no-cache' });
+            const r = await fetch(SITE_CONTENT + 'files.txt', { cache: 'no-cache' });
             if (!r.ok) throw new Error(r.status);
             list = (await r.text()).split(/\r?\n/).map(l => l.trim().replace(/\\/g, '/')).filter(l => l);
         } catch (e) {
@@ -1112,10 +1116,11 @@
         const queue = list.slice();
         async function worker() {
             while (queue.length) {
-                const name = 'Content/' + queue.shift();
+                const rel = queue.shift();
+                const name = 'Content/' + rel;
                 for (let attempt = 0; attempt < 3; attempt++) {
                     try {
-                        const r = await fetch(name);
+                        const r = await fetch(SITE_CONTENT + rel);
                         if (!r.ok) break;
                         const data = new Uint8Array(await r.arrayBuffer());
                         addFile(name, { size: data.length, data });
@@ -1139,12 +1144,12 @@
         // bundles from older versions aren't needed any more
         if (cache) {
             try {
-                const want = new Set(names.map(n => new URL('Content/' + n, location.href).href));
+                const want = new Set(names.map(n => new URL(SITE_CONTENT + n, location.href).href));
                 for (const req of await cache.keys()) if (!want.has(req.url)) await cache.delete(req);
             } catch (e) { }
         }
         for (const name of names) {
-            const url = 'Content/' + name;
+            const url = SITE_CONTENT + name;
             let u8 = null;
             for (let attempt = 0; attempt < 3 && !u8; attempt++) {
                 try {

@@ -2,6 +2,14 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "9.2",
+      "date": "Oct 17, 2026",
+      "features": [],
+      "updates": [
+        "Smaller website — the backup version (/classic) shares the main site's game content instead of keeping its own copy."
+      ]
+    },
+    {
       "version": "9.1",
       "date": "Oct 17, 2026",
       "features": [
