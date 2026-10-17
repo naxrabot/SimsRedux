@@ -2,6 +2,14 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "7.7",
+      "date": "Oct 16, 2026",
+      "features": [],
+      "updates": [
+        "Clock and money — on upright phones the box now reaches the bottom of the panel, lined up with the buttons beside it, with bigger numbers."
+      ]
+    },
+    {
       "version": "7.6",
       "date": "Oct 16, 2026",
       "features": [],

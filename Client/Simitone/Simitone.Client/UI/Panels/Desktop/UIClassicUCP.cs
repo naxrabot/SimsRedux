@@ -415,9 +415,11 @@ namespace Simitone.Client.UI.Panels.Desktop
             // clock and money: above the block (sideways), or between the diamond and the block (upright)
             if (tall)
             {
-                ClockBox = new Rectangle(100, 191, (int)(RX - 108), 56);
-                ClockLabel.Position = new Vector2(104, 195); ClockLabel.Size = new Vector2(ClockBox.Width - 8, 22);
-                MoneyLabel.Position = new Vector2(104, 221); MoneyLabel.Size = new Vector2(ClockBox.Width - 8, 22);
+                // (as tall as the button block beside it: down to the bottom of the panel)
+                ClockBox = new Rectangle(100, (int)RY - 4, (int)(RX - 108), 96);
+                ClockLabel.Position = new Vector2(104, RY + 16); ClockLabel.Size = new Vector2(ClockBox.Width - 8, 24);
+                MoneyLabel.Position = new Vector2(104, RY + 46); MoneyLabel.Size = new Vector2(ClockBox.Width - 8, 24);
+                ClockLabel.CaptionStyle.Size = MoneyLabel.CaptionStyle.Size = 14;
             }
             else
             {
