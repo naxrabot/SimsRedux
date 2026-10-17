@@ -2,6 +2,20 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "8.3",
+      "date": "Oct 17, 2026",
+      "features": [
+        "More to do on the computer — Practice Writing, Write a Novel, Surf the Web, Chat Online and Hack, like The Sims 3.",
+        "Write a Novel — pick Romance, Sci-Fi, Mystery, Fantasy or Children's. Better writers finish faster and earn more when the novel sells.",
+        "New Writing skill — shown on the Job page with the other skills. Practise at the computer to level it up.",
+        "Chat Online — keeps your Sim's Social need up.",
+        "Hack — needs Logic 7. Earns money... unless your Sim gets caught."
+      ],
+      "updates": [
+        "New-look pie menu — the choices are rounded, glossy buttons in your interface colour."
+      ]
+    },
+    {
       "version": "8.2",
       "date": "Oct 16, 2026",
       "features": [],

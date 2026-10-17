@@ -18,6 +18,9 @@ namespace Simitone.Client.Utils
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Computers do more, like The Sims 3: Practice Writing, Write a Novel (Romance, Sci-Fi, Mystery, Fantasy or Children's - finished novels sell), Surf the Web, Chat Online and Hack (Logic 7+).",
+            "New skill: Writing - see it on the Job page next to the other skills.",
+            "The pie menu has the new look.",
             "Touch: tap something already in your house (in Buy or Build mode) to pick it up, then drag it and tap to put it down - or use Turn / Place / Sell.",
             "Touch: the control panel is smaller, so Buy and Build show several columns of pictures. Options > Graphics > Interface > UI Size now sizes it too (with a new 75% size).",
             "321 new things to buy: BNJ x LVR chairs, bookcases, dressers, rugs and windows, Bara's 1940s diner set, and SML's IKEA Stuff Pack.",

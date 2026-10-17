@@ -87,6 +87,7 @@ namespace Simitone.Client.UI.Panels
         private Texture2D ButtonTexture()
         {
             if (!Classic) return TextureGenerator.GetPieButtonImg(GameFacade.GraphicsDevice);
+            if (Simitone.Client.Utils.ReduxTheme.Redux) return ReduxButton();
             if (ClearButton == null || ClearButton.IsDisposed)
             {
                 const int third = 9, w = third * 3, h = 30, rad = 8;
@@ -111,6 +112,49 @@ namespace Simitone.Client.UI.Panels
             }
             return ClearButton;
         }
+
+        // SimsRedux: the Redux look - a glossy rounded pill in the player's UI colour, like the rest of
+        // the Redux interface (the button stretches its middle, so the shading runs top to bottom)
+        private static Texture2D ReduxTex;
+        private static int ReduxTexVersion = -1;
+        private const int ReduxThird = 14;
+        private static Texture2D ReduxButton()
+        {
+            var theme = Simitone.Client.Utils.ReduxTheme.Version;
+            if (ReduxTex != null && !ReduxTex.IsDisposed && ReduxTexVersion == theme) return ReduxTex;
+            const int third = ReduxThird, w = third * 3, h = 30, rad = 13;
+            var top = Simitone.Client.Utils.ReduxTheme.Hi;
+            var bottom = Simitone.Client.Utils.ReduxTheme.Deep;
+            var rim = Simitone.Client.Utils.ReduxTheme.Rim;
+            var data = new Color[w * h];
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                {
+                    float qx = Math.Max(rad, Math.Min(w - 1 - rad, x));
+                    float qy = Math.Max(rad, Math.Min(h - 1 - rad, y));
+                    float d = (float)Math.Sqrt((x - qx) * (x - qx) + (y - qy) * (y - qy)) - rad;
+                    Color c;
+                    if (d > 0.5f) c = Color.Transparent;
+                    else
+                    {
+                        float t = y / (float)(h - 1);
+                        c = Color.Lerp(top, bottom, t);
+                        // the shine across the top half
+                        if (y > 1 && y < h * 0.48f && d < -2.5f) c = Color.Lerp(c, Color.White, 0.22f * (1 - y / (h * 0.48f)) + 0.06f);
+                        if (d > -1.5f) c = Color.Lerp(c, rim, 0.85f); // the rim
+                        c.A = 255;
+                        if (d > -0.5f) c = c * Math.Min(1f, 0.5f - d); // soft outer edge
+                    }
+                    data[y * w + x] = c;
+                }
+            ReduxTex?.Dispose();
+            ReduxTex = new Texture2D(GameFacade.GraphicsDevice, w, h);
+            ReduxTex.SetData(data);
+            ReduxTexVersion = theme;
+            return ReduxTex;
+        }
+
+        private int Margins { get { return !Classic ? 4 : (Simitone.Client.Utils.ReduxTheme.Redux ? 12 : 9); } }
 
         public UIPieMenu(List<VMPieMenuInteraction> pie, VMEntity obj, VMEntity caller, UILotControl parent)
         {
@@ -319,7 +363,7 @@ namespace Simitone.Client.UI.Panels
                 };
 
                 double dir = (((double)i) / dirConfig) * Math.PI * 2;
-                but.AutoMargins = Classic ? 9 : 4;
+                but.AutoMargins = Margins;
                 if (Classic)
                 {
                     var ball = new Vector2((float)(Math.Sin(dir) * Radius), (float)(Math.Cos(dir) * -Radius));
@@ -372,7 +416,7 @@ namespace Simitone.Client.UI.Panels
                     ImageStates = 1,
                     Texture = ButtonTexture()
                 };
-                but.AutoMargins = Classic ? 9 : 4;
+                but.AutoMargins = Margins;
 
                 but.X = (float)(-but.Width / 2);
                 if (top)
@@ -403,7 +447,7 @@ namespace Simitone.Client.UI.Panels
                 };
 
                 but.CaptionStyle.Color = but.CaptionStyle.SelectedColor;
-                but.AutoMargins = Classic ? 9 : 4;
+                but.AutoMargins = Margins;
                 but.X = (float)(-but.Width / 2);
                 but.Y = (float)(-but.Size.Y / 2);
                 this.Add(but);

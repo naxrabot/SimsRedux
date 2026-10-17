@@ -490,15 +490,15 @@ namespace Simitone.Client.UI.Panels.Desktop
                 DrawMotiveBar(batch, new Rectangle(cx, 166, L - 6, 11), performance);
             }
 
-            // skills, one column
+            // skills, one column (with Writing)
             int sx = cx + L + 6;
-            for (int i = 0; i < 6; i++)
+            for (int i = 0; i < 7; i++)
             {
-                int y = 87 + i * 15;
-                DrawLocalString(batch, SkillNames[i], new Vector2(sx, y), Small, new Rectangle(0, 0, 62, 12), TextAlignment.Right | TextAlignment.Middle);
+                int y = 86 + i * 13;
+                DrawLocalString(batch, SkillName(i), new Vector2(sx, y), Small, new Rectangle(0, 0, 62, 12), TextAlignment.Right | TextAlignment.Middle);
                 var pos = new Vector2(sx + 66, y + 1);
-                DrawPoints(batch, JobOff, JobOn, pos, Points(Selected.GetPersonData(SkillVars[i])), 11);
-                if (myLevel != null && SkillMark.Width > 1)
+                DrawPoints(batch, JobOff, JobOn, pos, Points(SkillValue(i)), 11);
+                if (i < 6 && myLevel != null && SkillMark.Width > 1)
                 {
                     var need = Math.Max(0, Math.Min(10, myLevel.MinRequired[i + 1] / 100));
                     if (need > 0) DrawLocalTexture(batch, SkillMark, pos + new Vector2(need * 4 - 4, 0));
@@ -641,6 +641,14 @@ namespace Simitone.Client.UI.Panels.Desktop
         };
         private static readonly string[] SkillNames = new string[] { "Cooking", "Mechanical", "Charisma", "Body", "Logic", "Creativity" };
 
+        // SimsRedux: the 7th skill, Writing (Practice Writing / Write a Novel at the computer)
+        private static string SkillName(int i) { return i < 6 ? SkillNames[i] : "Writing"; }
+        private int SkillValue(int i)
+        {
+            if (i < 6) return Selected.GetPersonData(SkillVars[i]);
+            return FSO.SimAntics.Utils.ReduxComputer.Writing(Selected);
+        }
+
         private void DrawJob(UISpriteBatch batch)
         {
             var type = Selected.GetPersonData(VMPersonDataVariable.JobType);
@@ -670,14 +678,15 @@ namespace Simitone.Client.UI.Panels.Desktop
             }
 
             // right: skills, with a small mark at the level needed for the next promotion
-            for (int i = 0; i < 6; i++)
+            // (SimsRedux: plus Writing, learnt at the computer)
+            for (int i = 0; i < 7; i++)
             {
-                int col = i / 3, row = i % 3;
-                int x = CX + 230 + col * 150, y = CY + 12 + row * 26;
-                DrawLocalString(batch, SkillNames[i], new Vector2(x, y), Small, new Rectangle(0, 0, 70, 12), TextAlignment.Right | TextAlignment.Middle);
+                int col = i / 4, row = i % 4;
+                int x = CX + 230 + col * 150, y = CY + 8 + row * 22;
+                DrawLocalString(batch, SkillName(i), new Vector2(x, y), Small, new Rectangle(0, 0, 70, 12), TextAlignment.Right | TextAlignment.Middle);
                 var pos = new Vector2(x + 76, y + 1);
-                DrawPoints(batch, JobOff, JobOn, pos, Points(Selected.GetPersonData(SkillVars[i])), 11);
-                if (myLevel != null && SkillMark.Width > 1)
+                DrawPoints(batch, JobOff, JobOn, pos, Points(SkillValue(i)), 11);
+                if (i < 6 && myLevel != null && SkillMark.Width > 1)
                 {
                     var need = Math.Max(0, Math.Min(10, myLevel.MinRequired[i + 1] / 100));
                     if (need > 0) DrawLocalTexture(batch, SkillMark, pos + new Vector2(need * 4 - 4, 0));
