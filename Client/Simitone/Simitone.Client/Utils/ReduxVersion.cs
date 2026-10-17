@@ -18,6 +18,8 @@ namespace Simitone.Client.Utils
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "New on the computer: Play Twisted Metal 2 - the game plays on the monitor while your Sim has fun.",
+            "Online: the Writing skill and novels now go with your Sims to the online town and back.",
             "Computers do more, like The Sims 3: Practice Writing, Write a Novel (Romance, Sci-Fi, Mystery, Fantasy or Children's - finished novels sell), Surf the Web, Chat Online and Hack (Logic 7+).",
             "New skill: Writing - see it on the Job page next to the other skills.",
             "The pie menu has the new look.",

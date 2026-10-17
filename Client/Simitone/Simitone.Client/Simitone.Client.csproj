@@ -25,6 +25,10 @@
     <Content Include="Content\redux\creator\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- SimsRedux: pictures for "Play Twisted Metal 2" on the computer's monitor (UI/Panels/UIReduxComputerScreens.cs) -->
+    <Content Include="Content\redux\tm2\*.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <!-- SimsRedux: The Sims Redux logo (neighbourhood bar) -->
     <Content Include="Content\redux\redux_logo.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

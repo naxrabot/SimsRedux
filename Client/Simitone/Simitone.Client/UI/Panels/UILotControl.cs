@@ -1260,6 +1260,8 @@ namespace Simitone.Client.UI.Panels
             {
                 DrawLocalTexture(batch, RMBCursor, new Vector2(RMBScrollX - RMBCursor.Width / 2, RMBScrollY - RMBCursor.Height / 2));
             }
+            // SimsRedux: Twisted Metal 2 on the monitors of computers being played
+            UIReduxComputerScreens.Draw(this, batch);
             base.Draw(batch);
         }
 
@@ -1274,6 +1276,7 @@ namespace Simitone.Client.UI.Panels
 
             if (!vm.Ready || vm.Context.Architecture == null) return;
             DebugFullUpdates++;
+            UIReduxComputerScreens.Update(this, state); // (Ctrl+Shift keys: line the monitor picture up)
 
             CheckStuckDialog();
 

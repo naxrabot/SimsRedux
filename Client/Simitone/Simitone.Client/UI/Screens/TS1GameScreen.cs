@@ -1679,6 +1679,7 @@ namespace Simitone.Client.UI.Screens
                 // SimsRedux taxi: another family's house is never saved (your Sims would move in);
                 // only the neighbourhood (who met whom) is. Your own lot is kept to go home to.
                 Console.WriteLine("[SimsRedux] visiting by taxi: saving the neighbourhood, not this house");
+                FSO.SimAntics.Utils.ReduxComputer.CopyToNeighbourhood(vm); // (the Writing skill)
                 try { Content.Get().Neighborhood.SaveNeighbourhood(true); }
                 catch (Exception e) { Console.WriteLine("[SimsRedux] couldn't save the neighbourhood: " + e.Message); }
                 return;
@@ -1726,6 +1727,7 @@ namespace Simitone.Client.UI.Screens
             iff.AddChunk(rPNG);
 
             Content.Get().Neighborhood.SaveHouse(vm.GetGlobalValue(10), iff);
+            FSO.SimAntics.Utils.ReduxComputer.CopyToNeighbourhood(vm); // (the Writing skill, so it travels with the Sim)
             Content.Get().Neighborhood.SaveNeighbourhood(true);
         }
 
