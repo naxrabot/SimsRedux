@@ -18,6 +18,10 @@ namespace Simitone.Client.Utils
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Fixed: writing, chatting, hacking and computer games stopped after a few seconds - Sims now keep at it (games until Fun is nearly full).",
+            "Computer: Play is now inside Play Games (as Computer Games), next to Twisted Metal 2.",
+            "Twisted Metal 2: the picture is lined up with the monitor's screen again, and fills it.",
+            "Buy Mode: a few downloaded objects that had no sub-category now show under Other.",
             "Computer: games now have their own menu - click the computer, then Play Games, then Twisted Metal 2.",
             "Computer: Sims now keep playing until their Fun is nearly full, and keep writing, chatting or hacking until you stop them - before, most stopped after a few game minutes.",
             "Writing: a progress bar shows over your Sim's head while they practise writing or work on a novel, like when studying.",

@@ -27,20 +27,20 @@ namespace Simitone.Client.UI.Panels
     ///
     /// Lining it up (PC): while someone's playing, hold Ctrl + Shift and use
     ///   I / K  forward / back        U / O  up / down        J / L  narrower / wider
-    ///   N / M  shorter / taller      F      flip to the other side
-    /// The numbers are kept in redux_settings.ini (tm2screen2=...) and shown in a corner notice.
+    ///   N / M  shorter / taller      F      flip to the other side      Y / H  sideways
+    /// The numbers are kept in redux_settings.ini (tm2screen3=...) and shown in a corner notice.
     /// </summary>
     public static class UIReduxComputerScreens
     {
         private const int Pictures = 7;
         private const double SecondsPerPicture = 3.5;
         // (a new name: numbers saved with the old, too-big picture aren't used)
-        private const string SettingKey = "tm2screen2";
+        private const string SettingKey = "tm2screen3";
 
-        // where the screen is, in tile units: in front of the computer's middle, above its base, size.
-        // (A little smaller than the computer's own glowing screen, so that frames it - lined up from a
-        // screenshot of the basic computer; the picture used to cover the monitor's edges and float.)
-        private static float Forward = 0.12f, Height = 0.44f, Width = 0.26f, Tall = 0.20f;
+        // where the screen is, in tile units: in front of the computer's middle, to the side of it, above
+        // its base, and its size. Lined up from two screenshots of the basic computer: the monitor sits a
+        // little to one side of the computer's middle, and its glass is about 0.36 x 0.27.
+        private static float Forward = 0.12f, Side = 0.035f, Height = 0.44f, Width = 0.33f, Tall = 0.245f;
         private static bool Flip;
         private static bool Loaded;
 
@@ -66,6 +66,7 @@ namespace Simitone.Client.UI.Panels
                     Width = float.Parse(p[2], CultureInfo.InvariantCulture);
                     Tall = float.Parse(p[3], CultureInfo.InvariantCulture);
                     Flip = p[4].Trim() == "1";
+                    if (p.Length >= 6) Side = float.Parse(p[5], CultureInfo.InvariantCulture);
                 }
             }
             catch { }
@@ -73,7 +74,7 @@ namespace Simitone.Client.UI.Panels
 
         private static string SettingText()
         {
-            return string.Format(CultureInfo.InvariantCulture, "{0:0.00},{1:0.00},{2:0.00},{3:0.00},{4}", Forward, Height, Width, Tall, Flip ? 1 : 0);
+            return string.Format(CultureInfo.InvariantCulture, "{0:0.00},{1:0.00},{2:0.00},{3:0.00},{4},{5:0.000}", Forward, Height, Width, Tall, Flip ? 1 : 0, Side);
         }
 
         private static List<Texture2D> GetShots()
@@ -116,6 +117,8 @@ namespace Simitone.Client.UI.Panels
                     case Keys.N: Tall = Math.Max(0.05f, Tall - 0.02f); changed = true; break;
                     case Keys.M: Tall += 0.02f; changed = true; break;
                     case Keys.F: Flip = !Flip; changed = true; break;
+                    case Keys.Y: Side -= 0.01f; changed = true; break;
+                    case Keys.H: Side += 0.01f; changed = true; break;
                 }
             }
             if (!changed) return;
@@ -148,7 +151,7 @@ namespace Simitone.Client.UI.Panels
                     var centre = ui.Position + new Vector3(0.5f, 0.5f, 0);
                     var fwd = Vector3.Transform(new Vector3(0, Flip ? 1 : -1, 0), Matrix.CreateRotationZ(ui.RadianDirection));
                     var right = new Vector3(-fwd.Y, fwd.X, 0);
-                    var mid = centre + fwd * Forward + new Vector3(0, 0, Height);
+                    var mid = centre + fwd * Forward + right * Side + new Vector3(0, 0, Height);
 
                     // only when the screen faces the camera
                     var n3 = WorldSpace.GetWorldFromTile(fwd);

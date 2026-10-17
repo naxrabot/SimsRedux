@@ -343,7 +343,8 @@ namespace Simitone.Client.UI.Panels.Desktop
                 case UICatalogMode.Magictown: return item.MagictownSort;
                 default:
                     if (item.RoomSort == 0) return 0; // items without a room sort don't appear
-                    return item.Subsort;
+                    // (some downloaded objects have no sub-sort: they go under "Other" rather than nowhere)
+                    return item.Subsort == 0 ? (byte)(1 << 7) : item.Subsort;
             }
         }
 

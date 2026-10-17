@@ -2,6 +2,17 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "8.9",
+      "date": "Oct 17, 2026",
+      "features": [],
+      "updates": [
+        "Computer fix — writing, chatting, hacking and computer games no longer stop after a few seconds. Sims keep writing until you stop them, and play until Fun is nearly full.",
+        "Play Games — the computer's Play is now inside Play Games as Computer Games, next to Twisted Metal 2.",
+        "Twisted Metal 2 — the picture is lined up with the monitor's screen and fills it.",
+        "Buy Mode — a few downloaded objects that were missing from the catalog now show under Other."
+      ]
+    },
+    {
       "version": "8.8",
       "date": "Oct 17, 2026",
       "features": [],

@@ -818,7 +818,7 @@ namespace Simitone.Client.UI.Panels.LiveSubpanels
                     return item.MagictownSort;
                 default:
                     if (item.RoomSort == 0) return 0; //items without a room sort should not appear.
-                    return item.Subsort;
+                    return item.Subsort == 0 ? (byte)(1 << 7) : item.Subsort; // (SimsRedux: no sub-sort -> "Other")
             }
         }
 
