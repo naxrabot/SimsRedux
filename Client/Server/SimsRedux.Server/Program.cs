@@ -12,6 +12,11 @@ namespace SimsRedux.Server
     public static class Program
     {
         public static string DataDir;
+        /// <summary>
+        /// Where Visual Studio built this server (the panel runs a copy of it from the data folder, so
+        /// rebuilding never needs the other server stopped). The game is found from here.
+        /// </summary>
+        public static string SourceDir = AppContext.BaseDirectory;
         private static Accounts Accounts;
         private static ServerConfig Config;
         private static readonly ManualResetEventSlim Done = new ManualResetEventSlim();
@@ -31,6 +36,7 @@ namespace SimsRedux.Server
                     case "--port": int.TryParse(next(), out port); break;
                     case "--channel": channel = next()?.ToLowerInvariant(); break;
                     case "--game-folder": gameFolder = next(); break;
+                    case "--source": { var s = next(); if (!string.IsNullOrWhiteSpace(s) && Directory.Exists(s)) SourceDir = Path.GetFullPath(s); break; }
                     case "--help": case "-h": case "/?":
                         Console.WriteLine("SimsRedux.Server [--data <folder>] [--port <n>] [--channel live|test] [--game-folder <path>]");
                         return 0;
@@ -67,6 +73,7 @@ namespace SimsRedux.Server
             var files = new GameFiles();
             files.Scan(Config.GameFolder);
             var lots = new Lots(Config);
+            lots.PrepareGameCopy();
             var api = new Api(Config, Accounts, files) { Lots = lots };
             var commands = new Commands(Config, Accounts, files, api) { Lots = lots, Quit = code => { ExitCode = code; Done.Set(); } };
 

@@ -124,10 +124,68 @@ namespace SimsRedux.Server
                 if (Directory.Exists(Config.GameExe) && InFolder(Config.GameExe) is string inSet) return inSet;
             }
             // where Visual Studio builds the game, next to this server (Client\Server\bin -> Client\Simitone\...)
-            var simitone = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "Simitone", "Simitone.Windows", "bin"));
+            var simitone = Path.GetFullPath(Path.Combine(Program.SourceDir, "..", "..", "Simitone", "Simitone.Windows", "bin"));
             foreach (var cfg in new[] { "Release", "Debug" })
                 if (InFolder(Path.Combine(simitone, cfg, "net9.0-windows")) is string exe) return exe;
             return null;
+        }
+
+        // ---------- this server's own copy of the game ----------
+        // Lots run from a copy of the game build in this server's data folder ("game"), not the
+        // build itself: then Visual Studio can rebuild the game while lots are open (on this server
+        // or the other one), and each server moves to the new build when none of its lots are open.
+        private readonly object CopyLock = new object();
+        private string CopiedFrom;
+
+        private string GameCopy(string exe)
+        {
+            try
+            {
+                var src = Path.GetDirectoryName(exe);
+                var dest = Path.Combine(Program.DataDir, "game");
+                var copyExe = Path.Combine(dest, Path.GetFileName(exe));
+                bool anyOpen;
+                lock (Lock) anyOpen = Open.Values.Any(w => !w.Finished);
+                lock (CopyLock)
+                {
+                    if (anyOpen && File.Exists(copyExe)) return copyExe; // (the lots that are open keep the copy they started with)
+                    var n = SyncFolder(src, dest);
+                    if (n > 0 || CopiedFrom != src) Log.Info("lots: using this server's copy of the game (" + (n > 0 ? n + " files updated from the latest build" : "already up to date") + ")");
+                    CopiedFrom = src;
+                    return File.Exists(copyExe) ? copyExe : exe;
+                }
+            }
+            catch (Exception e)
+            {
+                Log.Warn("lots: couldn't copy the game build (" + e.Message + ") - running it from the build folder");
+                return exe;
+            }
+        }
+
+        /// <summary>Copies what's new or changed (by size and time) from one folder into another; how many files.</summary>
+        private static int SyncFolder(string src, string dest)
+        {
+            int n = 0;
+            Directory.CreateDirectory(dest);
+            foreach (var f in Directory.GetFiles(src))
+            {
+                var t = Path.Combine(dest, Path.GetFileName(f));
+                var a = new FileInfo(f);
+                var b = new FileInfo(t);
+                if (b.Exists && b.Length == a.Length && Math.Abs((b.LastWriteTimeUtc - a.LastWriteTimeUtc).TotalSeconds) < 2) continue;
+                File.Copy(f, t, true);
+                File.SetLastWriteTimeUtc(t, a.LastWriteTimeUtc);
+                n++;
+            }
+            foreach (var d in Directory.GetDirectories(src)) n += SyncFolder(d, Path.Combine(dest, Path.GetFileName(d)));
+            return n;
+        }
+
+        /// <summary>Gets this server's copy of the game ready (at start, so the first lot isn't kept waiting).</summary>
+        public void PrepareGameCopy()
+        {
+            var exe = GameExe();
+            if (exe != null) Task.Run(() => GameCopy(exe));
         }
 
         /// <summary>The worker for a house, starting one if it isn't open. Null (with a reason) if it can't.</summary>
@@ -153,6 +211,7 @@ namespace SimsRedux.Server
                 if (!Houses().Contains(house)) { error = "there's no house " + house + " in the town"; return null; }
                 var exe = GameExe();
                 if (exe == null) { error = "the game program wasn't found - build the solution, or set it with /lots game <path to Simitone.exe>"; return null; }
+                exe = GameCopy(exe);
                 if (string.IsNullOrEmpty(Config.GameFolder)) { error = "the Sims 1 game folder isn't set (Game files... in the panel)"; return null; }
                 int port = FreePort();
                 if (port == 0) { error = "too many lots are open"; return null; }

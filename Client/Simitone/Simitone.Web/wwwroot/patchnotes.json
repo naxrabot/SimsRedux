@@ -2,6 +2,14 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "9.4",
+      "date": "Oct 17, 2026",
+      "features": [],
+      "updates": [
+        "Less downtime — the Test server can be updated without taking the Live server offline."
+      ]
+    },
+    {
       "version": "9.3",
       "date": "Oct 17, 2026",
       "features": [],

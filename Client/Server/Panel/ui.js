@@ -57,7 +57,8 @@ function paintLocal(){
   if (h.foreign)                   setStat(el, "warn", "running outside this panel");
   else if (h.state === "up")       setStat(el, h.shutdownIn >= 0 || h.maintenance ? "warn" : "up",
     (h.shutdownIn >= 0 ? (h.shutdownRestart ? "restarting in " : "stopping in ") + h.shutdownIn + "s · " : "") +
-    (h.maintenance ? "MAINTENANCE · " : "") + (h.players|0) + " on a lot · " + (h.online|0) + " active · v" + (h.version||"?"));
+    (h.maintenance ? "MAINTENANCE · " : "") + (h.players|0) + " on a lot · " + (h.online|0) + " active · v" + (h.version||"?") +
+    (h.updateReady ? " · NEW BUILD READY - restart to update" : ""));
   else if (h.state === "strained") setStat(el, "warn", h.detail || "unhappy");
   else if (h.state === "starting") setStat(el, "busy warn", h.detail || "starting…");
   else                             setStat(el, "", "stopped");

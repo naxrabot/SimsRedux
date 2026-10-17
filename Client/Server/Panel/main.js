@@ -49,10 +49,17 @@ function startServer(ch) {
   const other = C.CHANNELS.find(o => o !== ch && running(o) && C.profile(S, o, __dirname).port === p.port);
   if (other) return { ok: false, error: "the " + other + " server is already using port " + p.port + " — give them different ports in Settings" };
 
-  const args = how.pre.concat(C.serverArgs(S, ch, __dirname));
+  // its own copy of the build (so rebuilding never needs the other server stopped)
+  const copy = C.serverCopy(exe, p.dataDir);
+  if (copy.error) out(ch, "err", "Couldn't copy the server build (" + copy.error + ") - running it from the build folder instead.");
+  else out(ch, "panel", copy.copied > 0 ? "Updated this server's copy of the program (" + copy.copied + " files from the latest build)." : "Running this server's own copy of the program (already the latest build).");
+  const run = C.serverCommand(copy.exe) || how;
+  sv.runningExe = exe;
+  sv.newerNoted = false;
+  const args = run.pre.concat(C.serverArgs(S, ch, __dirname)).concat(["--source", copy.source]);
   let child;
   try {
-    child = spawn(how.cmd, args, { cwd: path.dirname(exe), stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
+    child = spawn(run.cmd, args, { cwd: path.dirname(copy.exe), stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
   } catch (e) { return { ok: false, error: String(e && e.message || e) }; }
   sv.child = child;
   sv.stopping = false;
@@ -123,6 +130,11 @@ async function pollLocal(ch) {
   SV[ch].portBusy = !!(r && r.ok) && !running(ch);
   const h = C.readHealth(r, running(ch));
   if (SV[ch].portBusy) h.foreign = true;
+  // a newer build is ready: this server picks it up when it's restarted (the other one isn't touched)
+  if (running(ch) && SV[ch].runningExe && C.newerBuild(SV[ch].runningExe, p.dataDir)) {
+    h.updateReady = true;
+    if (!SV[ch].newerNoted) { SV[ch].newerNoted = true; out(ch, "panel", "A newer build is ready - restart the " + ch + " server to use it (the other server keeps running)."); }
+  }
   h.channel = ch;
   // accounts made on the website that are waiting for approval (read from the server's own file)
   try { h.waiting = C.readAccounts(p.dataDir).filter(a => a.pending).length; } catch (e) { h.waiting = 0; }

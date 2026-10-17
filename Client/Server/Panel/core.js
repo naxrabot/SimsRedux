@@ -92,6 +92,45 @@ function serverArgs(S, channel, from) {
   return a;
 }
 
+/* ---------- each server runs its own copy of the program ----------
+   Visual Studio builds the server into one folder. If the Live and Test servers both ran from
+   there, rebuilding would fail while either was running (the files are in use), so updating the
+   Test server would mean stopping Live too. Instead each server, as it starts, copies the build
+   into its own data folder ("program") and runs that copy: rebuild any time, restart only the
+   server you want updated, and the other keeps running its own copy. */
+function syncFolder(src, dest, skip) {
+  let copied = 0;
+  fs.mkdirSync(dest, { recursive: true });
+  for (const e of fs.readdirSync(src, { withFileTypes: true })) {
+    if (skip && skip.indexOf(e.name.toLowerCase()) >= 0) continue;
+    const a = path.join(src, e.name), b = path.join(dest, e.name);
+    if (e.isDirectory()) { copied += syncFolder(a, b, null); continue; }
+    if (!e.isFile()) continue;
+    let same = false;
+    try { const sa = fs.statSync(a), sb = fs.statSync(b); same = sa.size === sb.size && Math.abs(sa.mtimeMs - sb.mtimeMs) < 2000; } catch (x) { }
+    if (same) continue;
+    fs.copyFileSync(a, b);
+    try { const sa = fs.statSync(a); fs.utimesSync(b, sa.atime, sa.mtime); } catch (x) { }
+    copied++;
+  }
+  return copied;
+}
+/** Copies the server build into this server's own folder; gives the copy's program (or the build's, if copying failed). */
+function serverCopy(exe, dataDir) {
+  const src = path.dirname(exe), dest = path.join(dataDir, "program");
+  try {
+    const n = syncFolder(src, dest, ["serverdata", "program"]);
+    return { exe: path.join(dest, path.basename(exe)), source: src, copied: n };
+  } catch (e) { return { exe, source: src, copied: 0, error: String(e && e.message || e) }; }
+}
+/** Is there a newer build than the copy this server is running? */
+function newerBuild(exe, dataDir) {
+  try {
+    const a = fs.statSync(exe), b = fs.statSync(path.join(dataDir, "program", path.basename(exe)));
+    return a.mtimeMs - b.mtimeMs > 2000;
+  } catch (e) { return false; }
+}
+
 /* ---------- reading the server's own files (never the password hashes) ---------- */
 function readJSON(f) { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch (e) { return null; } }
 function readAccounts(dataDir) {
@@ -523,7 +562,7 @@ module.exports = { readServiceState, safeServiceName,
   defaultDataDir, dataPaths, readAccounts, readServerConfig,
   EVENT_KINDS, POWERS, XP_SETTINGS, readTools, toolCommand, accountCommand, isWebUrl, setMaintenanceFile,
   shippedNotesFile, verCmp, cleanPatch, mergePatchNotes, readPatchNotes, savePatch, hidePatch, resetPatch,
-  loadSettings, saveSettings, profile, serverArgs,
+  loadSettings, saveSettings, profile, serverArgs, syncFolder, serverCopy, newerBuild,
   getJSON, readHealth, readPublic,
   COMMANDS, PLANNED, commandNames, oneLine
 };
