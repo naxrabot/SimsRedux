@@ -1,0 +1,343 @@
+﻿<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>The Sims Redux</title>
+    <meta name="srx-build" content="classic-1017-1826-a403d6e" />
+    <base href="./" />
+    <link href="css/bootstrap/bootstrap.min.css" rel="stylesheet" />
+    <link href="css/app.css" rel="stylesheet" />
+    <link href="SimsRedux.Web.styles.css" rel="stylesheet" />
+</head>
+
+<body>
+
+    <div id="app">
+        <div id="loading" style="display: table-cell; margin: auto; width:100vw; height:100vh; vertical-align: middle; background: #000052;">
+            <div style="display: block; margin: auto; width: 9em; color: white;font-family: 'Segoe UI', sans-serif;">
+                <img src="img/redux-logo.png" alt="The Sims Redux" style="display:block; width: 9em; margin: 0 auto 0.4em;">
+                <div style="text-align: center; font-size: 1.8em;">loading&nbsp;<marquee style="width:0.9em; vertical-align: bottom;">.&nbsp;.&nbsp;.&nbsp;&nbsp;&nbsp;</marquee></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="blazor-error-ui">
+        An unhandled error has occurred.
+        <a href="" class="reload">Reload</a>
+        <a class="dismiss">x</a>
+    </div>
+
+    <script src="_framework/blazor.webassembly.js" autostart="false"></script>
+    <script type="module">
+        import { BrotliDecode } from './js/decode.min.js';
+        window.BrotliDecode = BrotliDecode;
+        // Set this to enable Brotli (.br) decompression on static webServers
+        // that don't support content compression and http://.
+        var enableBrotliDecompression = false;
+        Blazor.start({
+            loadBootResource: function (type, name, defaultUri, integrity)
+            {
+                if (enableBrotliDecompression === true && type !== 'dotnetjs' && location.hostname !== 'localhost')
+                {
+                    return (async function()
+                    {
+                        const response = await fetch(defaultUri + '.br', { cache: 'no-cache' });
+                        if (!response.ok)
+                            throw new Error(response.statusText);
+                        const originalResponseBuffer = await response.arrayBuffer();
+                        const originalResponseArray = new Int8Array(originalResponseBuffer);
+                        const contentType = (type === 'dotnetwasm')
+                                          ? 'application/wasm'
+                                          : 'application/octet-stream';
+                        const decompressedResponseArray = BrotliDecode(originalResponseArray);
+                        return new Response(decompressedResponseArray,
+                                            { headers: { 'content-type': contentType }
+                                   });
+                    })();
+                }
+            }
+        });
+    </script>
+
+    <script src="js/webglfix.js"></script>
+    <script src="_content/nkast.Wasm.JSInterop/js/JSObject.10.0.3.js"></script>
+    <script src="_content/nkast.Wasm.Dom/js/Window.10.0.3.js"></script>
+    <script src="_content/nkast.Wasm.Dom/js/Document.10.0.3.js"></script>
+    <script src="_content/nkast.Wasm.Dom/js/Navigator.10.0.3.js"></script>
+    <script src="_content/nkast.Wasm.Dom/js/Gamepad.10.0.3.js"></script>
+    <script src="_content/nkast.Wasm.Dom/js/Media.10.0.3.js"></script>
+    <script src="_content/nkast.Wasm.XHR/js/XHR.10.0.3.js"></script>
+    <script src="_content/nkast.Wasm.Canvas/js/Canvas.10.0.3.js"></script>
+    <script src="_content/nkast.Wasm.Canvas/js/CanvasGLContext.10.0.3.js"></script>
+    <script src="_content/nkast.Wasm.Audio/js/Audio.10.0.3.js"></script>
+    <script src="_content/nkast.Wasm.XR/js/XR.10.0.3.js"></script>
+
+    <script src="js/simsfs.js"></script>
+    <script>
+        // SimsRedux: keep the screen on while the game is open (phones and tablets would otherwise
+        // dim and lock while you watch your Sims). The browser drops the lock whenever the tab is
+        // hidden, so it's asked for again when you come back. On a phone a touch only counts as
+        // "the player did something" once the finger lifts, so it's asked for then too (asking on
+        // the touch itself could be turned down). Browsers without the screen lock, or that turn
+        // it down, get the old trick instead: a tiny silent, invisible video playing on a loop,
+        // which phones treat as "something's being watched" and keep the screen on for.
+        (function () {
+            var lock = null, asking = false, video = null;
+            var MP4 = 'data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAANkbW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAAD6AAAB9AAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAo50cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAB9AAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAABAAAAAQAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAAAfQAABAAAABAAAAAAIGbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAABAAAAAgABVxAAAAAAALWhkbHIAAAAAAAAAAHZpZGUAAAAAAAAAAAAAAABWaWRlb0hhbmRsZXIAAAABsW1pbmYAAAAUdm1oZAAAAAEAAAAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAAXFzdGJsAAAAwXN0c2QAAAAAAAAAAQAAALFhdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAABAAEABIAAAASAAAAAAAAAABFUxhdmM2MC4zMS4xMDIgbGlieDI2NAAAAAAAAAAAAAAAGP//AAAAN2F2Y0MBZAAK/+EAGWdkAAqscgRewEQAAAMABAAAAwAQPEiWEYABAAdo6EOBlLIs/fj4AAAAABBwYXNwAAAAAQAAAAEAAAAUYnRydAAAAAAAAAusAAALrAAAABhzdHRzAAAAAAAAAAEAAAAEAAAgAAAAABRzdHNzAAAAAAAAAAEAAAABAAAAKGN0dHMAAAAAAAAAAwAAAAEAAEAAAAAAAQAAgAAAAAACAAAgAAAAABxzdHNjAAAAAAAAAAEAAAABAAAABAAAAAEAAAAkc3RzegAAAAAAAAAAAAAABAAAAsQAAAANAAAADQAAAA0AAAAUc3RjbwAAAAAAAAABAAADlAAAAGJ1ZHRhAAAAWm1ldGEAAAAAAAAAIWhkbHIAAAAAAAAAAG1kaXJhcHBsAAAAAAAAAAAAAAAALWlsc3QAAAAlqXRvbwAAAB1kYXRhAAAAAQAAAABMYXZmNjAuMTYuMTAwAAAACGZyZWUAAALzbWRhdAAAAq8GBf//q9xF6b3m2Ui3lizYINkj7u94MjY0IC0gY29yZSAxNjQgcjMxMDggMzFlMTlmOSAtIEguMjY0L01QRUctNCBBVkMgY29kZWMgLSBDb3B5bGVmdCAyMDAzLTIwMjMgLSBodHRwOi8vd3d3LnZpZGVvbGFuLm9yZy94MjY0Lmh0bWwgLSBvcHRpb25zOiBjYWJhYz0xIHJlZj0xNiBkZWJsb2NrPTE6MDowIGFuYWx5c2U9MHgzOjB4MTMzIG1lPXVtaCBzdWJtZT0xMCBwc3k9MSBwc3lfcmQ9MS4wMDowLjAwIG1peGVkX3JlZj0xIG1lX3JhbmdlPTI0IGNocm9tYV9tZT0xIHRyZWxsaXM9MiA4eDhkY3Q9MSBjcW09MCBkZWFkem9uZT0yMSwxMSBmYXN0X3Bza2lwPTEgY2hyb21hX3FwX29mZnNldD0tMiB0aHJlYWRzPTEgbG9va2FoZWFkX3RocmVhZHM9MSBzbGljZWRfdGhyZWFkcz0wIG5yPTAgZGVjaW1hdGU9MSBpbnRlcmxhY2VkPTAgYmx1cmF5X2NvbXBhdD0wIGNvbnN0cmFpbmVkX2ludHJhPTAgYmZyYW1lcz04IGJfcHlyYW1pZD0yIGJfYWRhcHQ9MiBiX2JpYXM9MCBkaXJlY3Q9MyB3ZWlnaHRiPTEgb3Blbl9nb3A9MCB3ZWlnaHRwPTIga2V5aW50PTI1MCBrZXlpbnRfbWluPTIgc2NlbmVjdXQ9NDAgaW50cmFfcmVmcmVzaD0wIHJjX2xvb2thaGVhZD02MCByYz1jcmYgbWJ0cmVlPTEgY3JmPTUxLjAgcWNvbXA9MC42MCBxcG1pbj0wIHFwbWF4PTY5IHFwc3RlcD00IGlwX3JhdGlvPTEuNDAgYXE9MToxLjAwAIAAAAANZYiBAAK/Egtb/4SKfwAAAAlBmghtiCX/yoAAAAAJQZ4QJxBP/+uBAAAACQGeGE1IJf/sgA==';
+            var WEBM = 'data:video/webm;base64,GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQJChYECGFOAZwEAAAAAAAInEU2bdLpNu4tTq4QVSalmU6yBoU27i1OrhBZUrmtTrIHYTbuMU6uEElTDZ1OsggEeTbuMU6uEHFO7a1OsggIR7AEAAAAAAABZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVSalmsirXsYMPQkBNgI1MYXZmNjAuMTYuMTAwV0GNTGF2ZjYwLjE2LjEwMESJiECfQAAAAAAAFlSua8GuAQAAAAAAADjXgQFzxYgVI64rOauZdpyBACK1nIN1bmSIgQCGhVZfVlA4g4EBI+ODhB3NZQDgibCBELqBEJqBAhJUw2f8c3OgY8CAZ8iaRaOHRU5DT0RFUkSHjUxhdmY2MC4xNi4xMDBzc9ZjwItjxYgVI64rOauZdmfIoUWjh0VOQ09ERVJEh5RMYXZjNjAuMzEuMTAyIGxpYnZweGfIoUWjiERVUkFUSU9ORIeTMDA6MDA6MDIuMDAwMDAwMDAwAB9DtnXt54EAo6OBAACAEAIAnQEqEAAQAABHCIWFiIWEiAICAAwNYAD+/6tQgKOVgQH0ALEBAAEQEAAYABhYL/QACAAAo5WBA+gAsQEAARAQABgAGFgv9AAIAACjlYEF3ACxAQABEBAAGAAYWC/0AAgAABxTu2uRu4+zgQC3iveBAfGCAZ/wgQM=';
+            function backup() {
+                try {
+                    if (!video) {
+                        video = document.createElement('video');
+                        video.setAttribute('playsinline', '');
+                        video.setAttribute('muted', '');
+                        video.muted = true;
+                        video.loop = true;
+                        video.setAttribute('aria-hidden', 'true');
+                        video.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0.01;pointer-events:none;z-index:-1';
+                        var a = document.createElement('source'); a.src = WEBM; a.type = 'video/webm'; video.appendChild(a);
+                        var b = document.createElement('source'); b.src = MP4; b.type = 'video/mp4'; video.appendChild(b);
+                        document.body.appendChild(video);
+                    }
+                    if (video.paused) { var p = video.play(); if (p && p.catch) p.catch(function () { }); }
+                } catch (e) { }
+            }
+            function stopBackup() { try { if (video && !video.paused) video.pause(); } catch (e) { } }
+            function keepAwake() {
+                if (document.visibilityState !== 'visible') return;
+                if (!('wakeLock' in navigator)) { backup(); return; }
+                if ((lock && !lock.released) || asking) return;
+                asking = true;
+                navigator.wakeLock.request('screen').then(function (l) {
+                    lock = l;
+                    asking = false;
+                    stopBackup();
+                    l.addEventListener('release', function () { lock = null; });
+                }).catch(function () { asking = false; backup(); });
+            }
+            document.addEventListener('visibilitychange', keepAwake);
+            ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'].forEach(function (ev) {
+                document.addEventListener(ev, keepAwake, { passive: true, capture: true });
+            });
+            window.addEventListener('focus', keepAwake);
+            setInterval(keepAwake, 30000); // (in case the lock was dropped without a word)
+            keepAwake();
+        })();
+    </script>
+    <script>
+        function tickJS()
+        {
+            window.theInstance.invokeMethod('TickDotNet');
+            window.requestAnimationFrame(tickJS);
+        }
+
+        // graphics mode from the address, e.g. .../SimsRedux/?gfx=desktop
+        window.simsReduxGfxMode = () =>
+        {
+            return (new URLSearchParams(location.search).get('gfx') || 'nomrt').toLowerCase();
+        };
+
+        // ?dbg=vm: a live status box for the lot (who's there, where, whether their body loaded)
+        (function ()
+        {
+            var dbg = (new URLSearchParams(location.search).get('dbg') || '').toLowerCase();
+            if (dbg.indexOf('vm') < 0) return;
+            var box = null, last = '';
+            setInterval(function ()
+            {
+                if (!window.DotNet || !window.theInstance) return;
+                var text;
+                try { text = DotNet.invokeMethod('SimsRedux.Web', 'VMStatus'); } catch (e) { text = 'status unavailable: ' + e.message; }
+                if (!box)
+                {
+                    box = document.createElement('div');
+                    box.setAttribute('data-srx-scroll', '');
+                    box.style.cssText = 'position:fixed;left:8px;top:8px;width:min(720px,94vw);max-height:45vh;overflow:auto;z-index:1003;background:rgba(0,0,82,.92);color:#bfffbf;border:2px solid #7878c8;font:11px monospace;padding:8px;white-space:pre-wrap';
+                    var copy = document.createElement('button');
+                    copy.textContent = 'Copy'; copy.style.cssText = 'float:right';
+                    copy.onclick = function () { navigator.clipboard && navigator.clipboard.writeText(last).then(function () { copy.textContent = 'Copied!'; setTimeout(function () { copy.textContent = 'Copy'; }, 1500); }, function () { copy.textContent = 'Copy failed'; }); };
+                    box.appendChild(copy);
+                    box.appendChild(document.createElement('pre')).style.margin = '0';
+                    document.body.appendChild(box);
+                }
+                last = 'Lot status (SimsRedux)\n' + text;
+                box.lastChild.textContent = last;
+            }, 1000);
+        })();
+
+        // The game's own size. On a small screen (a phone, either way up) the game is drawn bigger than
+        // the page and the browser shrinks it to fit, so menus made for 800 x 600 always fit:
+        // at least 620 tall and 800 wide. Returns [game width, game height, page width, page height].
+        window.simsReduxCanvasSize = () =>
+        {
+            var holder = document.getElementById('canvasHolder');
+            var w = Math.max(1, holder.clientWidth), h = Math.max(1, holder.clientHeight);
+            var k = Math.max(1, 620 / h, 800 / w);
+            return [Math.round(w * k), Math.round(h * k), w, h];
+        };
+
+        // the canvas's own pixel size follows the page (the game asks when the page has changed size);
+        // it always fills the page on screen, whatever size it's drawn at
+        window.simsReduxFitCanvas = () =>
+        {
+            var canvas = document.getElementById('theCanvas');
+            var size = window.simsReduxCanvasSize();
+            if (canvas.width !== size[0]) canvas.width = size[0];
+            if (canvas.height !== size[1]) canvas.height = size[1];
+            canvas.style.width = '100%';
+            canvas.style.height = '100%';
+            canvas.style.display = 'block';
+        };
+
+        // The phone's keyboard (touch controls): a hidden text box the game asks to focus when one of
+        // its own boxes (a name, chat...) is chosen. What's typed is sent back whole on every change
+        // (so autocorrect and backspace just work), and its keys never reach the game directly.
+        window.simsReduxKeyboard = (show, text) =>
+        {
+            var box = document.getElementById('srxKeyboard');
+            if (!box)
+            {
+                box = document.createElement('input');
+                box.id = 'srxKeyboard';
+                box.type = 'text';
+                box.setAttribute('autocomplete', 'off');
+                box.setAttribute('autocapitalize', 'sentences');
+                box.setAttribute('enterkeyhint', 'done');
+                box.style.cssText = 'position:fixed;left:0;bottom:0;width:1px;height:1px;opacity:0;font-size:16px;border:0;padding:0;z-index:-1;';
+                box.addEventListener('input', function () { try { DotNet.invokeMethod('SimsRedux.Web', 'SimsReduxKeyboardText', box.value); } catch (e) { } });
+                var stop = function (e) { e.stopPropagation(); };
+                box.addEventListener('keyup', stop);
+                box.addEventListener('keypress', stop);
+                box.addEventListener('keydown', function (e)
+                {
+                    e.stopPropagation();
+                    if (e.key === 'Enter') { e.preventDefault(); box.blur(); }
+                });
+                box.addEventListener('blur', function ()
+                {
+                    if (!window.srxKbWanted) return;
+                    window.srxKbWanted = false;
+                    try { DotNet.invokeMethod('SimsRedux.Web', 'SimsReduxKeyboardClosed'); } catch (e) { }
+                });
+                document.body.appendChild(box);
+                if (window.visualViewport)
+                {
+                    var opened = false;
+                    window.visualViewport.addEventListener('resize', function ()
+                    {
+                        if (!window.srxKbWanted || document.activeElement !== box) { opened = false; return; }
+                        var h = window.visualViewport.height, full = window.innerHeight || h;
+                        if (h < full * 0.8) opened = true;              // the keyboard is up
+                        else if (opened && h >= full * 0.92) { opened = false; box.blur(); } // and it's gone again
+                    });
+                }
+            }
+            if (show)
+            {
+                box.value = text || '';
+                window.srxKbWanted = true;
+                if (document.activeElement !== box) box.focus({ preventScroll: true });
+                try { box.setSelectionRange(box.value.length, box.value.length); } catch (e) { }
+            }
+            else
+            {
+                window.srxKbWanted = false;
+                if (document.activeElement === box) box.blur();
+            }
+        };
+
+        window.simsReduxCrashed = (message) =>
+        {
+            var box = document.createElement('div');
+            box.style.cssText = 'position:fixed;left:16px;right:16px;bottom:16px;z-index:1001;background:#000052;color:#ffb0a0;border:2px solid #7878c8;padding:12px 16px;font:14px Segoe UI,sans-serif';
+            box.textContent = 'Something went wrong and the game stopped: ' + message + ' (details are in the browser console, F12).';
+            document.body.appendChild(box);
+            try { if (window.simsReduxReportProblem) window.simsReduxReportProblem('game stopped', message); } catch (e) { }
+        };
+
+        window.initRenderJS = (instance) =>
+        {
+            window.theInstance = instance;
+
+            // set initial canvas size
+            var canvas = document.getElementById('theCanvas');
+            window.simsReduxFitCanvas();
+            // disable context menu on right click
+            canvas.addEventListener("contextmenu", e => e.preventDefault());
+
+            // the engine sets the canvas to the window's size whenever the window changes; put the
+            // game's own size back at once (the game catches up on its next check)
+            window.addEventListener('resize', function () { requestAnimationFrame(function () { try { window.simsReduxFitCanvas(); } catch (e) { } }); });
+
+            // Fingers: read here and turned into the game's own pixels, measured from where the
+            // picture really is on the page right now (it's stretched to fit, and phones move things
+            // around as their address bar comes and goes). Each touch gets its own number.
+            var srxTouchIds = {}, srxTouchNext = 1;
+            var srxTouch = function (e, phase)
+            {
+                var r = canvas.getBoundingClientRect(), used = false;
+                var game = window.simsReduxCanvasSize();
+                var sx = r.width > 0 ? game[0] / r.width : 1, sy = r.height > 0 ? game[1] / r.height : 1;
+                for (var i = 0; i < e.changedTouches.length; i++)
+                {
+                    var t = e.changedTouches[i];
+                    if (phase === 0 || srxTouchIds[t.identifier] === undefined) srxTouchIds[t.identifier] = srxTouchNext++;
+                    var id = srxTouchIds[t.identifier];
+                    if (phase >= 2) delete srxTouchIds[t.identifier];
+                    try
+                    {
+                        // (true when the game is on touch controls; on PC controls a tap stays a click)
+                        if (DotNet.invokeMethod('SimsRedux.Web', 'SimsReduxTouch', id,
+                            (t.clientX - r.left) * sx, (t.clientY - r.top) * sy, phase)) used = true;
+                    }
+                    catch (err) { }
+                }
+                if (used) e.preventDefault();
+                if (phase === 2 && window.srxKbWanted)
+                {
+                    var kb = document.getElementById('srxKeyboard');
+                    if (kb && document.activeElement !== kb) kb.focus({ preventScroll: true });
+                }
+            };
+            canvas.addEventListener('touchstart', function (e) { srxTouch(e, 0); }, { passive: false });
+            canvas.addEventListener('touchmove', function (e) { srxTouch(e, 1); }, { passive: false });
+            canvas.addEventListener('touchend', function (e) { srxTouch(e, 2); }, { passive: false });
+            canvas.addEventListener('touchcancel', function (e) { srxTouch(e, 3); }, { passive: false });
+
+            // first make sure the player's Sims files are here (asks for the folder the first time),
+            // then begin the game loop
+            SimsFS.prepare().then(() => window.requestAnimationFrame(tickJS), e =>
+            {
+                // (e.g. this browser won't let the site keep files - a private window): say so instead of hanging
+                console.error('[SimsRedux] setup failed', e);
+                window.simsReduxCrashed((e && e.message) || String(e));
+            });
+            // "still here" for online lots, even while this tab is in the background
+            setInterval(() => { try { DotNet.invokeMethod('SimsRedux.Web', 'SimsReduxAlive'); } catch (e) { } }, 5000);
+        };
+
+        window.addEventListener("keydown", function(event)
+        {
+            // Prevent Arrows Keys and Spacebar scrolling the outer page
+            // when running inside an iframe. e.g: itch.io embedding.
+            // (not while typing in the launcher's boxes: spaces and the cursor keys must work there)
+            var t = event.target, tag = t && t.tagName;
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) return;
+            if ([32, 37, 38, 39, 40].indexOf(event.keyCode) > -1)
+                event.preventDefault();
+        });
+        window.addEventListener("wheel", function(event)
+        {
+            // Prevent Mousewheel scrolling the outer page
+            // when running inside an iframe. e.g: itch.io embedding.
+            // (the launcher and the debug boxes scroll themselves, so the wheel is left alone over them)
+            var t = event.target;
+            if (t && t.closest && t.closest('#srx-setup, [data-srx-scroll]')) return;
+            event.preventDefault();
+        }, { passive: false });
+    </script>
+</body>
+
+</html>

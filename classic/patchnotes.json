@@ -1,0 +1,656 @@
+{
+  "stage": "Beta",
+  "patches": [
+    {
+      "version": "9.5",
+      "date": "Oct 17, 2026",
+      "features": [
+        "Update notices — when a new version comes out, a notice pops up in the game with an Update button. It offers to save your game first, then reloads with the new version."
+      ],
+      "updates": []
+    },
+    {
+      "version": "9.4",
+      "date": "Oct 17, 2026",
+      "features": [],
+      "updates": [
+        "Less downtime — the Test server can be updated without taking the Live server offline."
+      ]
+    },
+    {
+      "version": "9.3",
+      "date": "Oct 17, 2026",
+      "features": [],
+      "updates": [
+        "Faster downloads on the way — the website is getting ready to move to The Sims Redux's own server."
+      ]
+    },
+    {
+      "version": "9.2",
+      "date": "Oct 17, 2026",
+      "features": [],
+      "updates": [
+        "Smaller website — the backup version (/classic) shares the main site's game content instead of keeping its own copy."
+      ]
+    },
+    {
+      "version": "9.1",
+      "date": "Oct 17, 2026",
+      "features": [
+        "Colour picker in Buy Mode — objects that come in several colours show once, with little colour squares. Click one to choose its colour, then place it.",
+        "More colours — about 470 extra colours of the downloaded furniture."
+      ],
+      "updates": []
+    },
+    {
+      "version": "9.0",
+      "date": "Oct 17, 2026",
+      "features": [
+        "More custom content — about 680 more objects (17 beds among them), 350 walls, 540 floors and around 100 outfits, all mixed into the normal Buy, Build and Create-A-Sim catalogs."
+      ],
+      "updates": [
+        "Tint — only the object's own colour changes now: a bed's blanket, not its pillow or metal frame.",
+        "Faster downloads — the custom content downloads compressed (about half the size) and is kept between visits, so it only downloads again when it changes."
+      ]
+    },
+    {
+      "version": "8.9",
+      "date": "Oct 17, 2026",
+      "features": [],
+      "updates": [
+        "Computer fix — writing, chatting, hacking and computer games no longer stop after a few seconds. Sims keep writing until you stop them, and play until Fun is nearly full.",
+        "Play Games — the computer's Play is now inside Play Games as Computer Games, next to Twisted Metal 2.",
+        "Twisted Metal 2 — the picture is lined up with the monitor's screen and fills it.",
+        "Buy Mode — a few downloaded objects that were missing from the catalog now show under Other."
+      ]
+    },
+    {
+      "version": "8.8",
+      "date": "Oct 17, 2026",
+      "features": [],
+      "updates": [
+        "Play Games menu — the computer's games are kept together now: click the computer, then Play Games, then Twisted Metal 2."
+      ]
+    },
+    {
+      "version": "8.7",
+      "date": "Oct 17, 2026",
+      "features": [
+        "Writing progress bar — a bar over your Sim's head shows how close they are to the next Writing level (or to finishing their novel), like when studying."
+      ],
+      "updates": [
+        "Computer — Sims keep playing until their Fun is nearly full, and keep writing, chatting or hacking until you stop them. Before, most stopped after a few game minutes.",
+        "Twisted Metal 2 — the game now sits inside the computer's screen instead of floating in front of it."
+      ]
+    },
+    {
+      "version": "8.6",
+      "date": "Oct 17, 2026",
+      "features": [],
+      "updates": [
+        "Showers, baths and computer games fixed — they no longer end after a second or two with the need filled all at once. Sims stay as long as they should and the bar goes up as they go."
+      ]
+    },
+    {
+      "version": "8.5",
+      "date": "Oct 17, 2026",
+      "features": [],
+      "updates": [
+        "Computer fix — Practice Writing, Write a Novel, Chat Online, Hack and Play Twisted Metal 2 no longer stop after a few seconds, so Writing skill and Fun go up.",
+        "Keep at it — while writing, chatting or hacking, your Sim keeps going until you stop them (or they get too hungry or tired)."
+      ]
+    },
+    {
+      "version": "8.4",
+      "date": "Oct 17, 2026",
+      "features": [
+        "Play Twisted Metal 2 — a new choice on the computer. The game shows on the monitor while your Sim plays, and their Fun goes up."
+      ],
+      "updates": [
+        "Online — the Writing skill and a novel in progress now travel with your Sims to the online town and back."
+      ]
+    },
+    {
+      "version": "8.3",
+      "date": "Oct 17, 2026",
+      "features": [
+        "More to do on the computer — Practice Writing, Write a Novel, Surf the Web, Chat Online and Hack, like The Sims 3.",
+        "Write a Novel — pick Romance, Sci-Fi, Mystery, Fantasy or Children's. Better writers finish faster and earn more when the novel sells.",
+        "New Writing skill — shown on the Job page with the other skills. Practise at the computer to level it up.",
+        "Chat Online — keeps your Sim's Social need up.",
+        "Hack — needs Logic 7. Earns money... unless your Sim gets caught."
+      ],
+      "updates": [
+        "New-look pie menu — the choices are rounded, glossy buttons in your interface colour."
+      ]
+    },
+    {
+      "version": "8.2",
+      "date": "Oct 16, 2026",
+      "features": [],
+      "updates": [
+        "Moving things on touch — tap something already in your house in Buy or Build mode to pick it up, drag it with one finger, then tap to put it down (or use Turn, Place and Sell)."
+      ]
+    },
+    {
+      "version": "8.1",
+      "date": "Oct 16, 2026",
+      "features": [],
+      "updates": [
+        "Smaller touch panel — the phone/tablet control panel takes less of the screen, so Buy and Build show several columns of pictures instead of one.",
+        "UI Size works on touch — Options › Graphics › Interface › UI Size now makes the touch panel bigger or smaller, with a new 75% size.",
+        "Clock and money — no longer run into each other on the touch panel."
+      ]
+    },
+    {
+      "version": "8.0",
+      "date": "Oct 16, 2026",
+      "features": [
+        "321 new objects — custom content now ships with the game for everyone.",
+        "BNJ x LVR — chairs, bookcases, dressers, rugs and lots of windows.",
+        "Bara's 1940s diner — a bar, counters, dining tables, chairs, a food case and a tobacco sign.",
+        "SML's IKEA Stuff Pack — sofas, armchairs, coffee tables, shelves, lamps, mirrors, desks and more, in several colours."
+      ],
+      "updates": []
+    },
+    {
+      "version": "7.9",
+      "date": "Oct 16, 2026",
+      "features": [
+        "Screen stays on — phones and tablets no longer dim or lock while the game is open."
+      ],
+      "updates": [
+        "Faster game file downloads — files come many at a time and squeezed smaller.",
+        "Only what's new — getting the files again only downloads what's missing or changed.",
+        "Picks up where it stopped — an interrupted download carries on instead of starting over.",
+        "Faster loading — your game files load into the game more quickly."
+      ]
+    },
+    {
+      "version": "7.8",
+      "date": "Oct 16, 2026",
+      "features": [],
+      "updates": [
+        "Buying on touch — tapping a catalog picture picks the item up again, so you can buy and place things on phones and tablets.",
+        "Create-a-Sim outfits — no more plain grey outfits in the list.",
+        "Create-a-Sim buttons — the original Sims 1 pictures are back on the age, skin, gender, arrow and Done / Cancel buttons.",
+        "New-look popups — Delete Family?, Yes / No questions, in-game messages, Help, Online and Colours windows now match the new interface."
+      ]
+    },
+    {
+      "version": "7.7",
+      "date": "Oct 16, 2026",
+      "features": [],
+      "updates": [
+        "Clock and money — on upright phones the box now reaches the bottom of the panel, lined up with the buttons beside it, with bigger numbers."
+      ]
+    },
+    {
+      "version": "7.6",
+      "date": "Oct 16, 2026",
+      "features": [],
+      "updates": [
+        "Smoother panel — the touch control panel does less work each frame."
+      ]
+    },
+    {
+      "version": "7.5",
+      "date": "Oct 16, 2026",
+      "features": [
+        "Touch control panel — a new, bigger control panel for phones and tablets: the Sims 1 panel grown for fingers, with the real Sims 1 buttons."
+      ],
+      "updates": [
+        "Touch layout — Live, Buy, Build and Options sit in a diamond; speed, camera, walls and floors are in one block on the right; your family and the Mood / Personality / Job tabs sit just above the panel.",
+        "Upright phones — the panel splits into two rows so everything stays big enough to tap.",
+        "Hold buttons — Turn, Place and Sell are bigger on touch screens."
+      ]
+    },
+    {
+      "version": "7.4",
+      "date": "Oct 16, 2026",
+      "features": [],
+      "updates": [
+        "Turn arrows — Turn Left and Turn Right show just the arrows now, with no black square behind them."
+      ]
+    },
+    {
+      "version": "7.3",
+      "date": "Oct 16, 2026",
+      "features": [],
+      "updates": [
+        "Tint — only an object's main colour changes now (a bookshelf's wood, not its books; a sofa's fabric, not cushions in another colour).",
+        "Account menu — Game files & saves is in the menu under your initial now."
+      ]
+    },
+    {
+      "version": "7.2",
+      "date": "Oct 16, 2026",
+      "features": [
+        "Cross saves — your neighborhood, houses, Sims and settings are kept on your account. Log in on any device and your game is there.",
+        "Saves backed up — the last few versions are kept, so nothing is lost if two devices disagree.",
+        "Which saves? — if you played on two devices without syncing, you pick which game to keep."
+      ],
+      "updates": [
+        "Device settings — controls, touch layout, UI size and graphics stay set per device."
+      ]
+    },
+    {
+      "version": "7.1",
+      "date": "Oct 16, 2026",
+      "features": [
+        "Redux on touch — phones and tablets get the Sims 1 control panel, sized for fingers.",
+        "Placing things by touch — drag an object to move it, tap a spot to put it down, or use Turn Left, Turn Right, Place and Sell.",
+        "Build by touch — draw walls and lay floors with your finger; two fingers move the camera.",
+        "Tint by touch — press and hold an object in Buy or Build mode.",
+        "Neighborhood — drag with one finger to look around.",
+        "Touch Layout setting — Options > Interface: Redux or Simple."
+      ],
+      "updates": [
+        "Sliders — the volume and Tint sliders can be dragged with a finger."
+      ]
+    },
+    {
+      "version": "7.0",
+      "date": "Oct 16, 2026",
+      "features": [
+        "Phone keyboard — tap a name or chat box and your phone's keyboard opens."
+      ],
+      "updates": [
+        "Build mode dropper — it works now (it switched itself off straight away).",
+        "Tint colour dropper — works in Build mode too.",
+        "Tint — saves properly on things a Sim is using or with something on them, and #RGB codes work.",
+        "Tint — smoother while you drag the sliders.",
+        "Typing — numbers typed in a box (like a colour code) no longer change the game speed.",
+        "Search — Backspace keeps your letters, results match the lot type, and I and Esc work again after searching.",
+        "Dropper — things that aren't for sale (like dirty plates) can't be copied for free.",
+        "Decorative catalog — the Other tab is back.",
+        "Create-A-Sim — tap the top lit light to take a personality point back off.",
+        "Notices — long messages are cut short, and taps between notices reach the game.",
+        "Touch — twist to turn works when your fingers lift one at a time.",
+        "Touch — the Controls setting takes effect when you go to a lot or the neighborhood.",
+        "Tablets — PC Controls works with taps; add ?controls=touch to the address to force touch.",
+        "Turning the phone — the game resizes without a jumpy frame.",
+        "Launcher — Esc closes the account menu without starting the game."
+      ]
+    },
+    {
+      "version": "6.9",
+      "date": "Oct 16, 2026",
+      "features": [],
+      "updates": [
+        "Touch taps — buttons respond exactly where you tap them, upright or sideways.",
+        "Touch camera — press, hold and drag to move around; hold still to open the menu."
+      ]
+    },
+    {
+      "version": "6.8",
+      "date": "Oct 16, 2026",
+      "features": [],
+      "updates": [
+        "Account menu — click your initial next to your name for Report a player, Switch account and Log out."
+      ]
+    },
+    {
+      "version": "6.7",
+      "date": "Oct 16, 2026",
+      "features": [],
+      "updates": [
+        "Create-A-Family — the new Redux look, with clear text buttons and room for every option.",
+        "Create-A-Sim — the new Redux look: personality bars, age, skin and gender buttons, head and body arrows.",
+        "Family list — Up and Down buttons when you have more than six families."
+      ]
+    },
+    {
+      "version": "6.6",
+      "date": "Oct 16, 2026",
+      "features": [
+        "Touch camera — drag with one finger to move around, hold two fingers to pan, pinch to zoom, twist to turn."
+      ],
+      "updates": [
+        "Menus on phones — they fit the screen now instead of being cut off.",
+        "Portrait and landscape — play either way up; turn the phone and the game adjusts."
+      ]
+    },
+    {
+      "version": "6.5",
+      "date": "Oct 16, 2026",
+      "features": [],
+      "updates": [
+        "Touch controls — now turn on for all Android phones and tablets (some were treated like a computer).",
+        "Controls notice — a notice in the corner says whether touch or PC controls are on."
+      ]
+    },
+    {
+      "version": "6.4",
+      "date": "Oct 16, 2026",
+      "features": [
+        "Touch controls — on a phone or tablet the game switches to touch controls by itself.",
+        "Controls setting — Options > Interface > Controls: Auto, Touch or PC. Pick PC if you've plugged a mouse and keyboard into your tablet."
+      ],
+      "updates": []
+    },
+    {
+      "version": "6.3",
+      "date": "Oct 16, 2026",
+      "features": [],
+      "updates": [
+        "Play button on phones — it now stays at the bottom of the screen while you scroll the launcher."
+      ]
+    },
+    {
+      "version": "6.2",
+      "date": "Oct 16, 2026",
+      "features": [
+        "Tint colour dropper — Pick colour from lot, then click any object to copy its colour.",
+        "Tint hex code — see the exact colour as a hex code like #A0522D, or type one in."
+      ],
+      "updates": []
+    },
+    {
+      "version": "6.1",
+      "date": "Oct 16, 2026",
+      "features": [
+        "Tint — right-click an object in Buy or Build mode to recolour it. Pick a colour (white and black included), then fine-tune Colour, Strength and Brightness."
+      ],
+      "updates": [
+        "Tint — the old list of other colours to swap to is gone; Tint does any colour."
+      ]
+    },
+    {
+      "version": "6.0",
+      "date": "Oct 16, 2026",
+      "features": [
+        "Bigger catalog — click the arrow on top of the Buy or Build pictures to show up to 5 rows at once."
+      ],
+      "updates": [
+        "Cleaner icons — the small category icons in Buy mode are just the icons now, with a glow on the one you picked.",
+        "Item cards — one big picture of the item."
+      ]
+    },
+    {
+      "version": "5.9",
+      "date": "Oct 16, 2026",
+      "features": [
+        "Item cards — point at anything in Buy or Build mode to see a big picture, the price, the description and what it does for your Sims.",
+        "Notifications — notices pop up in the top-right corner and fade away on their own (or close them with the X). They no longer pause the game."
+      ],
+      "updates": [
+        "Updates — no more \"Updated to\" popup when the game starts; the patch notes are on the launcher."
+      ]
+    },
+    {
+      "version": "5.8",
+      "date": "Oct 16, 2026",
+      "features": [],
+      "updates": [
+        "Buy and Build — the search box and dropper sit on the right, on top of the bar.",
+        "Buy and Build — the item you're placing shows its name, price and what it does on the classic bar.",
+        "Buy and Build — tab names fit inside their tabs, and hidden test items with no picture no longer show up."
+      ]
+    },
+    {
+      "version": "5.7",
+      "date": "Oct 16, 2026",
+      "features": [
+        "Dropper — in Buy or Build mode, press I (or the Dropper button) and click anything on your lot, or a floor, to pick the same item from the catalog.",
+        "Catalog search — type in the search box above the Buy and Build bar to find any item by name."
+      ],
+      "updates": []
+    },
+    {
+      "version": "5.6",
+      "date": "Oct 16, 2026",
+      "features": [],
+      "updates": [
+        "Online town — every home is free for players to move into. The town's families are out and about as townies on lots and on the street instead."
+      ]
+    },
+    {
+      "version": "5.5",
+      "date": "Oct 16, 2026",
+      "features": [
+        "New neighbours — new background families move into empty homes and new townies are out and about, on community lots and walking past your home.",
+        "Online town — more neighbours and townies there too. Townies now show up on online lots, the same for everyone on the lot."
+      ],
+      "updates": [
+        "Shop staff — you can talk to clerks, waiters, chefs and other workers on community lots."
+      ]
+    },
+    {
+      "version": "5.3",
+      "date": "Oct 16, 2026",
+      "features": [],
+      "updates": [
+        "Shop staff — you can talk to clerks, waiters, chefs and other workers on community lots."
+      ]
+    },
+    {
+      "version": "5.2",
+      "date": "Oct 16, 2026",
+      "features": [],
+      "updates": [
+        "Talking to Sims — still being worked on."
+      ]
+    },
+    {
+      "version": "5.1",
+      "date": "Oct 16, 2026",
+      "features": [],
+      "updates": [
+        "Talking to Sims — townies and guests on community lots can be talked to again.",
+        "No more trolleys — the Old Town trolley stops pulling up and piling up in front of your lot."
+      ]
+    },
+    {
+      "version": "5.0",
+      "date": "Oct 16, 2026",
+      "features": [],
+      "updates": [
+        "Talking to Sims — more work on menus for guests, townies and shop staff."
+      ]
+    },
+    {
+      "version": "4.9",
+      "date": "Oct 16, 2026",
+      "features": [],
+      "updates": [
+        "Talking to Sims — you can talk to guests, townies and shop staff again; your own Sims always count as family.",
+        "Fewer popups — the cab company, Magic Town and Studio Town letters no longer pop up.",
+        "Fixes — an error popup about a hidden lot controller no longer appears."
+      ]
+    },
+    {
+      "version": "4.8",
+      "date": "Oct 16, 2026",
+      "features": [
+        "Build mode groups — floors, wallpaper, walls, doors and plants are split into tabs like Carpet, Wood, Tile, Fences, Arches and Trees.",
+        "Buy mode groups — big categories have smaller tabs, like Art, Mirrors and Rugs in Decorative, or Sofas and Beds in Seating."
+      ],
+      "updates": [
+        "Catalog — the tab you picked last opens again next time."
+      ]
+    },
+    {
+      "version": "4.7",
+      "date": "Oct 16, 2026",
+      "features": [
+        "Townies — lots have people around: some are already there when you arrive, and neighbours walk by your home.",
+        "Call a taxi — use the phone to visit a neighbour, a community lot or Downtown."
+      ],
+      "updates": [
+        "Smarter Sims — Sims find things to do on their own, and your orders always come first.",
+        "Shop staff — talk to and use the services of clerks, waiters and other staff.",
+        "Phone — calling a friend works again, even when your Sim doesn't know anyone yet."
+      ]
+    },
+    {
+      "version": "4.6",
+      "date": "Oct 16, 2026",
+      "features": [
+        "New items on the Test server — new floors, walls and wall pictures will appear on the Test server first."
+      ],
+      "updates": []
+    },
+    {
+      "version": "4.5",
+      "date": "Oct 15, 2026",
+      "features": [],
+      "updates": [
+        "Smarter Sims — a Sim stops retrying a chore they can't get to and comes back to it later.",
+        "Updates — while a new version is on its way you can still play single player; online opens once your game is updated.",
+        "Launcher — a taller launcher with all the patch notes, and a simpler sign-in box.",
+        "Online play — smoother for everyone when a player's game falls out of step."
+      ]
+    },
+    {
+      "version": "4.4",
+      "date": "Oct 15, 2026",
+      "features": [],
+      "updates": [
+        "Bug fixes — lots of fixes for crashes and glitches across the game, the launcher and online play.",
+        "Magic Town — families can move into the Magic Town lots again.",
+        "Online play — smoother joining and leaving, and visitors can't switch to the host's Sims.",
+        "Launcher — you can type spaces, scroll with the mouse wheel, and it fits on phones.",
+        "F1 — switches to Live mode, like the original game."
+      ]
+    },
+    {
+      "version": "4.3",
+      "date": "Oct 15, 2026",
+      "features": [],
+      "updates": [
+        "Launcher background — a new photo-collage background.",
+        "Refresh button — when a new version is out, press Refresh to get it."
+      ]
+    },
+    {
+      "version": "4.2",
+      "date": "Oct 15, 2026",
+      "features": [
+        "New logo — The Sims Redux logo on the neighborhood bar and the launcher."
+      ],
+      "updates": []
+    },
+    {
+      "version": "4.1",
+      "date": "Oct 15, 2026",
+      "features": [
+        "Online button — a new rounded Online button on the neighborhood bar."
+      ],
+      "updates": [
+        "Family faces — each Sim's head is centred in its picture.",
+        "Buy and Build — the icons sit right on the new bar.",
+        "Neighborhood bar — tidier logo and version text with more room."
+      ]
+    },
+    {
+      "version": "4.0",
+      "date": "Oct 15, 2026",
+      "features": [],
+      "updates": [
+        "Control panel — money is centred, and the clock and money text is smaller and tidier."
+      ]
+    },
+    {
+      "version": "3.9",
+      "date": "Oct 15, 2026",
+      "features": [],
+      "updates": [
+        "Neighborhood bar — the top bar gets the new look, with the buttons sitting smoothly in it."
+      ]
+    },
+    {
+      "version": "3.8",
+      "date": "Oct 15, 2026",
+      "features": [
+        "New look — a smoother control panel in the classic Sims blue, with the original icons.",
+        "Interface options — choose the Redux or Classic look, a UI colour and a UI size."
+      ],
+      "updates": []
+    },
+    {
+      "version": "3.7",
+      "date": "Oct 15, 2026",
+      "features": [
+        "Moderator tools — moderators can help run the town from the launcher.",
+        "Server warnings — you're told before the server restarts or shuts down."
+      ],
+      "updates": [
+        "Maintenance — the launcher shows when the server is closed for upkeep."
+      ]
+    },
+    {
+      "version": "3.6",
+      "date": "Oct 15, 2026",
+      "features": [
+        "Account sign-up — new accounts add your name and an email for password resets."
+      ],
+      "updates": [
+        "Sign-in screen — simplified to Log in and Create account."
+      ]
+    },
+    {
+      "version": "3.4",
+      "date": "Oct 15, 2026",
+      "features": [
+        "Server picker — choose the Live or Test server, with live online status.",
+        "Message of the day — server news and running events, right on the launcher.",
+        "Update check — the launcher makes sure your game is up to date before you play.",
+        "Levels and XP — earn XP playing online and level up your account.",
+        "Report a player — send a report to the admin from the launcher.",
+        "Town announcements — server messages and events pop up while you're in the online town."
+      ],
+      "updates": [
+        "Smarter Sims — Sims leave other Sims' plates alone.",
+        "Smarter Sims — Sims no longer stop to chat in doorways."
+      ]
+    },
+    {
+      "version": "3.3",
+      "date": "Oct 15, 2026",
+      "features": [
+        "Game launcher — patch notes, your account and game files in one place.",
+        "Server status — see whether the server is online and how many players are on.",
+        "Play button — the game only starts loading when you press Play."
+      ],
+      "updates": [
+        "Faster start — if you're logged in, you go straight to the launcher.",
+        "Account options — switch account, log out or change your game folder from the launcher."
+      ]
+    },
+    {
+      "version": "3.2",
+      "date": "Oct 15, 2026",
+      "features": [],
+      "updates": [
+        "Loading crash — fixed a crash while the website was loading.",
+        "Mod sounds — a mod with broken sound files no longer stops the game."
+      ]
+    },
+    {
+      "version": "3.1",
+      "date": "Oct 15, 2026",
+      "features": [
+        "Fire safety — a grown-up calls the fire department when there's a fire.",
+        "Repairman — Sims call the repairman when nobody at home can fix something."
+      ],
+      "updates": [
+        "Fires — Sims keep clear of a fire.",
+        "Quiet hours — Sims keep it down around sleeping Sims."
+      ]
+    },
+    {
+      "version": "3.0",
+      "date": "Oct 15, 2026",
+      "features": [
+        "Sim Smarts: Off — a new setting that turns off free will in single player."
+      ],
+      "updates": [
+        "Meals and sleep — Sims finish their meals and sleep through the night.",
+        "Chores — Sims pay bills and fix things when their needs are met.",
+        "Snacks — Sims with low Cooking grab a snack instead of cooking.",
+        "Steadier Sims — Sims stop bouncing between the same activities."
+      ]
+    }
+  ]
+}
