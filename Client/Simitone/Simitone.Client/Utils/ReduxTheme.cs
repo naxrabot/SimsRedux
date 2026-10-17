@@ -13,7 +13,8 @@ namespace Simitone.Client.Utils
     /// The player's choices live in redux_settings.ini:
     ///   uiredux = 1 (Redux look, default) or 0 (Classic: the original art untouched)
     ///   uicolor = #rrggbb (default Sims blue, taken from the original wing art)
-    ///   uiscale = 0 (fit the screen) or a percentage (100, 125, 150, 200)
+    ///   uiscale = 0 (fit the screen) or a percentage (75, 100, 125, 150, 200) - on touch screens a
+    ///             percentage of the touch panel's own fitted size
     ///
     /// Everything here is made from the player's own game art or drawn in code; nothing is shipped.
     /// </summary>
@@ -25,7 +26,7 @@ namespace Simitone.Client.Utils
             new Color(0x14, 0x58, 0xb0), new Color(0x1b, 0x7f, 0x9a), new Color(0x2f, 0x7d, 0x5b),
             new Color(0x8a, 0x3f, 0x73), new Color(0xa8, 0x43, 0x5a), new Color(0x3a, 0x3f, 0x4c)
         };
-        public static readonly int[] ScaleChoices = { 0, 100, 125, 150, 200 };
+        public static readonly int[] ScaleChoices = { 0, 75, 100, 125, 150, 200 };
 
         /// <summary>Goes up every time the look changes, so cached pictures are remade.</summary>
         public static int Version { get; private set; } = 1;

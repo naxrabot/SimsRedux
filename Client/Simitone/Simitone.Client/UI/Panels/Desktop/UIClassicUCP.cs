@@ -310,11 +310,16 @@ namespace Simitone.Client.UI.Panels.Desktop
             var want = !ReduxTouch.ReduxLayout ? PanelLayout.Classic
                 : (H > W ? PanelLayout.TouchTall : PanelLayout.TouchWide);
             float s;
-            // touch, sideways: the panel (with the strip of faces and tabs above it) takes a bit under half
-            //   the screen's height, but the screen is always at least 620 panel units wide
-            // touch, upright: the screen is 400 units wide (the panel is in two rows)
-            if (want == PanelLayout.TouchWide) s = Math.Max(0.5f, Math.Min(0.46f * H / 128f, W / 620f));
-            else if (want == PanelLayout.TouchTall) s = Math.Max(0.5f, Math.Min(W / 400f, 0.42f * H / 226f));
+            // touch, sideways: the screen is 800 panel units wide (room for several columns of catalog
+            //   pictures, text still easy to read), and the panel with its strip of faces and tabs takes
+            //   at most 40% of the screen's height
+            // touch, upright: the screen is 430 units wide (the panel is in two rows)
+            // The UI Size setting (Options > Graphics > Interface) scales either: Auto = 100%. However big,
+            // the screen stays wide enough for the layout (560 units sideways, 380 upright).
+            int pct = ReduxTheme.Scale;
+            float k = pct > 0 ? pct / 100f : 1f;
+            if (want == PanelLayout.TouchWide) s = Math.Max(0.5f, Math.Min(Math.Min(0.40f * H / 128f, W / 800f) * k, W / 560f));
+            else if (want == PanelLayout.TouchTall) s = Math.Max(0.5f, Math.Min(Math.Min(W / 430f, 0.42f * H / 226f) * k, W / 380f));
             else s = ReduxTheme.PanelScale(H);
             UIScale = s;
             ScaleX = ScaleY = s;
@@ -380,8 +385,9 @@ namespace Simitone.Client.UI.Panels.Desktop
             }
             CameraBtn.Visible = want == PanelLayout.Classic;
             FriendsCount.Visible = want == PanelLayout.Classic;
-            ClockLabel.CaptionStyle.Size = want == PanelLayout.Classic ? 10 : 12;
-            MoneyLabel.CaptionStyle.Size = want == PanelLayout.Classic ? 11 : 12;
+            ClockLabel.CaptionStyle.Size = want == PanelLayout.Classic ? 10 : 11;
+            MoneyLabel.CaptionStyle.Size = want == PanelLayout.Classic ? 11 : 11;
+            ClockLabel.Alignment = MoneyLabel.Alignment = TextAlignment.Center | TextAlignment.Middle;
 
             if (want == PanelLayout.Classic)
             {
@@ -423,9 +429,12 @@ namespace Simitone.Client.UI.Panels.Desktop
             }
             else
             {
+                // (the time at the left, the money at the right, so they never run into each other)
                 ClockBox = new Rectangle((int)RX - 3, 55, 134, 26);
-                ClockLabel.Position = new Vector2(RX + 1, 57); ClockLabel.Size = new Vector2(60, 22);
-                MoneyLabel.Position = new Vector2(RX + 61, 57); MoneyLabel.Size = new Vector2(66, 22);
+                ClockLabel.Position = new Vector2(RX + 3, 57); ClockLabel.Size = new Vector2(64, 22);
+                MoneyLabel.Position = new Vector2(RX + 63, 57); MoneyLabel.Size = new Vector2(64, 22);
+                ClockLabel.Alignment = TextAlignment.Left | TextAlignment.Middle;
+                MoneyLabel.Alignment = TextAlignment.Right | TextAlignment.Middle;
             }
 
             // Options: Save / Neighborhood / Quit, Graphics / Sound / Play, straight after the diamond
@@ -455,7 +464,7 @@ namespace Simitone.Client.UI.Panels.Desktop
             {
                 // the page takes the whole bar (the speed block makes way), shrunk if it doesn't fit
                 float avail = (LayoutWu - 4) - ContentX;
-                float f = Math.Min(1f, avail / (930f - 452f));
+                float f = Math.Min(1f, avail / (1040f - 452f)); // (the widest row: UI Size's six choices)
                 OptionPages.ScaleX = OptionPages.ScaleY = f;
                 OptionPages.Position = new Vector2(ContentX - 452 * f, BarY - BarY * f);
             }

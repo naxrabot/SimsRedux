@@ -2,6 +2,16 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "8.1",
+      "date": "Oct 16, 2026",
+      "features": [],
+      "updates": [
+        "Smaller touch panel — the phone/tablet control panel takes less of the screen, so Buy and Build show several columns of pictures instead of one.",
+        "UI Size works on touch — Options › Graphics › Interface › UI Size now makes the touch panel bigger or smaller, with a new 75% size.",
+        "Clock and money — no longer run into each other on the touch panel."
+      ]
+    },
+    {
       "version": "8.0",
       "date": "Oct 16, 2026",
       "features": [
