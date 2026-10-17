@@ -146,6 +146,10 @@ jobs:
           mkdir -p publish/wwwroot/fast
           printf '<!DOCTYPE html><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=../"><a href="../">The Sims Redux</a>\n' > publish/wwwroot/fast/index.html
           rm -f publish/wwwroot/.gitignore
+          # the version the game checks for "New update available" (js/simsfs.js)
+          ver=$(grep -oE 'Number = "[0-9.]+"' Client/Simitone/Simitone.Client/Utils/ReduxBuild.cs | grep -oE '[0-9.]+')
+          printf '{"version":"%s","build":"%s"}\n' "$ver" "${GITHUB_SHA::7}" > publish/wwwroot/version.json
+          echo "::warning::website version $ver"
 
       # Joey's PC: straight into the site folder his server serves (the old copy is swapped out at once)
       - name: Publish to this PC's site folder
@@ -237,6 +241,8 @@ jobs:
           sed -i "s/__BUILD__/classic-$(date -u +%m%d-%H%M)-${GITHUB_SHA::7}/" Client/Simitone/Simitone.Web/wwwroot/index.html
           dotnet publish Client/Simitone/Simitone.Web/Simitone.Web.csproj -c Release -v minimal -clp:NoSummary -o publish > publish.log 2>&1 \
             || { grep -E 'error ' publish.log | sort -u | head -20 | while read -r l; do echo "::error::$l"; done; exit 1; }
+          ver=$(grep -oE 'Number = "[0-9.]+"' Client/Simitone/Simitone.Client/Utils/ReduxBuild.cs | grep -oE '[0-9.]+')
+          printf '{"version":"%s","build":"%s"}\n' "$ver" "${GITHUB_SHA::7}" > publish/wwwroot/version.json
           echo "::warning::classic version: $(du -sh publish/wwwroot | cut -f1)"
 
       - name: Add it to this PC's site folder as /classic/

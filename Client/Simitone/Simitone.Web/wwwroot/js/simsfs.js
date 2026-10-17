@@ -888,8 +888,17 @@
             }
         }
 
+        /** Before reloading for an update: saves the game just made are sent now (waits up to 30 s). */
+        async function flushNow() {
+            if (!enabled) return;
+            clearTimeout(timer);
+            const until = Date.now() + 30000;
+            while (busy && Date.now() < until) await new Promise(r => setTimeout(r, 250));
+            try { await push(); } catch (e) { }
+        }
+
         return {
-            isSave, changed, syncBeforePlay,
+            isSave, changed, syncBeforePlay, flushNow,
             /** For the launcher: a line about the saves on this account, or ''. */
             line() {
                 const st = Account.session && Account.session.token ? getState() : null;
@@ -1801,6 +1810,40 @@
     const accountToken = () => (Account.session && Account.session.token) || '';
     // set when the game started out of date: the reason online mode is shut ('' = it's open)
     const onlineBlockedReason = () => onlineBlocked || '';
+
+    // ---------- "New update available" ----------
+    // While the game is open, every two minutes: is there a newer version on this website
+    // (version.json, written when the website is published), and has the server been updated to
+    // it too? (An update goes out to players when the Live server is restarted with it.) The game
+    // asks (WebPlatform.cs) and shows a notice with an Update button.
+    const Updates = (function () {
+        let available = '';
+        async function check() {
+            let own = null;
+            try { own = DotNet.invokeMethod('SimsRedux.Web', 'SimsReduxVersion'); } catch (e) { return; } // (the game isn't running yet)
+            try {
+                const r = await fetch('version.json', { cache: 'no-store' });
+                if (!r.ok) return;
+                const site = await r.json();
+                if (!site || !site.version || cmpVer(site.version, own) <= 0) { available = ''; return; }
+                let srv = null;
+                try {
+                    const s = await fetch(Account.SERVER + '/api/status', { cache: 'no-store' });
+                    if (s.ok) srv = (await s.json()).game || null;
+                } catch (e) { }
+                available = (srv && cmpVer(srv, site.version) < 0) ? '' : String(site.version);
+            } catch (e) { }
+        }
+        setTimeout(check, 45000);
+        setInterval(check, 120000);
+        return { get available() { return available; } };
+    })();
+    const updateAvailable = () => Updates.available || '';
+    async function reloadForUpdate() {
+        try { await saveChain; } catch (e) { }
+        try { await Saves.flushNow(); } catch (e) { }
+        location.reload();
+    }
     // a phone or tablet. Phones and tablets count as touch even when the browser says it has a fine
     // pointer (many Android phones do); the game's Options > Interface > Controls can switch to PC
     // (a tablet with a mouse and keyboard). ?controls=touch or ?controls=pc in the address forces it.
@@ -1827,5 +1870,5 @@
         catch (e) { return false; }
     }
     const accountName = () => (Account.session && Account.session.name) || '';
-    window.SimsFS = { touchDevice, forcedControls, accountServer, accountToken, accountName, onlineBlockedReason, changeFolder, setFullScreen, isFullScreen, prepare, fileExists, dirExists, fileSize, read, write, deleteFile, createDir, deleteDir, moveFile, list, normalize };
+    window.SimsFS = { touchDevice, forcedControls, accountServer, accountToken, accountName, onlineBlockedReason, updateAvailable, reloadForUpdate, changeFolder, setFullScreen, isFullScreen, prepare, fileExists, dirExists, fileSize, read, write, deleteFile, createDir, deleteDir, moveFile, list, normalize };
 })();

@@ -23,7 +23,12 @@ namespace Simitone.Client.UI.Controls
             public int Height;
             public float Slide; // 0 = off to the right, 1 = in place
             public bool Closing;
+            /// <summary>SimsRedux: a button on the notice (e.g. "Update"), and what it does.</summary>
+            public string Button;
+            public Action OnButton;
         }
+
+        private const int ButtonW = 110, ButtonH = 24;
 
         public const int W = 320, Pad = 10, Gap = 8, Top = 64, TouchTop = 150, MaxShown = 4, MaxLines = 8;
 
@@ -39,6 +44,15 @@ namespace Simitone.Client.UI.Controls
         public static void Show(string title, string message)
         {
             Get().Push(title, message);
+        }
+
+        /// <summary>
+        /// A notification with a button (e.g. "Update"). It stays until it's answered or closed with
+        /// its X - unlike the others, it doesn't fade away by itself.
+        /// </summary>
+        public static void ShowAction(string title, string message, string button, Action onButton)
+        {
+            Get().Push(title, message, button, onButton);
         }
 
         /// <summary>Keeps the notifications on this screen, above everything else on it.</summary>
@@ -66,7 +80,7 @@ namespace Simitone.Client.UI.Controls
             for (int i = 0; i < Mice.Length; i++) Mice[i] = ListenForMouse(new Rectangle(0, 0, 0, 0), OnMouse);
         }
 
-        private void Push(string title, string message)
+        private void Push(string title, string message, string button = null, Action onButton = null)
         {
             title = (title ?? "").Trim();
             message = (message ?? "").Trim();
@@ -78,9 +92,11 @@ namespace Simitone.Client.UI.Controls
             {
                 Title = title.Length > 0 ? title : "Notice",
                 Lines = lines,
-                Life = Math.Min(16, 6 + message.Length * 0.04),
+                Life = button != null ? double.MaxValue : Math.Min(16, 6 + message.Length * 0.04),
+                Button = button,
+                OnButton = onButton,
             };
-            t.Height = Pad * 2 + 18 + lines.Count * 14;
+            t.Height = Pad * 2 + 18 + lines.Count * 14 + (button != null ? ButtonH + 8 : 0);
             Toasts.Add(t);
             while (Toasts.Count > MaxShown) Toasts.RemoveAt(0);
             try { FSO.HIT.HITVM.Get().PlaySoundEvent(FSO.Client.UI.Model.UISounds.Click); } catch { }
@@ -144,7 +160,19 @@ namespace Simitone.Client.UI.Controls
                 {
                     if (p.Y >= y && p.Y < y + t.Height)
                     {
-                        if (!t.Closing) t.Closing = true; // a click anywhere on a notice (or its X) closes it
+                        // its button
+                        if (t.Button != null && !t.Closing && p.X >= W - Pad - ButtonW && p.X < W - Pad
+                            && p.Y >= y + t.Height - Pad - ButtonH && p.Y < y + t.Height - Pad)
+                        {
+                            t.Closing = true;
+                            try { FSO.HIT.HITVM.Get().PlaySoundEvent(FSO.Client.UI.Model.UISounds.Click); } catch { }
+                            var act = t.OnButton;
+                            FSO.Common.Utils.GameThread.NextUpdate((s2) => { try { act?.Invoke(); } catch (Exception e) { Console.WriteLine("[SimsRedux] notice button: " + e.Message); } });
+                            break;
+                        }
+                        // a notice with a button only closes from its X; the others from a click anywhere
+                        if (t.Button != null && !(p.X >= W - Pad - 20 && p.Y < y + Pad + 20)) break;
+                        if (!t.Closing) t.Closing = true;
                         break;
                     }
                     y += t.Height + Gap;
@@ -208,6 +236,14 @@ namespace Simitone.Client.UI.Controls
                 {
                     DrawLocalString(batch, line, new Vector2(x + Pad, ly), BodyStyle, new Rectangle(0, 0, W - Pad * 2, 14), TextAlignment.Left | TextAlignment.Middle);
                     ly += 14;
+                }
+                if (t.Button != null)
+                {
+                    var bx = x + W - Pad - ButtonW;
+                    var by = y + t.Height - Pad - ButtonH;
+                    DrawLocalTexture(batch, ReduxTheme.Box(ButtonW, ButtonH, 12, ReduxTheme.Rim, ReduxTheme.Hi, Color.White * 0.7f, 1), null, new Vector2(bx, by), Vector2.One, Color.White * fade);
+                    TitleStyle.Color = Color.White * fade;
+                    DrawLocalString(batch, t.Button, new Vector2(bx, by), TitleStyle, new Rectangle(0, 0, ButtonW, ButtonH), TextAlignment.Center | TextAlignment.Middle);
                 }
                 y += t.Height + Gap;
             }

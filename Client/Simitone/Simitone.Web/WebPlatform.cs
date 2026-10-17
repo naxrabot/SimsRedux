@@ -16,6 +16,8 @@ namespace Simitone.Web
         [JSImport("globalThis.SimsFS.accountToken")] internal static partial string JsAccountToken();
         [JSImport("globalThis.SimsFS.accountName")] internal static partial string JsAccountName();
         [JSImport("globalThis.SimsFS.onlineBlockedReason")] internal static partial string JsOnlineBlockedReason();
+        [JSImport("globalThis.SimsFS.updateAvailable")] internal static partial string JsUpdateAvailable();
+        [JSImport("globalThis.SimsFS.reloadForUpdate")] internal static partial void JsReloadForUpdate();
         [JSImport("globalThis.SimsFS.touchDevice")] internal static partial bool JsTouchDevice();
         [JSImport("globalThis.SimsFS.forcedControls")] internal static partial string JsForcedControls();
 
@@ -29,6 +31,8 @@ namespace Simitone.Web
             ReduxPlatform.AccountToken = JsAccountToken;
             ReduxPlatform.AccountName = JsAccountName;
             ReduxPlatform.OnlineBlockedReason = JsOnlineBlockedReason;
+            ReduxPlatform.UpdateAvailable = JsUpdateAvailable;
+            ReduxPlatform.ReloadForUpdate = JsReloadForUpdate;
             // touch or PC controls: chosen from the device (or the Controls setting)
             ReduxTouch.Managed = true;
             ReduxTouch.DeviceIsTouch = JsTouchDevice;

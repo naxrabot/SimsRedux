@@ -28,6 +28,11 @@ namespace Simitone.Client.Utils
         /// </summary>
         public static Func<string> OnlineBlockedReason;
 
+        /// <summary>SimsRedux: a newer version of the game that's ready to load ("" when there isn't one) (browser).</summary>
+        public static Func<string> UpdateAvailable;
+        /// <summary>SimsRedux: waits for saves still on their way to the account, then reloads with the new version (browser).</summary>
+        public static Action ReloadForUpdate;
+
         /// <summary>Why online mode can't be used right now, or null if it can.</summary>
         public static string OnlineBlocked()
         {

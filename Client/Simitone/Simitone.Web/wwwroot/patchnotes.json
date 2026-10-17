@@ -2,6 +2,14 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "9.5",
+      "date": "Oct 17, 2026",
+      "features": [
+        "Update notices — when a new version comes out, a notice pops up in the game with an Update button. It offers to save your game first, then reloads with the new version."
+      ],
+      "updates": []
+    },
+    {
       "version": "9.4",
       "date": "Oct 17, 2026",
       "features": [],
