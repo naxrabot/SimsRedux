@@ -254,6 +254,7 @@
             box.style.cssText = 'position:fixed;left:16px;right:16px;bottom:16px;z-index:1001;background:#000052;color:#ffb0a0;border:2px solid #7878c8;padding:12px 16px;font:14px Segoe UI,sans-serif';
             box.textContent = 'Something went wrong and the game stopped: ' + message + ' (details are in the browser console, F12).';
             document.body.appendChild(box);
+            try { if (window.simsReduxReportProblem) window.simsReduxReportProblem('game stopped', message); } catch (e) { }
         };
 
         window.initRenderJS = (instance) =>

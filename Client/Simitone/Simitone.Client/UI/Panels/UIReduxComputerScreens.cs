@@ -28,15 +28,19 @@ namespace Simitone.Client.UI.Panels
     /// Lining it up (PC): while someone's playing, hold Ctrl + Shift and use
     ///   I / K  forward / back        U / O  up / down        J / L  narrower / wider
     ///   N / M  shorter / taller      F      flip to the other side
-    /// The numbers are kept in redux_settings.ini (tm2screen=...) and shown in a corner notice.
+    /// The numbers are kept in redux_settings.ini (tm2screen2=...) and shown in a corner notice.
     /// </summary>
     public static class UIReduxComputerScreens
     {
         private const int Pictures = 7;
         private const double SecondsPerPicture = 3.5;
+        // (a new name: numbers saved with the old, too-big picture aren't used)
+        private const string SettingKey = "tm2screen2";
 
-        // where the screen is, in tile units: in front of the computer's middle, above its base, size
-        private static float Forward = 0.12f, Height = 0.45f, Width = 0.38f, Tall = 0.28f;
+        // where the screen is, in tile units: in front of the computer's middle, above its base, size.
+        // (A little smaller than the computer's own glowing screen, so that frames it - lined up from a
+        // screenshot of the basic computer; the picture used to cover the monitor's edges and float.)
+        private static float Forward = 0.12f, Height = 0.44f, Width = 0.26f, Tall = 0.20f;
         private static bool Flip;
         private static bool Loaded;
 
@@ -53,7 +57,7 @@ namespace Simitone.Client.UI.Panels
             Loaded = true;
             try
             {
-                var s = ReduxSettings.GetString("tm2screen", "");
+                var s = ReduxSettings.GetString(SettingKey, "");
                 var p = s.Split(',');
                 if (p.Length >= 5)
                 {
@@ -115,8 +119,8 @@ namespace Simitone.Client.UI.Panels
                 }
             }
             if (!changed) return;
-            ReduxSettings.Set("tm2screen", SettingText());
-            Simitone.Client.UI.Controls.UIReduxToasts.Show("Monitor picture", "tm2screen = " + SettingText());
+            ReduxSettings.Set(SettingKey, SettingText());
+            Simitone.Client.UI.Controls.UIReduxToasts.Show("Monitor picture", SettingKey + " = " + SettingText());
         }
 
         public static void Draw(UILotControl lot, UISpriteBatch batch)
@@ -205,6 +209,7 @@ namespace Simitone.Client.UI.Panels
             Effect.View = Matrix.Identity;
             Effect.Projection = Matrix.CreateOrthographicOffCenter(0, vp.Width, vp.Height, 0, 0, 1);
             Effect.Texture = tex;
+            Effect.DiffuseColor = new Vector3(0.88f, 0.88f, 0.88f); // (a touch dimmer, like a screen in the room rather than on top of it)
             Quad[0] = new VertexPositionTexture(new Vector3(tl, 0), new Vector2(0, 0));
             Quad[1] = new VertexPositionTexture(new Vector3(tr, 0), new Vector2(1, 0));
             Quad[2] = new VertexPositionTexture(new Vector3(bl, 0), new Vector2(0, 1));

@@ -42,6 +42,7 @@ namespace SimsRedux.Server
         private readonly RateLimiter ModActions = new RateLimiter(30, TimeSpan.FromMinutes(10));
         private readonly RateLimiter SaveUploads = new RateLimiter(60, TimeSpan.FromHours(1));
         private readonly RateLimiter SaveDownloads = new RateLimiter(60, TimeSpan.FromHours(1));
+        private readonly RateLimiter ProblemsByAccount = new RateLimiter(20, TimeSpan.FromHours(1));
         public const string MaintenanceText = "The server is down for maintenance - online play will be back soon.";
 
         /// <summary>Accounts on a town lot right now (key -> connections), for XP while playing.</summary>
@@ -59,7 +60,7 @@ namespace SimsRedux.Server
 
         public void Tidy()
         {
-            LoginByAddress.Tidy(); LoginByName.Tidy(); RegisterByAddress.Tidy(); Everything.Tidy(); ReportsByAccount.Tidy(); ModActions.Tidy(); SaveUploads.Tidy(); SaveDownloads.Tidy();
+            LoginByAddress.Tidy(); LoginByName.Tidy(); RegisterByAddress.Tidy(); Everything.Tidy(); ReportsByAccount.Tidy(); ProblemsByAccount.Tidy(); ModActions.Tidy(); SaveUploads.Tidy(); SaveDownloads.Tidy();
         }
 
         public object Health()
@@ -169,6 +170,7 @@ namespace SimsRedux.Server
                 case "/api/mod/do": if (req.Method == "POST") { await ModDo(req, stream, cors); return; } break;
                 case "/api/notices": if (req.Method == "GET") { await GetNotices(req, stream, cors); return; } break;
                 case "/api/report": if (req.Method == "POST") { await PostReport(req, stream, cors); return; } break;
+                case "/api/problem": if (req.Method == "POST") { await PostProblem(req, stream, cors); return; } break;
                 case "/api/register": if (req.Method == "POST") { await Register(req, stream, cors); return; } break;
                 case "/api/login": if (req.Method == "POST") { await Login(req, stream, cors); return; } break;
                 case "/api/logout": if (req.Method == "POST") { Accounts.Logout(req.BearerToken()); await HttpServer.SendJson(stream, 200, new { ok = true }, cors); return; } break;
@@ -389,6 +391,26 @@ namespace SimsRedux.Server
         }
 
         /// <summary>A player reports another player (from the website's launcher). It waits in the panel.</summary>
+        /// <summary>
+        /// The game hit a problem on someone's device (it stopped, or the page was reloaded while loading):
+        /// what it said goes in the server log, so it can be looked into without the device to hand.
+        /// </summary>
+        private async Task PostProblem(Request req, Stream stream, Dictionary<string, string> cors)
+        {
+            var a = Accounts.Check(req.BearerToken());
+            if (a == null) { await HttpServer.SendJson(stream, 401, new { error = "Log in first." }, cors); return; }
+            if (!ProblemsByAccount.Allow(a.Key)) { await HttpServer.SendJson(stream, 429, new { error = "Too many." }, cors); return; }
+            var body = req.JsonBody();
+            string clean(string t, int max)
+            {
+                var c = new string((t ?? "").Select(ch => ch < 32 ? ' ' : ch).ToArray()).Trim();
+                return c.Length > max ? c.Substring(0, max) : c;
+            }
+            Log.Warn("Game problem on " + a.Name + "'s device (" + clean(Str(body, "device"), 160) + "): " +
+                clean(Str(body, "stage"), 40) + " - " + clean(Str(body, "message"), 1500));
+            await HttpServer.SendJson(stream, 200, new { ok = true }, cors);
+        }
+
         private async Task PostReport(Request req, Stream stream, Dictionary<string, string> cors)
         {
             var a = Accounts.Check(req.BearerToken());

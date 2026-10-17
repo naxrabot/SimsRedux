@@ -18,6 +18,9 @@ namespace Simitone.Client.Utils
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Computer: Sims now keep playing until their Fun is nearly full, and keep writing, chatting or hacking until you stop them - before, most stopped after a few game minutes.",
+            "Writing: a progress bar shows over your Sim's head while they practise writing or work on a novel, like when studying.",
+            "Twisted Metal 2: the game now sits inside the computer's screen instead of floating in front of it.",
             "Fixed: showers, baths and playing on the computer ended after a second or two with the need filled all at once - they last as long as they should again, with needs going up as they go.",
             "Computer: writing, novels, chatting, hacking and Twisted Metal 2 keep going now (they stopped after a few seconds), and skills and fun go up.",
             "New on the computer: Play Twisted Metal 2 - the game plays on the monitor while your Sim has fun.",

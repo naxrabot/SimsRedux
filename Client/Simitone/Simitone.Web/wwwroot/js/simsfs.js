@@ -586,6 +586,42 @@
     })();
 
 
+    // ---------- problems ----------
+    //
+    // When the game stops on someone's device (or the page is reloaded part way through loading,
+    // which is what a phone does when it runs out of memory), what happened is sent to the server's
+    // log - so a problem on a phone can be looked into without plugging the phone into a computer.
+    // Only the problem and the kind of device are sent (never the login).
+    const Problems = (function () {
+        let sent = 0;
+        function device() {
+            const n = navigator;
+            let d = (n.userAgent || '').replace(/\s+/g, ' ');
+            try { d += ' | screen ' + screen.width + 'x' + screen.height + ' @' + (window.devicePixelRatio || 1); } catch (e) { }
+            if (n.deviceMemory) d += ' | ' + n.deviceMemory + ' GB';
+            return d;
+        }
+        function report(stage, message) {
+            if (sent >= 6 || !Account.session || !Account.session.token) return;
+            sent++;
+            Account.call('/api/problem', { stage: String(stage || ''), message: String(message || '').slice(0, 1500), device: device() }).catch(() => { });
+        }
+        window.addEventListener('error', e => report('page error', (e.message || '') + (e.filename ? ' at ' + e.filename.split('/').pop() + ':' + e.lineno : '')));
+        window.addEventListener('unhandledrejection', e => report('page error', (e.reason && (e.reason.stack || e.reason.message)) || String(e.reason)));
+        // .NET's own "unhandled error" goes to the console
+        const consoleError = console.error.bind(console);
+        console.error = function () {
+            consoleError.apply(console, arguments);
+            try {
+                const text = Array.from(arguments).map(a => (a && a.stack) || String(a)).join(' ');
+                if (/unhandled|exception|crit:|abort|out of memory|RuntimeError/i.test(text)) report('game error', text);
+            } catch (e) { }
+        };
+        return { report, device };
+    })();
+    window.simsReduxReportProblem = (stage, message) => Problems.report(stage, message);
+
+
     // ---------- cross saves ----------
     //
     // The player's single-player game (neighbourhood, houses, Sims - the UserData folders - and most
@@ -1112,7 +1148,10 @@
         show('Loading your Sims files', { progress: true, again: true });
         Account.show(false);
         try {
-            if (sessionStorage.getItem('srx-loading')) status('Last time, loading stopped suddenly - this device may not have enough memory for the game.', true);
+            if (sessionStorage.getItem('srx-loading')) {
+                status('Last time, loading stopped suddenly - this device may not have enough memory for the game.', true);
+                Problems.report('reloaded while loading', 'The page was reloaded part way through loading the game files (' + mb(total) + ' to load) - most likely the browser ran out of memory.');
+            }
             sessionStorage.setItem('srx-loading', '1');
         } catch (e) { }
         let done = 0, count = 0;
