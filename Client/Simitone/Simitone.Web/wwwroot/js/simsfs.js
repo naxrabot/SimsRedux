@@ -109,6 +109,15 @@
     async function clearSims() {
         const tx = (await openDb()).transaction(STORE, 'readwrite');
         tx.objectStore(STORE).delete(IDBKeyRange.bound(SIMS_ROOT, SIMS_ROOT + '\uffff'));
+        tx.objectStore(STORE).delete(PENDING_KEY);
+        await txDone(tx);
+    }
+    // while a download from the server is unfinished (the files so far are kept, so it can carry on)
+    const PENDING_KEY = '/meta/download-pending';
+    async function setPending(on) {
+        const tx = (await openDb()).transaction(STORE, 'readwrite');
+        if (on) tx.objectStore(STORE).put({ name: PENDING_KEY, since: Date.now() }, PENDING_KEY);
+        else tx.objectStore(STORE).delete(PENDING_KEY);
         await txDone(tx);
     }
 
@@ -863,11 +872,27 @@
         const files = (Array.isArray(list.files) ? list.files : []).filter(f => f && typeof f.p === 'string' && f.p &&
             !SKIP_EXT.test(f.p) && !/^[\\/]/.test(f.p) && !/(^|[\\/])\.\.([\\/]|$)/.test(f.p));
         if (!files.some(f => f.p.toLowerCase() === 'gamedata/uitext.iff')) throw new Error("the server's game folder doesn't have GameData\\UIText.iff in it");
-        const total = files.reduce((n, f) => n + (f.s || 0), 0);
         show('Getting the game files from the server', { progress: true });
         Account.show(false);
-        await clearSims();
         try { if (navigator.storage && navigator.storage.persist) await navigator.storage.persist(); } catch (e) { }
+
+        // only what's missing or changed: files kept from before (an earlier or interrupted download)
+        // are reused, and ones the server no longer has are removed
+        status('Checking which files you already have...');
+        const have = new Map();
+        for (const r of await allRecords()) {
+            if (!r.k.startsWith(SIMS_ROOT) || !r.v) continue;
+            have.set(r.k, { size: r.v.blob ? r.v.blob.size : -1, m: r.v.m });
+        }
+        const wanted = new Set(files.map(f => key(SIMS_ROOT + f.p)));
+        const stale = Array.from(have.keys()).filter(k => !wanted.has(k));
+        const need = files.filter(f => {
+            const h = have.get(key(SIMS_ROOT + f.p));
+            return !h || h.size !== (f.s || 0) || (f.m && h.m && h.m !== f.m);
+        });
+        const total = need.reduce((n, f) => n + (f.s || 0), 0);
+        const kept = files.length - need.length;
+
         // phones (iPhones especially) only let a website keep so much: say so up front
         try {
             const est = navigator.storage && navigator.storage.estimate ? await navigator.storage.estimate() : null;
@@ -877,43 +902,95 @@
         } catch (e) { if (e && /lets the website keep/.test(e.message)) throw e; }
         // if the page dies part-way (the browser ran out of memory and reloaded it), say so next time
         try { sessionStorage.setItem('srx-downloading', String(Date.now())); } catch (e) { }
+        await setPending(true);
+        if (stale.length) {
+            const tx = db.transaction(STORE, 'readwrite');
+            for (const k of stale) tx.objectStore(STORE).delete(k);
+            await txDone(tx);
+        }
+
+        // the work: many small files per request, compressed (a new enough server), big ones on their own
+        const BATCH_BYTES = 12 * 1048576, BATCH_FILES = 300, ALONE = 24 * 1048576;
+        const jobs = [];
+        let batch = [], batchBytes = 0;
+        for (const f of need) {
+            if (!list.pack || (f.s || 0) > ALONE) { jobs.push([f]); continue; }
+            if (batch.length && (batchBytes + (f.s || 0) > BATCH_BYTES || batch.length >= BATCH_FILES)) { jobs.push(batch); batch = []; batchBytes = 0; }
+            batch.push(f); batchBytes += f.s || 0;
+        }
+        if (batch.length) jobs.push(batch);
+
+        const auth = { 'Authorization': 'Bearer ' + s.token };
+        async function one(f) {
+            const r = await fetch(Account.SERVER + '/api/file?p=' + encodeURIComponent(f.p), { headers: auth });
+            if (r.status === 401 || r.status === 403) throw Object.assign(new Error('login'), { login: true });
+            if (!r.ok) throw new Error(r.status);
+            return [{ f, blob: await r.blob() }];
+        }
+        async function packed(group) {
+            const r = await fetch(Account.SERVER + '/api/pack', {
+                method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, auth),
+                body: JSON.stringify({ p: group.map(f => f.p) })
+            });
+            if (r.status === 401 || r.status === 403) throw Object.assign(new Error('login'), { login: true });
+            if (!r.ok) throw new Error(r.status);
+            const u8 = new Uint8Array(await r.arrayBuffer());
+            const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+            const byPath = new Map(group.map(f => [f.p, f]));
+            const out = [];
+            let o = 0;
+            while (o < u8.length) {
+                const pl = dv.getUint16(o, true); o += 2;
+                const path = new TextDecoder().decode(u8.subarray(o, o + pl)); o += pl;
+                const size = dv.getUint32(o, true); o += 4;
+                if (o + size > u8.length) throw new Error('cut short');
+                const f = byPath.get(path);
+                if (f) out.push({ f, blob: new Blob([u8.subarray(o, o + size)]) });
+                o += size;
+            }
+            if (out.length !== group.length) throw new Error('missing files');
+            return out;
+        }
 
         let done = 0, count = 0, failed = null;
-        const queue = files.slice();
+        if (!need.length) status(`You already have all ${files.length} game files - nothing to download.`);
+        else if (kept) status(`You already have ${kept} of ${files.length} files - getting the other ${need.length} (${mb(total)})`);
+        const queue = jobs.slice();
         async function worker() {
             while (queue.length && !failed) {
-                const f = queue.shift();
-                let blob = null;
-                for (let attempt = 0; attempt < 4 && !blob; attempt++) {
-                    try {
-                        const r = await fetch(Account.SERVER + '/api/file?p=' + encodeURIComponent(f.p), { headers: { 'Authorization': 'Bearer ' + s.token } });
-                        if (r.status === 401 || r.status === 403) { failed = 'your login stopped working - log in again'; return; }
-                        if (!r.ok) throw new Error(r.status);
-                        blob = await r.blob();
-                    } catch (e) {
-                        if (attempt === 3) { failed = 'couldn\'t download ' + f.p + ' (' + (e && e.message || e) + ')'; return; }
+                const job = queue.shift();
+                let got = null;
+                for (let attempt = 0; attempt < 4 && !got; attempt++) {
+                    try { got = (job.length === 1 && !list.pack) || (job.length === 1 && (job[0].s || 0) > ALONE) ? await one(job[0]) : await packed(job); }
+                    catch (e) {
+                        if (e && e.login) { failed = 'your login stopped working - log in again'; return; }
+                        if (attempt === 3) { failed = 'couldn\'t download ' + job[0].p + (job.length > 1 ? ' and ' + (job.length - 1) + ' more' : '') + ' (' + (e && e.message || e) + ')'; return; }
                         await new Promise(ok => setTimeout(ok, 800 * (attempt + 1)));
                     }
                 }
-                const name = SIMS_ROOT + f.p;
                 try {
                     const tx = db.transaction(STORE, 'readwrite');
-                    tx.objectStore(STORE).put({ name: normalize(name), blob }, key(name));
+                    for (const g of got) {
+                        const name = SIMS_ROOT + g.f.p;
+                        tx.objectStore(STORE).put({ name: normalize(name), blob: g.blob, m: g.f.m }, key(name));
+                    }
                     await txDone(tx);
                 } catch (e) {
                     failed = (e && e.name === 'QuotaExceededError')
                         ? 'this browser ran out of storage space after ' + mb(done) + ' (it needs ' + mb(total) + ')'
-                        : "couldn't save " + f.p + ' (' + ((e && (e.name + ': ' + e.message)) || e) + ')';
+                        : "couldn't save " + job[0].p + ' (' + ((e && (e.name + ': ' + e.message)) || e) + ')';
                     return;
                 }
-                done += blob.size; count++;
+                for (const g of got) { done += g.blob.size; count++; }
                 setProgress(done, total);
-                status(`${count} of ${files.length} files (${mb(done)} of ${mb(total)})`);
+                status(`${count} of ${need.length} files (${mb(done)} of ${mb(total)})` + (kept ? ` - ${kept} already here` : ''));
             }
         }
-        await Promise.all(Array.from({ length: 6 }, worker));
+        await Promise.all(Array.from({ length: list.pack ? 4 : 6 }, worker));
         try { sessionStorage.removeItem('srx-downloading'); } catch (e) { }
-        if (failed) { await clearSims(); throw new Error(failed); }
+        // (on a problem the files so far are kept: trying again carries on from there)
+        if (failed) throw new Error(failed + ' - press it again to carry on where it stopped');
+        await setPending(false);
         return true;
     }
 
@@ -1015,7 +1092,10 @@
     function isLazy(k) { return LAZY.some(r => r.test(k)); }
 
     async function loadStored() {
-        const records = await allRecords();
+        const all = await allRecords();
+        // a download from the server that hasn't finished: not ready to play yet (it carries on next time)
+        if (all.some(r => r.k === PENDING_KEY)) return false;
+        const records = all.filter(r => r.v && r.v.blob);
         const sims = records.filter(r => r.k.startsWith(SIMS_ROOT));
         if (!sims.some(r => r.k === '/sims/gamedata/uitext.iff')) return false;
 
@@ -1050,7 +1130,8 @@
                 }
             }
         }
-        await Promise.all([worker(), worker(), worker(), worker()]);
+        // (8 at a time: reading them back is mostly waiting on storage, so more at once is quicker)
+        await Promise.all(Array.from({ length: 8 }, worker));
         try { sessionStorage.removeItem('srx-loading'); } catch (e) { }
         // music etc: known now, loaded in the background once the game is running
         for (const r of records.filter(r => isLazy(r.k)))
@@ -1114,7 +1195,9 @@
     async function hasGameFiles() {
         try {
             const tx = (await openDb()).transaction(STORE, 'readonly');
-            return (await req(tx.objectStore(STORE).count(IDBKeyRange.only('/sims/gamedata/uitext.iff')))) > 0;
+            const st = tx.objectStore(STORE);
+            if ((await req(st.count(IDBKeyRange.only(PENDING_KEY)))) > 0) return false; // (a download that hasn't finished)
+            return (await req(st.count(IDBKeyRange.only('/sims/gamedata/uitext.iff')))) > 0;
         } catch (e) { return false; }
     }
     function esc(t) { const d = document.createElement('div'); d.textContent = t == null ? '' : String(t); return d.innerHTML; }
@@ -1480,8 +1563,8 @@
             if (sessionStorage.getItem('srx-downloading')) {
                 sessionStorage.removeItem('srx-downloading');
                 problem = 'The last download stopped suddenly - the browser most likely ran out of memory and reloaded the page. ' +
+                    'The files it got are kept: get them from the server again to carry on where it stopped. ' +
                     'Phones (iPhones especially) may not have enough room for The Sims in a browser.';
-                await clearSims();
             }
         } catch (e) { }
         while (!loaded) {

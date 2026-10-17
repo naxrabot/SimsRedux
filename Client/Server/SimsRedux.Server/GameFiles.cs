@@ -17,6 +17,7 @@ namespace SimsRedux.Server
             public string Path;      // relative, with forward slashes, e.g. "GameData/UIText.iff"
             public string FullPath;
             public long Size;
+            public long Modified;    // last changed (unix seconds): the website re-downloads a file when this changes
         }
 
         private readonly object Lock = new object();
@@ -51,9 +52,9 @@ namespace SimsRedux.Server
                     {
                         var rel = System.IO.Path.GetRelativePath(root, full).Replace('\\', '/');
                         if (SkipExt.IsMatch(rel) || rel.StartsWith("..")) continue;
-                        long size;
-                        try { size = new FileInfo(full).Length; } catch { continue; }
-                        list.Add(new Entry { Path = rel, FullPath = full, Size = size });
+                        long size, modified;
+                        try { var fi = new FileInfo(full); size = fi.Length; modified = new DateTimeOffset(fi.LastWriteTimeUtc).ToUnixTimeSeconds(); } catch { continue; }
+                        list.Add(new Entry { Path = rel, FullPath = full, Size = size, Modified = modified });
                     }
                     list.Sort((a, b) => string.Compare(a.Path, b.Path, StringComparison.OrdinalIgnoreCase));
                     if (list.Count == 0) problem = "the game folder is empty";

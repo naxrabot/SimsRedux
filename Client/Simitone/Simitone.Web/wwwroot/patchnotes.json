@@ -2,6 +2,19 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "7.9",
+      "date": "Oct 16, 2026",
+      "features": [
+        "Screen stays on — phones and tablets no longer dim or lock while the game is open."
+      ],
+      "updates": [
+        "Faster game file downloads — files come many at a time and squeezed smaller.",
+        "Only what's new — getting the files again only downloads what's missing or changed.",
+        "Picks up where it stopped — an interrupted download carries on instead of starting over.",
+        "Faster loading — your game files load into the game more quickly."
+      ]
+    },
+    {
       "version": "7.8",
       "date": "Oct 16, 2026",
       "features": [],

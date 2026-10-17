@@ -15,6 +15,7 @@ namespace SimsRedux.Server
     ///   POST /api/password         change password          { old, new }
     ///   GET  /api/files            the game-file list       (Admin/Tester only)
     ///   GET  /api/file?p=...       one game file            (Admin/Tester only)
+    ///   POST /api/pack             many game files at once, compressed  (Admin/Tester only)
     ///   GET  /api/town/info        the town's stamp and open lots (logged in)
     ///   GET  /api/town             the town's files, for the neighbourhood screen (logged in)
     ///   GET  /api/saves/info       this account's cross saves: number, when, which device (logged in)
@@ -92,7 +93,7 @@ namespace SimsRedux.Server
             var cors = Cors(req);
 
             // (game-file downloads are thousands of requests, but only for logged-in Admins and Testers)
-            bool fileRequest = req.Path == "/api/file" || req.Path == "/api/files";
+            bool fileRequest = req.Path == "/api/file" || req.Path == "/api/files" || req.Path == "/api/pack";
             if (!fileRequest && !Everything.Allow(req.From))
             {
                 await HttpServer.SendJson(stream, 429, new { error = "Too many requests - slow down a little." }, cors);
@@ -175,6 +176,7 @@ namespace SimsRedux.Server
                 case "/api/password": if (req.Method == "POST") { await ChangePassword(req, stream, cors); return; } break;
                 case "/api/files": if (req.Method == "GET") { await FileList(req, stream, cors); return; } break;
                 case "/api/file": if (req.Method == "GET") { await FileGet(req, stream, cors); return; } break;
+                case "/api/pack": if (req.Method == "POST") { await FilePack(req, stream, cors); return; } break;
                 case "/api/town/info": if (req.Method == "GET") { await TownInfo(req, stream, cors); return; } break;
                 case "/api/saves/info": if (req.Method == "GET") { await SavesInfo(req, stream, cors); return; } break;
                 case "/api/saves":
@@ -453,8 +455,75 @@ namespace SimsRedux.Server
                 ok = true,
                 count = list.Count,
                 bytes = list.Sum(e => e.Size),
-                files = list.Select(e => new { p = e.Path, s = e.Size }),
+                pack = true, // (this server can send many files at once: /api/pack)
+                files = list.Select(e => new { p = e.Path, s = e.Size, m = e.Modified }),
             }, cors);
+        }
+
+        private const int MaxPackFiles = 400;
+        private const long MaxPackBytes = 48L * 1024 * 1024;
+
+        /// <summary>
+        /// Many game files in one go, compressed - thousands of single downloads through the tunnel were
+        /// most of the waiting. The body is {"p": ["GameData/UIText.iff", ...]}; the reply is the files one
+        /// after another (2-byte path length, the path in UTF-8, 4-byte size, the bytes; little-endian),
+        /// gzip-compressed (the browser undoes that by itself). Only files in the list can be sent.
+        /// </summary>
+        private async Task FilePack(Request req, Stream stream, Dictionary<string, string> cors)
+        {
+            var a = FilesAccount(req, out var status, out var error);
+            if (a == null) { await HttpServer.SendJson(stream, status, new { error }, cors); return; }
+            var paths = new List<string>();
+            try
+            {
+                using var doc = JsonDocument.Parse(req.Body ?? Array.Empty<byte>());
+                foreach (var p in doc.RootElement.GetProperty("p").EnumerateArray())
+                    if (p.ValueKind == JsonValueKind.String) paths.Add(p.GetString());
+            }
+            catch { await HttpServer.SendJson(stream, 400, new { error = "Bad file list." }, cors); return; }
+            if (paths.Count == 0 || paths.Count > MaxPackFiles) { await HttpServer.SendJson(stream, 400, new { error = "Ask for 1 to " + MaxPackFiles + " files at a time." }, cors); return; }
+
+            var entries = new List<GameFiles.Entry>();
+            long raw = 0;
+            foreach (var p in paths)
+            {
+                var e = Files.Get(p);
+                if (e == null) { await HttpServer.SendJson(stream, 404, new { error = "No such game file." }, cors); return; }
+                entries.Add(e);
+                raw += e.Size;
+            }
+            if (raw > MaxPackBytes && entries.Count > 1) { await HttpServer.SendJson(stream, 400, new { error = "Too much at once - ask for fewer files." }, cors); return; }
+
+            byte[] body;
+            try
+            {
+                using var ms = new MemoryStream();
+                using (var gz = new System.IO.Compression.GZipStream(ms, System.IO.Compression.CompressionLevel.Fastest, true))
+                {
+                    var small = new byte[4];
+                    foreach (var e in entries)
+                    {
+                        var data = await File.ReadAllBytesAsync(e.FullPath);
+                        var pb = Encoding.UTF8.GetBytes(e.Path);
+                        small[0] = (byte)pb.Length; small[1] = (byte)(pb.Length >> 8);
+                        gz.Write(small, 0, 2);
+                        gz.Write(pb, 0, pb.Length);
+                        BitConverter.TryWriteBytes(small, (uint)data.Length);
+                        if (!BitConverter.IsLittleEndian) Array.Reverse(small);
+                        gz.Write(small, 0, 4);
+                        gz.Write(data, 0, data.Length);
+                    }
+                }
+                body = ms.ToArray();
+            }
+            catch (Exception e)
+            {
+                Log.Warn("game files: couldn't pack for " + a.Name + ": " + e.Message);
+                await HttpServer.SendJson(stream, 500, new { error = "A game file couldn't be read - try again." }, cors);
+                return;
+            }
+            var headers = new Dictionary<string, string>(cors) { ["Content-Encoding"] = "gzip" };
+            await HttpServer.Send(stream, 200, "application/octet-stream", body, headers);
         }
 
         private async Task FileGet(Request req, Stream stream, Dictionary<string, string> cors)
