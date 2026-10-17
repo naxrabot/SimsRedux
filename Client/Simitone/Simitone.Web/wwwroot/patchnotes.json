@@ -2,6 +2,15 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "8.5",
+      "date": "Oct 17, 2026",
+      "features": [],
+      "updates": [
+        "Computer fix — Practice Writing, Write a Novel, Chat Online, Hack and Play Twisted Metal 2 no longer stop after a few seconds, so Writing skill and Fun go up.",
+        "Keep at it — while writing, chatting or hacking, your Sim keeps going until you stop them (or they get too hungry or tired)."
+      ]
+    },
+    {
       "version": "8.4",
       "date": "Oct 17, 2026",
       "features": [
