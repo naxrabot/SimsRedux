@@ -179,7 +179,9 @@ namespace Simitone.Client.UI.Screens
 
         private string MissingFallback(string x, IEnumerable<string> texnames)
         {
-            return "x";
+            // SimsRedux: an outfit with no picture at all used to be listed anyway with a blank stand-in
+            // ("x"), which showed as a plain grey outfit. Leave it out instead.
+            return null;
         }
 
         private void PopulateSimType(string simtype)
@@ -194,12 +196,15 @@ namespace Simitone.Client.UI.Screens
             ActiveHeads = heads;
             ActiveBodies = bodies;
             
-            ActiveHeadTex = heads.Select(x => RemoveExt(texnames.FirstOrDefault(y => y.StartsWith(ExtractID(x, CurrentSkin))))).ToList();
+            // SimsRedux: the picture names are kept in lower case, but outfit names can have capitals -
+            // compare them in lower case too, or those outfits never find their picture
+            texnames = texnames.ToList();
+            ActiveHeadTex = heads.Select(x => RemoveExt(texnames.FirstOrDefault(y => y.StartsWith(ExtractID(x, CurrentSkin).ToLowerInvariant())))).ToList();
             ActiveBodyTex = bodies.Select(x => RemoveExt(
-                texnames.FirstOrDefault(y => y.StartsWith(ExtractID(x, CurrentSkin)))
-                ?? texnames.FirstOrDefault(y => y.StartsWith(ExtractID(x, ""))) ?? MissingFallback(x, texnames)
+                texnames.FirstOrDefault(y => y.StartsWith(ExtractID(x, CurrentSkin).ToLowerInvariant()))
+                ?? texnames.FirstOrDefault(y => y.StartsWith(ExtractID(x, "").ToLowerInvariant())) ?? MissingFallback(x, texnames)
                 )).ToList();
-            ActiveHandgroupTex = ActiveBodyTex.Select(x => (RemoveExt(texnames.FirstOrDefault(y => RemoveExt(y) == "huao"+FindHG(x))) ?? "huao"+ CurrentSkin).Substring(4)).ToList();
+            ActiveHandgroupTex = ActiveBodyTex.Select(x => (RemoveExt(texnames.FirstOrDefault(y => x != null && RemoveExt(y) == "huao"+FindHG(x).ToLowerInvariant())) ?? "huao"+ CurrentSkin).Substring(4)).ToList();
 
             for (int i=0; i<ActiveHeads.Count; i++)
             {

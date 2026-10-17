@@ -134,6 +134,8 @@ namespace Simitone.Client.UI.Panels.CAS
             if (!R) return Btn(path, x, y, frames, cutout);
             var btn = new UIReduxTextButton(caption, rw, rh);
             btn.Position = new Vector2(rx, ry);
+            // the original Sims 1 picture on the Redux button (closer to the original Create-a-Sim)
+            try { btn.SetArt(cutout ? TS1UIGraphics.GetCutout(path, frames) : TS1UIGraphics.Get(path), frames); } catch { }
             Add(btn);
             return btn;
         }
@@ -141,7 +143,8 @@ namespace Simitone.Client.UI.Panels.CAS
         private UITS1Button RAutoBtn(string path, int x, int y, string caption, int rx, int ry, int rw, int rh)
         {
             if (!R) return AutoBtn(path, x, y);
-            return RBtn(path, x, y, 4, false, caption, rx, ry, rw, rh);
+            // (cut out: some of these pictures have a solid background baked in)
+            return RBtn(path, x, y, TS1UIGraphics.GuessFrames(TS1UIGraphics.Get(path)), true, caption, rx, ry, rw, rh);
         }
 
         private UITS1Button Btn(string path, int x, int y, int frames = 4, bool cutout = false)

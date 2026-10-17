@@ -2,6 +2,17 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "7.8",
+      "date": "Oct 16, 2026",
+      "features": [],
+      "updates": [
+        "Buying on touch — tapping a catalog picture picks the item up again, so you can buy and place things on phones and tablets.",
+        "Create-a-Sim outfits — no more plain grey outfits in the list.",
+        "Create-a-Sim buttons — the original Sims 1 pictures are back on the age, skin, gender, arrow and Done / Cancel buttons.",
+        "New-look popups — Delete Family?, Yes / No questions, in-game messages, Help, Online and Colours windows now match the new interface."
+      ]
+    },
+    {
       "version": "7.7",
       "date": "Oct 16, 2026",
       "features": [],

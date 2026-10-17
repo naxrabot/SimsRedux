@@ -44,6 +44,22 @@ namespace Simitone.Client.UI.Controls
             Style.Shadow = true;
         }
 
+        // SimsRedux: the original Sims 1 picture for this button, drawn on the Redux button
+        private Texture2D Art;
+        private int ArtFrames = 4;
+
+        /// <summary>
+        /// Shows a Sims 1 button picture on the button (its frames: normal, hover, pressed, disabled...).
+        /// A wide button shows the picture with its caption beside it, a small one just the picture.
+        /// </summary>
+        public void SetArt(Texture2D tex, int frames)
+        {
+            frames = Math.Max(1, frames);
+            if (tex == null || tex.Width < frames * 2 || tex.Height < 2) return; // (missing art: keep the words)
+            Art = tex;
+            ArtFrames = frames;
+        }
+
         public override void Draw(UISpriteBatch batch)
         {
             if (!Visible) return;
@@ -60,10 +76,31 @@ namespace Simitone.Client.UI.Controls
             DrawLocalTexture(batch, ReduxTheme.Box(W, H, r, Color.Black * 0.35f, Color.Black * 0.35f, Color.Transparent, 0), new Vector2(1, 2));
             DrawLocalTexture(batch, ReduxTheme.Box(W, H, r, top, bottom, border, Selected && !Disabled ? 2 : 1), Vector2.Zero);
             DrawLocalTexture(batch, ReduxTheme.Box(Math.Max(2, W - 8), Math.Max(2, H / 2 - 2), Math.Max(1, r / 2), Color.White * 0.28f, Color.White * 0.05f, Color.Transparent, 0), new Vector2(4, 2));
+            var textArea = new Rectangle(0, 0, W, H);
+            if (Art != null)
+            {
+                int fw = Art.Width / ArtFrames, fh = Art.Height;
+                int frame;
+                if (Disabled) frame = ArtFrames >= 6 ? 4 : 3;
+                else if (Selected && !pressed) frame = SelectedFrame;
+                else if (pressed) frame = 2;
+                else if (hover) frame = 1;
+                else frame = 0;
+                frame = Math.Max(0, Math.Min(ArtFrames - 1, frame));
+                bool withText = !string.IsNullOrEmpty(Caption) && Caption.Length > 1 && W >= H * 2.2f;
+                float bw = withText ? H - 6 : W - 6, bh = H - 6;
+                float k = Math.Min(bw / fw, bh / fh);
+                var size = new Vector2(fw * k, fh * k);
+                var pos = withText ? new Vector2(4 + (bw - size.X) / 2, 3 + (bh - size.Y) / 2)
+                                   : new Vector2((W - size.X) / 2, (H - size.Y) / 2);
+                DrawLocalTexture(batch, Art, new Rectangle(frame * fw, 0, fw, fh), pos, new Vector2(k, k));
+                if (!withText) return;
+                textArea = new Rectangle(H - 2, 0, W - H - 2, H);
+            }
             Style.Size = TextSize;
-            try { while (Style.Size > 6 && Style.MeasureString(Caption ?? "").X > W - 8) Style.Size--; } catch { }
+            try { while (Style.Size > 6 && Style.MeasureString(Caption ?? "").X > textArea.Width - 8) Style.Size--; } catch { }
             Style.Color = Disabled ? new Color(160, 166, 195) : Color.White;
-            DrawLocalString(batch, Caption ?? "", Vector2.Zero, Style, new Rectangle(0, 0, W, H), TextAlignment.Center | TextAlignment.Middle);
+            DrawLocalString(batch, Caption ?? "", new Vector2(textArea.X, 0), Style, new Rectangle(0, 0, textArea.Width, H), TextAlignment.Center | TextAlignment.Middle);
         }
     }
 }

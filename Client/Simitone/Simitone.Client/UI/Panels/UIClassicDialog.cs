@@ -46,7 +46,8 @@ namespace Simitone.Client.UI.Panels
 
             TitleLabel = MakeLabel(title ?? "", 18);
             TitleLabel.Position = new Vector2(Padding, 18);
-            TitleLabel.Alignment = TextAlignment.Left;
+            TitleLabel.Alignment = ReduxTheme.Redux ? TextAlignment.Center : TextAlignment.Left; // (Redux: centred, like the other windows)
+            if (ReduxTheme.Redux) TitleLabel.CaptionStyle.Color = Color.White;
             TitleLabel.Size = new Vector2(width - Padding * 2, 26);
 
             MessageLabel = MakeLabel(message ?? "", 17);
@@ -126,6 +127,7 @@ namespace Simitone.Client.UI.Panels
         /// <summary>Draws the navy box with a bevelled edge, like the original Sims 1 popups.</summary>
         private void DrawBox(UISpriteBatch batch, Vector2 size)
         {
+            if (DrawWindow(this, batch, (int)size.X, (int)size.Y)) return;
             var px = TextureGenerator.GetPxWhite(GameFacade.GraphicsDevice);
             float w = size.X, h = size.Y;
             // soft drop shadow
@@ -139,6 +141,21 @@ namespace Simitone.Client.UI.Panels
             // inner bevel line
             DrawLocalTexture(batch, px, null, new Vector2(2, 2), new Vector2(w - 4, 2), BevelMid);
             DrawLocalTexture(batch, px, null, new Vector2(2, 2), new Vector2(2, h - 4), BevelMid);
+        }
+
+        /// <summary>
+        /// SimsRedux: the Redux window (the same look as Create-a-Sim and the family screens: a rounded
+        /// panel in the UI colour with a soft shine along the top). Returns false with the Redux look
+        /// off - the caller then draws the original navy box.
+        /// </summary>
+        public static bool DrawWindow(UIElement e, UISpriteBatch batch, int w, int h)
+        {
+            if (!ReduxTheme.Redux) return false;
+            int r = Math.Min(18, Math.Min(w, h) / 4);
+            e.DrawLocalTexture(batch, ReduxTheme.Box(w, h, r, Color.Black * 0.4f, Color.Black * 0.4f, Color.Transparent, 0), new Vector2(3, 5));
+            e.DrawLocalTexture(batch, ReduxTheme.Box(w, h, r, ReduxTheme.Deep, ReduxTheme.Deeper, ReduxTheme.Rim, 2), Vector2.Zero);
+            e.DrawLocalTexture(batch, ReduxTheme.Box(Math.Max(4, w - 4), Math.Min(54, Math.Max(4, h - 4)), Math.Max(2, r - 2), ReduxTheme.Hi * 0.9f, ReduxTheme.Deep * 0.2f, Color.Transparent, 0), new Vector2(2, 2));
+            return true;
         }
 
         // ------------------------------------------------------------------
@@ -234,7 +251,9 @@ namespace Simitone.Client.UI.Panels
 
         public override void Draw(UISpriteBatch batch)
         {
-            if (!Visible || Texture == null) return;
+            if (!Visible) return;
+            if (ReduxTheme.Redux) { DrawRedux(batch); return; }
+            if (Texture == null) return;
             int frames = 4;
             int fw = Texture.Width / frames, h = Texture.Height;
             var state = CurrentFrame; // 0 normal, 1 pressed, 2 hover
@@ -255,6 +274,29 @@ namespace Simitone.Client.UI.Panels
             if (state == 2 && !Disabled) style = HoverStyle;
             else if (Selected && !Disabled) style = SelectedStyle;
             DrawLocalString(batch, Text, Vector2.Zero, style, new Rectangle(0, 0, ButtonW, h), TextAlignment.Center | TextAlignment.Middle);
+        }
+
+        /// <summary>SimsRedux: the same rounded, glossy button as the rest of the Redux interface.</summary>
+        private void DrawRedux(UISpriteBatch batch)
+        {
+            int W = ButtonW, H = (Texture != null && Texture.Height > 1) ? Texture.Height : 33;
+            bool pressed = CurrentFrame == 1, hover = CurrentFrame == 2;
+            Color top, bottom;
+            if (Disabled) { top = ReduxTheme.Deep; bottom = ReduxTheme.Deeper; }
+            else if (pressed) { top = ReduxTheme.Deep; bottom = ReduxTheme.Base; }
+            else if (Selected || hover) { top = ReduxTheme.Gloss; bottom = ReduxTheme.Hi; }
+            else { top = ReduxTheme.Hi; bottom = ReduxTheme.Deep; }
+            var border = (hover || Selected) && !Disabled ? ReduxTheme.Glow : ReduxTheme.Rim;
+            int r = Math.Min(H / 2, 14);
+            DrawLocalTexture(batch, ReduxTheme.Box(W, H, r, Color.Black * 0.35f, Color.Black * 0.35f, Color.Transparent, 0), new Vector2(1, 2));
+            DrawLocalTexture(batch, ReduxTheme.Box(W, H, r, top, bottom, border, Selected && !Disabled ? 2 : 1), Vector2.Zero);
+            DrawLocalTexture(batch, ReduxTheme.Box(Math.Max(2, W - 8), Math.Max(2, H / 2 - 2), Math.Max(1, r / 2), Color.White * 0.28f, Color.White * 0.05f, Color.Transparent, 0), new Vector2(4, 2));
+            var style = Disabled ? Style : (Selected ? SelectedStyle : Style);
+            var c = style.Color;
+            style.Color = Disabled ? new Color(160, 166, 195) : (Selected ? new Color(255, 240, 110) : Color.White);
+            style.Shadow = true;
+            DrawLocalString(batch, Text, Vector2.Zero, style, new Rectangle(0, 0, W, H), TextAlignment.Center | TextAlignment.Middle);
+            style.Color = c;
         }
     }
 }
