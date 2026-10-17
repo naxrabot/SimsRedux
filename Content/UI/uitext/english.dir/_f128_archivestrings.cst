@@ -1,0 +1,35 @@
+﻿1 ^Download Required^
+2 ^The selected save "%s" has missing data that can be downloaded from %s. This download is approximately %s. Would you like to download the save data?^
+3 ^No Data^
+4 ^The selected save is missing its data, so the server cannot be started.^
+5 ^Downloading Archive Data^
+6 ^Corrupt Data^
+7 ^Extracting Data^
+8 ^The archive data is corrupted, so the server cannot be started.^
+9 ^Delete data^
+10 ^Download Failed^
+11 ^Unable to download the archive data. Check your internet connection and try again, or contact the provider of the archive data.^
+12 ^Extracting %s... (%s/%s)^
+13 ^Scanning %s... Might take some time. (%s files found)^
+14 ^UPnP^
+15 ^Attempting to forward ports with UPnP...^
+16 ^UPnP Failed^
+17 ^Failed to forward ports with UPnP! Either enable UPnP on your router, or disable the UPnP setting and set the server ports manually.^
+18 ^Disable UPnP to manually set ports.^
+19 ^Server Information^
+20 ^You're connected to a server hosted by this game client.^
+21 ^You're connected to a server hosted by another game client.^
+22 ^You're connected to a dedicated server.^
+23 ^You're offline. To connect with other players, select "Host Server" on the menu and uncheck "Offline Mode".^
+24 ^If the game client hosting this server closes, everyone will disconnect!^
+25 ^!! View Server IP !!^
+26 ^Public IP:^
+27 ^(fetching public ip...)^
+28 ^Private IPs:^
+29 ^(local network)^
+30 ^(VPN)^
+31 ^(Hamachi)^
+32 ^(ZeroTier)^
+33 ^Copy^
+34 ^Copied to clipboard!^
+35 ^(could not determine IP - are you offline?)^

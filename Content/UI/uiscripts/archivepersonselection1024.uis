@@ -1,0 +1,245 @@
+# UI properties for Archive Person Selection window
+
+<Begin>
+
+	# Images ---------------------------------------------------------------------------------------
+
+	<DefineImage "BackgroundImage"			assetID="0x00000C1000000001"> # ./uigraphics/personselection/1024-768frame.bmp
+	
+	<DefineImage "TabBackgroundImage"			assetID="0x000007CB00000001"> #./uigraphics/personselection/person_select_tabsback.bmp
+	<DefineImage "DescriptionBackgroundImage"	assetID="0x000007BE00000001"> #./uigraphics/personselection/person_select_descriptionback.bmp	
+	<DefineImage "DescriptionTabImage"			assetID="0x000007BF00000001"> #./uigraphics/personselection/person_select_descriptiontab.bmp
+	<DefineImage "DescriptionTabBtnImage"		assetID="0x000007C000000001"> #./uigraphics/personselection/person_select_descriptiontabbtn.bmp
+	<DefineImage "EnterTabBtnImage"				assetID="0x000007C100000001"> #./uigraphics/personselection/person_select_entertabbtn.bmp
+	<DefineImage "EnterTabImage"				assetID="0x000007C400000001"> #./uigraphics/personselection/person_select_icontab.bmp
+	<DefineImage "EnterTabIndentsImage"			assetID="0x000007C300000001"> #./uigraphics/personselection/person_select_iconsindents.bmp
+	<DefineImage "ExitButtonImage"				assetID="0x000003FF00000001"> #./uigraphics/personselection/person_select_exitBtn.bmp">
+	<DefineImage "SimCreateButtonImage"			assetID="0x000007C800000001"> #./uigraphics/personselection/person_select_simcreatebtn.bmp
+	<DefineImage "SimSelectButtonImage"			assetID="0x000007C900000001"> #./uigraphics/personselection/person_select_simselectbtn.bmp
+	<DefineImage "ScrollbarImage"				assetID="0x0000031000000001"> #./uigraphics/gizmo/gizmo_scrollbarimg.bmp
+	<DefineImage "ScrollDownButtonImage"		assetID="0x000003F800000001"> #./uigraphics/personselection/person_select_arrowdownbtn.bmp
+	<DefineImage "ScrollUpButtonImage"			assetID="0x000003F900000001"> #./uigraphics/personselection/person_select_arrowupbtn.bmp
+	<DefineImage "HouseButtonTemplateImage"		assetID="0x000003DB00000001"> #./uigraphics/personselection/cas-sas-templatehouse.bmp
+	<DefineImage "CityButtonTemplateImage"		assetID="0x000003DA00000001"> #./uigraphics/personselection/cas-sas-templatecity.bmp
+	<DefineImage "CityHouseButtonAlpha"			assetID="0x0000017900000002"> #./uigraphics/personselection/person_select_cityhouseiconalpha.tga
+	<DefineImage "DefaultHouseImage"			assetID="0x000004CC00000001">
+	<DefineImage "CreditsButtonImage"			assetID="0x0000089500000001"> #./uigraphics/personselection/cas-sas-creditsbtn.bmp
+	<DefineImage "CreditsBackgroundImage"		assetID="0x0000089600000001"> #./uigraphics/personselection/cas-sas-creditsindent.bmp	
+	<DefineImage "CityThumbnailBusyImage"		assetID="0x00000B8200000001"> #./uigraphics/personselection/person_select_cityhouseiconbusy.tga
+
+	<DefineImage "CancelButtonImage"			assetID="archive/archive_casbutton.png">
+
+	# Strings --------------------------------------------------------------------------------------
+
+	<Begin><SetSharedProperties stringDir = "UIText" stringTable = 169>
+
+		<DefineString "ExitButtonTooltip"				stringIndex = 1>
+		<DefineString "PersonNameTooltip"				stringIndex = 2>
+		<DefineString "DescriptionTooltip"				stringIndex = 3>
+		<DefineString "NewAvatarButtonCaption"			stringIndex = 4>
+		<DefineString "DeleteAvatarButtonCaption"		stringIndex = 5>
+		<DefineString "CityButtonTooltip"				stringIndex = 6>
+		<DefineString "HouseButtonTooltip"				stringIndex = 7>
+		<DefineString "Unknown"							stringIndex = 8>
+		<DefineString "DeleteAvatarDialogTitle"			stringIndex = 9>
+		<DefineString "DeleteAvatarDialogText"			stringIndex = 10>
+		<DefineString "SelectAvatarTooltip"				stringIndex = 11>
+		<DefineString "CreateAvatarTooltip"				stringIndex = 12>
+		<DefineString "EnterTabButtonTooltip"			stringIndex = 13>
+		<DefineString "DescriptionTabButtonTooltip"		stringIndex = 14>
+		<DefineString "ScrollUpTooltip"					stringIndex = 15>
+		<DefineString "ScrollDownTooltip"				stringIndex = 16>
+		<DefineString "TitleLabelText"					stringIndex = 17>
+		<DefineString "TimeOutText"						stringIndex = 18>
+		<DefineString "TimeOutDialogTitle"				stringIndex = 19>
+		<DefineString "TimeOutDialogFirstWarning"		stringIndex = 20>
+		<DefineString "TimeOutDialogSecondWarning"		stringIndex = 21>
+        <DefineString "DeleteAvatarErrorTitle"			stringIndex = 22>
+        <DefineString "DeleteAvatarErrorMessageAddOn"   stringIndex = 23>
+        <DefineString "CityOfflineTooltip"				stringIndex = 24>
+        <DefineString "CityBusyTooltip"					stringIndex = 25>
+		<DefineString "CreditsButtonTooltip"			stringIndex = 26>
+		<DefineString "FamilyButtonText"				stringIndex = 27>
+		<DefineString "FamilyButtonTooltip"				stringIndex = 28>
+	
+	<End>
+
+	# Images ---------------------------------------------------------------------------------------
+
+	<SetControlProperties "BackgroundDialogImage"	image="BackgroundImageDialog" position=(112,84) >
+	
+	<SetControlProperties "CreditsButtonBackgroundImage" image="CreditsBackgroundImage" position=(120,90)>
+
+	<Begin><SetSharedProperties image="TabBackgroundImage">
+			
+		<SetControlProperties "TabBackgroundImage1" position=(125,428)  >
+
+	<End>	
+
+	<Begin><SetSharedProperties image="EnterTabImage">
+			
+		<SetControlProperties "EnterTabImage1" position=(152,393)  >
+
+	<End>	
+
+	<Begin><SetSharedProperties image="DescriptionTabImage">
+			
+		<SetControlProperties "DescriptionTabImage1" position=(278,393) >
+
+	<End>	
+
+	<Begin><SetSharedProperties image="DescriptionBackgroundImage">
+			
+		<SetControlProperties "DescriptionTabBackgroundImage1" position=(137,452) >
+
+	<End>
+
+	<Begin><SetSharedProperties image="EnterTabIndentsImage">
+			
+		<SetControlProperties "EnterTabBackgroundImage1" position=(147,459) >
+
+	<End>
+
+	# Buttons --------------------------------------------------------------------------------------
+
+	<Begin><SetSharedProperties image="EnterTabBtnImage" tracking=2 trigger=1 tooltip="EnterTabButtonTooltip">
+
+		<AddButton "EnterTabButton1" id=1 position=(176,401)>
+
+	<End>	
+	
+	<Begin><SetSharedProperties image="DescriptionTabBtnImage" tracking=2 trigger=1 tooltip="DescriptionTabButtonTooltip">
+
+		<AddButton "DescriptionTabButton1" id=4 position=(304,401)>
+
+	<End>
+	
+	<Begin><SetSharedProperties MouseTransparent=1>
+
+		<AddButton "AvatarButton1" id=7 position=(182,164)>
+
+	<End>
+
+	<Begin><SetSharedProperties size=(90,70) tooltip="CityButtonTooltip">
+
+		<AddButton "CityButton1" id=10 position=(150,462)>
+
+	<End>
+
+	<Begin><SetSharedProperties size=(90,70) tooltip="HouseButtonTooltip">
+
+		<AddButton "HouseButton1" id=13 position=(150,554)>
+
+	<End>
+
+	<Begin>
+
+		<SetSharedProperties 
+
+			font                 = 10
+			textColor		     = (255,249,157) 
+			textColorSelected    = (0,243,247)
+			textColorHighlighted = (255,255,255)	
+			textColorDisabled	 = (100,100,100)
+			textButton			 = 1
+		>
+
+		<Begin><SetSharedProperties text = "NewAvatarButtonCaption">
+
+			<AddButton "NewAvatarButton1" id=16 position=(171,620)>
+
+		<End>
+
+		<Begin><SetSharedProperties text = "DeleteAvatarButtonCaption">
+
+			<AddButton "DeleteAvatarButton1" id=19 position=(181,620)>
+
+		<End>
+		
+	<End>
+
+	<AddButton "ExitButton" id=22 position=(874,92) image="ExitButtonImage" tooltip="ExitButtonTooltip">
+
+	# Text Labels --------------------------------------------------------------------------------------------
+
+	<Begin><SetSharedProperties font=9 color=(255,249,157) size=(235,17) alignment=3 opaque=0 tooltip="PersonNameTooltip" wrapped=0>
+
+		<AddText "PersonNameText1" id=23 position=(134,136)>
+
+	<End>
+
+	# description
+	
+	<Begin>
+	
+		<SetSharedProperties 
+		
+				font			= 9
+				color			= (255,249,157) 
+				backColor		= (0,0,0)
+				cursorColor		= (255,255,255)
+				frameColor		= (250,211,28)
+				backgroundColor	= (0,0,0)
+				size			= (190,153) 
+				transparent		= 1
+				tooltip			= "DescriptionTooltip" 
+				mode			= "kReadOnly"
+				frameOnFocus    = 0
+				capacity 		= 50000
+		>
+
+		<AddTextEdit "PersonDescriptionText1" id=26 position=(147,461)>
+
+	<End>
+
+	# people 3d views -----------------------------------------------------------------------------------------------------
+
+	<Begin><SetSharedProperties size=(140,200) position=(1,10)>
+
+		<SetControlProperties "Person3dView1" >
+
+	<End>
+
+	# Scrollbars -----------------------------------------------------------------------------------------------------------
+
+	<Begin><SetSharedProperties size=(10,127) orientation=1 image="ScrollbarImage" >
+
+		<AddSlider "PersonDescriptionSlider1" id = 29 position=(358,472) >
+	
+	<End>
+
+	<Begin><SetSharedProperties image = "ScrollUpButtonImage" tooltip="ScrollUpTooltip">
+
+		<AddButton "PersonDescriptionScrollUpButton1" id = 32 position=(354,462) >
+	
+	<End>
+
+	<Begin><SetSharedProperties image = "ScrollDownButtonImage" tooltip="ScrollDownTooltip">
+
+		<AddButton "PersonDescriptionScrollDownButton1" id = 35 position=(355,602)>
+	
+	<End>
+
+	# Title Text ------------------------------------------------------------------------------------------------------------
+
+	<AddText "TitleLabel" id=38 position=(214,95) size=(525,20) font=12 color=(255,249,157) alignment=3 opaque=0 text="TitleLabelText">
+
+	# City Name Labels ------------------------------------------------------------------------------------------------------
+	
+	<Begin><SetSharedProperties font=9 color=(255,249,157) size=(120,60) alignment=3 opaque=0 wrapped=1>
+
+		<AddText "CityNameText1" id=39 position=(247,466) text="SelectAvatarTooltip">
+
+		<AddText "HouseNameText1" id=42 position=(247,556)>
+
+	<End>
+
+	# Credits Button ---------------------------------------------------------------------------------------------------------
+
+	<AddButton "CreditsButton" id=45 position=(122,92) image="CreditsButtonImage">
+
+
+	# CAS Button -----------------------------------------------------------------------------------------------------------
+
+	<AddButton "CASButton" id=1 image="CancelButtonImage"  position=(855,142)  tooltip="NewAvatarButtonCaption">
+<End>
