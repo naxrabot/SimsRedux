@@ -474,7 +474,7 @@ namespace Simitone.Client.UI.Panels.Desktop
             CurrentCategory = category;
             CurrentName = name;
             // (objects with no catalog picture are the game's hidden/test ones - never shown)
-            SourceItems = source.Where(x => HasCatalogPicture(x.GUID)).OrderBy(x => x.Price).ToList();
+            SourceItems = Collapse(source.Where(x => HasCatalogPicture(x.GUID)).OrderBy(x => x.Price).ToList());
 
             // back button (falls back to a plain one if this expansion's art is missing)
             var backTex = TS1UIGraphics.Get("cpanel/Catalog/BackButtons/" + backArt + ".bmp");
@@ -511,6 +511,40 @@ namespace Simitone.Client.UI.Panels.Desktop
             var all = Subsorts.FirstOrDefault(x => x.Name == "All") ?? Subsorts.FirstOrDefault();
             if (all != null) SelectSubsort(all);
             else { Items = SourceItems; FirstItem = 0; RebuildThumbs(); }
+        }
+
+        /// <summary>
+        /// SimsRedux: an object that comes in several colours shows once (its cheapest colour, with a
+        /// little colour mark); picking it asks which colour. VariantsOf has each picture's colours.
+        /// </summary>
+        private Dictionary<uint, List<uint>> VariantsOf = new Dictionary<uint, List<uint>>();
+
+        private List<ObjectCatalogItem> Collapse(List<ObjectCatalogItem> items)
+        {
+            VariantsOf.Clear();
+            var here = new HashSet<uint>(items.Select(x => x.GUID));
+            var shown = new HashSet<uint>();
+            var result = new List<ObjectCatalogItem>();
+            foreach (var item in items)
+            {
+                if (shown.Contains(item.GUID)) continue;
+                List<uint> colours;
+                try { colours = ReduxColourVariants.Get(item.GUID).Where(g => here.Contains(g)).ToList(); }
+                catch { colours = new List<uint>(); }
+                if (!colours.Contains(item.GUID)) colours.Insert(0, item.GUID);
+                foreach (var g in colours) shown.Add(g);
+                // (the picture shown first in the picker is the one in the catalog)
+                colours.Remove(item.GUID); colours.Insert(0, item.GUID);
+                VariantsOf[item.GUID] = colours;
+                result.Add(item);
+            }
+            return result;
+        }
+
+        private int ColoursOf(uint guid)
+        {
+            List<uint> v;
+            return VariantsOf.TryGetValue(guid, out v) ? v.Count : 1;
         }
 
         private void SelectSubsort(Subsort sub)
@@ -651,6 +685,7 @@ namespace Simitone.Client.UI.Panels.Desktop
                     var thumb = new UIClassicCatalogThumb(ThumbFrame, GetIcon(item.GUID) ?? UnknownThumb, index);
                     thumb.Position = new Vector2(ThumbStart + c * ThumbStep, RowY(r, rows));
                     thumb.Unaffordable = item.Price > budget;
+                    thumb.Colours = ColoursOf(item.GUID);
                     thumb.Selected = index == SelectedIndex;
                     var guid = item.GUID;
                     thumb.OnHover = (t, on) => { if (on) HoverGUID = guid; else if (HoverGUID == guid) HoverGUID = 0; };
@@ -757,9 +792,16 @@ namespace Simitone.Client.UI.Panels.Desktop
             }
 
             var item = Items[index];
-            Place(item.GUID);
             SelectedIndex = index;
             foreach (var t in Thumbs) t.Selected = t.Index == SelectedIndex;
+            List<uint> colours;
+            if (VariantsOf.TryGetValue(item.GUID, out colours) && colours.Count > 1)
+            {
+                // several colours: pick one first
+                UIClassicColourDialog.OpenPicker(colours, (guid) => Place(guid));
+                return;
+            }
+            Place(item.GUID);
         }
 
         /// <summary>Starts placing a new one of this object (not from the catalog's pictures).</summary>
@@ -1080,6 +1122,8 @@ namespace Simitone.Client.UI.Panels.Desktop
     {
         public int Index;
         public bool Selected, Unaffordable, Hover;
+        /// <summary>SimsRedux: how many colours this object comes in (more than 1 shows a little colour mark).</summary>
+        public int Colours = 1;
         public Action<UIClassicCatalogThumb> OnClick;
         public Action<UIClassicCatalogThumb, bool> OnHover;
         private Texture2D Frame, Icon;
@@ -1127,6 +1171,14 @@ namespace Simitone.Client.UI.Panels.Desktop
                 var size = new Vector2(src.Width * s, src.Height * s);
                 var pos = new Vector2((45 - size.X) / 2, (45 - size.Y) / 2);
                 DrawLocalTexture(batch, Icon, src, pos, new Vector2(s, s), Unaffordable ? new Color(110, 110, 110) : Color.White);
+            }
+            if (Colours > 1)
+            {
+                // three little colour squares in the corner: "comes in other colours"
+                var px = TextureGenerator.GetPxWhite(GameFacade.GraphicsDevice);
+                var cols = new[] { new Color(230, 70, 70), new Color(80, 190, 90), new Color(70, 120, 235) };
+                DrawLocalTexture(batch, px, null, new Vector2(29, 36), new Vector2(15, 7), new Color(0, 0, 40) * 0.85f);
+                for (int i = 0; i < 3; i++) DrawLocalTexture(batch, px, null, new Vector2(30 + i * 5, 37), new Vector2(4, 5), cols[i]);
             }
         }
     }

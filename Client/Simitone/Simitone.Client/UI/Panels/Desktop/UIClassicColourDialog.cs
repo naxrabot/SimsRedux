@@ -38,6 +38,45 @@ namespace Simitone.Client.UI.Panels.Desktop
         private List<UIElement> PageItems = new List<UIElement>();
         private Texture2D ThumbFrame, UnknownThumb, TileTex;
         private UITS1TileButton PrevBtn, NextBtn;
+        // SimsRedux: picking a colour to buy (from the catalog) rather than changing a placed object's
+        private bool PickerMode;
+        private Action<uint> OnPick;
+
+        /// <summary>
+        /// The colour choice when buying: an object in the catalog that comes in several colours shows
+        /// them all here; clicking one starts placing that colour.
+        /// </summary>
+        public static void OpenPicker(List<uint> variants, Action<uint> pick)
+        {
+            if (variants == null || variants.Count == 0) return;
+            UIScreen.GlobalShowDialog(new UIClassicColourDialog(variants, pick), true);
+        }
+
+        private UIClassicColourDialog(List<uint> variants, Action<uint> pick)
+        {
+            PickerMode = true;
+            OnPick = pick;
+            CurrentGUID = variants[0];
+            Style = TextStyle.DefaultLabel.Clone(); Style.Size = 12; Style.Color = TextColor;
+            TitleStyle = TextStyle.DefaultLabel.Clone(); TitleStyle.Size = 18; TitleStyle.Color = TextColor;
+            ThumbFrame = TS1UIGraphics.Get("cpanel/Catalog/ThumbTemplate.bmp");
+            UnknownThumb = TS1UIGraphics.Get("cpanel/CatalogUnknown.bmp");
+            TileTex = TS1UIGraphics.Get("cpanel/Buttons/ButtonTileDialog.bmp");
+            Variants = variants;
+            ObjectName = ReduxColourVariants.DesignName(GetName(CurrentGUID));
+            if (ObjectName.Length > 0) ObjectName = char.ToUpper(ObjectName[0]) + ObjectName.Substring(1);
+            else ObjectName = GetName(CurrentGUID);
+
+            int rows = Math.Max(1, Math.Min(MaxRows, (Variants.Count + Cols - 1) / Cols));
+            H = 56 + rows * Step + 40 + 54;
+            AddButton("Cancel", (W - 120) / 2, H - 46, 120, Close);
+            if (Variants.Count > Cols * MaxRows)
+            {
+                PrevBtn = AddButton("<", W - 110, 14, 44, () => { if (Page > 0) { Page--; BuildPage(); } });
+                NextBtn = AddButton(">", W - 60, 14, 44, () => { if ((Page + 1) * Cols * MaxRows < Variants.Count) { Page++; BuildPage(); } });
+            }
+            BuildPage();
+        }
 
         /// <summary>Opens the picker for this object (does nothing for objects that can't be changed).</summary>
         public static void Open(TS1GameScreen game, VMGameObject obj)
@@ -109,7 +148,7 @@ namespace Simitone.Client.UI.Panels.Desktop
         {
             foreach (var e in PageItems) Remove(e);
             PageItems.Clear();
-            if (Variants.Count <= 1) return;
+            if (Variants.Count <= 1 && !PickerMode) return;
 
             var catalog = Content.Get().WorldCatalog;
             int currentPrice = (int)(catalog.GetItemByGUID(CurrentGUID)?.Price ?? 0);
@@ -124,12 +163,19 @@ namespace Simitone.Client.UI.Panels.Desktop
                 if (item == null) continue;
                 var thumb = new UIClassicCatalogThumb(ThumbFrame, GetIcon(guid) ?? UnknownThumb, index);
                 thumb.Position = new Vector2(startX + (i % Cols) * Step, 56 + (i / Cols) * Step);
-                thumb.Selected = guid == CurrentGUID;
+                thumb.Selected = !PickerMode && guid == CurrentGUID;
                 var diff = (int)item.Value.Price - currentPrice;
-                var tip = GetName(guid) + (guid == CurrentGUID ? "  (this one)" : (diff == 0 ? "  (free)" : (diff > 0 ? "  (+§" + diff.ToString("##,#0") + ")" : "  (-§" + (-diff).ToString("##,#0") + " back)")));
+                var tip = PickerMode ? GetName(guid) + "  §" + item.Value.Price.ToString("##,#0")
+                    : GetName(guid) + (guid == CurrentGUID ? "  (this one)" : (diff == 0 ? "  (free)" : (diff > 0 ? "  (+§" + diff.ToString("##,#0") + ")" : "  (-§" + (-diff).ToString("##,#0") + " back)")));
                 thumb.OnHover = (t, on) => { if (on) HoverText = tip; else if (HoverText == tip) HoverText = null; };
                 thumb.OnClick = (t) =>
                 {
+                    if (PickerMode)
+                    {
+                        Close();
+                        OnPick?.Invoke(guid);
+                        return;
+                    }
                     if (guid == CurrentGUID) return;
                     Close();
                     TrySwap(Game, ObjectID, CurrentGUID, guid);
@@ -170,7 +216,7 @@ namespace Simitone.Client.UI.Panels.Desktop
         {
             Position = new Vector2((int)((GlobalSettings.Default.GraphicsWidth - W) / 2), 40);
             if (state.NewKeys.Contains(Microsoft.Xna.Framework.Input.Keys.Escape)) { Close(); return; }
-            if (Target == null) { Close(); return; } // object gone (sold, swapped...)
+            if (!PickerMode && Target == null) { Close(); return; } // object gone (sold, swapped...)
             base.Update(state);
         }
 
@@ -193,13 +239,14 @@ namespace Simitone.Client.UI.Panels.Desktop
                 DrawLocalTexture(batch, px, null, new Vector2(W - 2, 0), new Vector2(2, H), new Color(0, 0, 40));
             }
 
-            DrawLocalString(batch, "Colours: " + ObjectName, new Vector2(20, 12), TitleStyle, new Rectangle(0, 0, W - 140, 30), TextAlignment.Left | TextAlignment.Middle);
+            DrawLocalString(batch, (PickerMode ? "Pick a colour: " : "Colours: ") + ObjectName, new Vector2(20, 12), TitleStyle, new Rectangle(0, 0, W - 140, 30), TextAlignment.Left | TextAlignment.Middle);
 
             var infoY = H - 92;
             string info;
-            if (Variants.Count <= 1) info = "This one only comes in one colour. Use Tint to recolour it any way you like.";
+            if (PickerMode) info = HoverText ?? "Click the colour you want, then place it. (Tint can recolour it later.)";
+            else if (Variants.Count <= 1) info = "This one only comes in one colour. Use Tint to recolour it any way you like.";
             else info = HoverText ?? "Click a colour to swap to it, or use Tint for any colour.";
-            if (Variants.Count <= 1)
+            if (Variants.Count <= 1 && !PickerMode)
                 DrawLocalString(batch, info, new Vector2(20, 56), Style, new Rectangle(0, 0, W - 40, 40), TextAlignment.Center | TextAlignment.Middle);
             else
                 DrawLocalString(batch, info, new Vector2(20, infoY), Style, new Rectangle(0, 0, W - 40, 30), TextAlignment.Center | TextAlignment.Middle);

@@ -2,6 +2,15 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "9.1",
+      "date": "Oct 17, 2026",
+      "features": [
+        "Colour picker in Buy Mode — objects that come in several colours show once, with little colour squares. Click one to choose its colour, then place it.",
+        "More colours — about 470 extra colours of the downloaded furniture."
+      ],
+      "updates": []
+    },
+    {
       "version": "9.0",
       "date": "Oct 17, 2026",
       "features": [

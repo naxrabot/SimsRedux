@@ -18,6 +18,8 @@ namespace Simitone.Client.Utils
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Buy Mode: objects that come in several colours show once (look for the little colour squares) - click one to pick its colour, then place it.",
+            "New: about 470 more colours of the downloaded furniture (KARLSTAD sofas in five colours, and more).",
             "New: about 680 more downloadable objects (17 beds among them), 350 walls, 540 floors and around 100 outfits - all mixed into the normal Buy, Build and Create-A-Sim catalogs.",
             "Tint: only the object's own colour changes now (a bed's blanket, not its pillow or metal frame).",
             "Website: the custom content now downloads compressed (about half the size) and is kept, so it only downloads again when it changes.",
