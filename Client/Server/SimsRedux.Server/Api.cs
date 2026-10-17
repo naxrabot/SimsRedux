@@ -56,7 +56,11 @@ namespace SimsRedux.Server
         public Api(ServerConfig config, Accounts accounts, GameFiles files)
         {
             Config = config; Accounts = accounts; Files = files;
+            Site = new WebSite(config);
         }
+
+        /// <summary>The website, when it's served from this PC.</summary>
+        public readonly WebSite Site;
 
         public void Tidy()
         {
@@ -86,11 +90,18 @@ namespace SimsRedux.Server
                 rssMB = (int)(rss / 1048576),
                 files = new { ready = Files.Ready, count = Files.Count, mb = (int)(Files.TotalBytes / 1048576), problem = Files.Problem },
                 motd = Config.Motd,
+                site = new { ready = Site.Ready, folder = Site.Folder, hosts = Config.SiteHosts },
             };
         }
 
         public async Task Handle(Request req, Stream stream, TcpClient client)
         {
+            // the website's own files (its address, or localhost on this PC)
+            if (!IsWebSocket(req) && Site.Wants(req))
+            {
+                await Site.Serve(req, stream);
+                return;
+            }
             var cors = Cors(req);
 
             // (game-file downloads are thousands of requests, but only for logged-in Admins and Testers)

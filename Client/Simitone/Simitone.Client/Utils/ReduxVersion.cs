@@ -18,6 +18,7 @@ namespace Simitone.Client.Utils
         /// <summary>Short lines for the update popup (what changed in this version).</summary>
         public static readonly string[] WhatsNew =
         {
+            "Website: getting ready to move to The Sims Redux's own server, for faster downloads.",
             "Website: the backup version (/classic) now shares the main site's game content, so the website is much smaller.",
             "Buy Mode: objects that come in several colours show once (look for the little colour squares) - click one to pick its colour, then place it.",
             "New: about 470 more colours of the downloaded furniture (KARLSTAD sofas in five colours, and more).",

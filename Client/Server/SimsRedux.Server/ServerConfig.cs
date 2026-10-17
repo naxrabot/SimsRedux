@@ -35,6 +35,13 @@ namespace SimsRedux.Server
             "https://tsr.mbrew.studio",
             "https://naxrabot.github.io",
         };
+        /// <summary>
+        /// Where the website's files are, when the website is served from this PC (the build on this
+        /// PC puts them there). Empty = C:\SimsRedux\site.
+        /// </summary>
+        public string SiteFolder { get; set; } = "";
+        /// <summary>The addresses that get the website (pointed at this PC's Cloudflare tunnel).</summary>
+        public List<string> SiteHosts { get; set; } = new List<string> { "tsr.mbrew.studio" };
         /// <summary>Until lots run on this server, online lots hosted from the game are passed through to this port.</summary>
         public int GameHostPort { get; set; } = 37565;
         /// <summary>The game program that runs the town's lots (Simitone.Windows.exe). Empty = where Visual Studio builds it.</summary>

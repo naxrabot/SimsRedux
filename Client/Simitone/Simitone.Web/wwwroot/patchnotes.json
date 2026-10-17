@@ -2,6 +2,14 @@
   "stage": "Beta",
   "patches": [
     {
+      "version": "9.3",
+      "date": "Oct 17, 2026",
+      "features": [],
+      "updates": [
+        "Faster downloads on the way — the website is getting ready to move to The Sims Redux's own server."
+      ]
+    },
+    {
       "version": "9.2",
       "date": "Oct 17, 2026",
       "features": [],
